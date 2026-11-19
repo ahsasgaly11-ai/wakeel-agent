@@ -51,6 +51,14 @@
             android:theme="@style/Theme.Wakeel.Command"
             android:windowSoftInputMode="adjustResize|stateAlwaysVisible" />
 
+        <activity
+            android:name=".ui.ResultActivity"
+            android:exported="false"
+            android:excludeFromRecents="true"
+            android:launchMode="singleTask"
+            android:taskAffinity="com.wakeel.agent.result"
+            android:theme="@style/Theme.Wakeel.Command" />
+
         <service
             android:name=".service.AgentAccessibilityService"
             android:exported="true"

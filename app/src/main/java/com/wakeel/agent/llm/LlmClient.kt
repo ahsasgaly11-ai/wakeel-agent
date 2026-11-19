@@ -28,7 +28,7 @@ class LlmException(message: String) : Exception(message)
 
 interface LlmClient {
     /** One forced tool call. Every request the app makes goes through here. */
-    suspend fun callTool(model: String, system: String, user: String, shot: Shot?, tool: ToolSpec, maxTokens: Int = 700): ToolResult
+    suspend fun callTool(model: String, system: String, user: String, shot: Shot?, tool: ToolSpec, maxTokens: Int = 1500): ToolResult
 
     suspend fun decide(model: String, user: String, shot: Shot?): LlmResult {
         val r = callTool(model, Prompt.SYSTEM, user, shot, Prompt.actTool())

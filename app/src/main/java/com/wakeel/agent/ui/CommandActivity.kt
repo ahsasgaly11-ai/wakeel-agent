@@ -163,7 +163,17 @@ private fun CommandSheet(askQuestion: String?, onDismiss: () -> Unit, onSubmit: 
                 when {
                     askQuestion != null -> Text(askQuestion, style = MaterialTheme.typography.bodyLarge, color = Brand.Amber)
                     running -> Text("هناك مهمة قيد التنفيذ الآن. أوقفها من الفقاعة أولاً.", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.error)
-                    lastResult != null -> Text("آخر نتيجة: $lastResult", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 3)
+                    lastResult != null -> Surface(
+                        onClick = { Hub.history.records.value.firstOrNull()?.let { ResultActivity.open(ctx, it.id) } },
+                        shape = MaterialTheme.shapes.medium,
+                        color = MaterialTheme.colorScheme.surfaceContainerHigh,
+                    ) {
+                        Column(Modifier.fillMaxWidth().padding(12.dp)) {
+                            Text("آخر نتيجة", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
+                            Text(lastResult.lines().first().take(120), style = MaterialTheme.typography.bodyMedium, maxLines = 2)
+                            Text("اضغط لعرضها كاملة ←", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                    }
                 }
                 OutlinedTextField(
                     value = text,

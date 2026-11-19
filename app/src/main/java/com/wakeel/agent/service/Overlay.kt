@@ -184,6 +184,11 @@ class Overlay(private val svc: AgentAccessibilityService) {
         p.addView(header)
 
         statusTv = TextView(svc).apply {
+            setOnClickListener {
+                if (lastState is EngineState.Idle) Hub.history.records.value.firstOrNull()?.let {
+                    closePanel(); com.wakeel.agent.ui.ResultActivity.open(svc, it.id)
+                }
+            }
             textSize = 13f
             setTextColor(0xCCFFFFFF.toInt())
             maxLines = 4
@@ -283,7 +288,7 @@ class Overlay(private val svc: AgentAccessibilityService) {
         if (panel == null) return
         val result = Hub.engine.lastResult.value
         statusTv?.text = when (s) {
-            is EngineState.Idle -> result?.let { "آخر نتيجة: $it" } ?: "جاهز."
+            is EngineState.Idle -> result?.let { "آخر نتيجة: ${it.lines().first().take(90)}\nاضغط هنا لعرضها كاملة" } ?: "جاهز."
             is EngineState.Running -> "الخطوة ${s.step}/${s.max} — ${s.line}"
             is EngineState.Confirm -> "بانتظار موافقتك قبل المتابعة"
             is EngineState.Ask -> "الوكيل يحتاج معلومة منك"

@@ -5,6 +5,9 @@ import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
+import android.widget.Toast
 import android.view.accessibility.AccessibilityNodeInfo
 import android.view.accessibility.AccessibilityNodeInfo.AccessibilityAction
 import com.wakeel.agent.core.ActionType
@@ -240,9 +243,23 @@ class AgentEngine(
                 )
                 pushStats(run)
                 lastResult.value = run.result
+                showResult(run)
                 confirmGate = null
                 askGate = null
                 _state.value = EngineState.Idle
+            }
+        }
+    }
+
+    /** Long answers open the full result sheet; short confirmations show as a toast. */
+    private fun showResult(run: Run) {
+        if (run.status == TaskStatus.STOPPED || run.result.isBlank()) return
+        val host: Context = AgentAccessibilityService.instance ?: ctx
+        Handler(Looper.getMainLooper()).post {
+            if (run.result.length >= 90 || run.result.contains('\n') || run.status == TaskStatus.FAILED) {
+                com.wakeel.agent.ui.ResultActivity.open(host, run.started)
+            } else {
+                Toast.makeText(host, "✓ " + run.result, Toast.LENGTH_LONG).show()
             }
         }
     }
