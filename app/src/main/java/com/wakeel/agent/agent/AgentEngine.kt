@@ -294,7 +294,8 @@ class AgentEngine(
                     svc.global(AccessibilityService.GLOBAL_ACTION_HOME); svc.waitForIdle(); screen = svc.readScreen()
                 }
             }
-            Safety.blockReason(screen.pkg, settings, apps)?.let { reason ->
+            val reason = Safety.blockReason(screen.pkg, settings, apps)
+            if (reason != null) {
                 // A protected app came up (usually a mis-tap): leave it at once and let the agent recover.
                 svc.global(AccessibilityService.GLOBAL_ACTION_BACK)
                 svc.global(AccessibilityService.GLOBAL_ACTION_HOME)
