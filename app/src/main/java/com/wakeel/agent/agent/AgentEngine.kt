@@ -284,6 +284,10 @@ class AgentEngine(
                     trail += "${r.step.type} \"${r.app}\" ✓"
                     svc.waitForApp(if (r.fresh) r.pkg else null, t0)
                 }
+                is LocalRouter.Result.Blocked -> {
+                    run.localSteps++
+                    throw Stop(TaskStatus.FAILED, r.message)
+                }
                 is LocalRouter.Result.Path -> {
                     // The learned map already knows the way to this page: walk it, no model involved
                     val known = Skill(
@@ -429,6 +433,25 @@ class AgentEngine(
                 repeat(6) { if (screen.pkg == ctx.packageName) { delay(250); screen = observe(svc, run) } }
                 if (screen.pkg == ctx.packageName) {
                     svc.global(AccessibilityService.GLOBAL_ACTION_HOME); svc.waitForIdle(); screen = observe(svc, run)
+                }
+            }
+            if (screen.pkg.isEmpty() && screen.nodes.isEmpty()) {
+                // Nothing readable: the page is still loading — or Android hides it from control apps.
+                var hidden: String? = null
+                repeat(10) {
+                    if (screen.pkg.isEmpty()) {
+                        delay(500)
+                        screen = observe(svc, run)
+                        hidden = if (screen.pkg.isEmpty()) svc.unreadableWindow() else null
+                    }
+                }
+                val title = hidden
+                if (screen.pkg.isEmpty() && title != null) {
+                    throw Stop(
+                        TaskStatus.FAILED,
+                        "توقّفتُ عند صفحة ${if (title.isBlank()) "" else "«$title» "}لا أستطيع قراءتها: أندرويد يحجب محتوى بعض الصفحات الحساسة عن تطبيقات التحكم. " +
+                            "الصفحة مفتوحة أمامك: أكمل هذه الخطوة بيدك، ثم اطلب مني المتابعة إن شئت.",
+                    )
                 }
             }
             when (Safety.policy(screen.pkg, settings, apps)) {

@@ -482,6 +482,7 @@ class DeviceTest {
         assertTrue(waitUntil(8000) { status() == "sent: hello to Omar" })
         Thread.sleep(600)
         note("recorder saw: ${Hub.recorder.state.value}")
+        Hub.recorder.trace.forEach { note("     · $it") }
         val skill = Hub.recorder.stop(save = true)
         assertNotNull("nothing was recorded", skill)
         note("taught: ${skill!!.pattern} · ${skill.steps.joinToString(" → ") { it.type + ":" + (it.label ?: it.text.orEmpty()) }}")
@@ -528,14 +529,27 @@ class DeviceTest {
     }
 
     @Test
-    fun t14_wifiSwitchIsHandledLocally() {
+    fun t14_switchesAreFlippedLocally() {
+        // A settings page the agent can read: turn location off, then back on, without the model
+        val off = run("أطفئ الموقع")
+        dump("location page")
+        assertEquals(TaskStatus.DONE, off.status)
+        assertEquals(0, off.calls)
+        assertTrue("unexpected answer: ${off.result}", off.result.contains("إيقاف") || off.result.contains("متوقف"))
+        goHome()
+        val on = run("شغل الموقع")
+        assertEquals(TaskStatus.DONE, on.status)
+        assertEquals(0, on.calls)
+        assertTrue("unexpected answer: ${on.result}", on.result.contains("تشغيل"))
+    }
+
+    @Test
+    fun t15_pagesAndroidHidesAreReportedNotGuessed() {
+        // On Android 14 the Wi‑Fi page is hidden from every service that is not a disability aid.
+        // Either the switch is handled (readable page) or the owner is told plainly — never a model call on a blank page.
         val r = run("شغل الواي فاي")
         dump("wifi page")
-        if (r.status != TaskStatus.DONE) {
-            Thread.sleep(4000)
-            dump("wifi page, four seconds later")
-        }
-        assertEquals(TaskStatus.DONE, r.status)
         assertEquals(0, r.calls)
+        assertTrue("unexpected outcome: ${r.status} ${r.result}", r.status == TaskStatus.DONE || r.result.contains("يحجب"))
     }
 }

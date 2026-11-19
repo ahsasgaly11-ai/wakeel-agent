@@ -100,6 +100,13 @@ class DemoRecorder(
     /** Nothing is recorded before this moment: the phone is still returning to the home screen. */
     private var armedAt = 0L
 
+    /** What was seen during the last recording, for troubleshooting (kept in memory only). */
+    val trace = ArrayList<String>()
+
+    private fun note(line: String) {
+        if (trace.size < 80) trace += line
+    }
+
     @Synchronized
     fun start(phrase: String): Boolean {
         val svc = AgentAccessibilityService.instance ?: return false
@@ -107,6 +114,7 @@ class DemoRecorder(
         steps.clear()
         picked.clear()
         visited.clear()
+        trace.clear()
         task = phrase.trim()
         lastPkg = ""
         pendingSig = null
@@ -131,6 +139,7 @@ class DemoRecorder(
         val t = pendingText
         if (!t.isNullOrBlank()) {
             steps += MacroStep("type", pendingSig, text = t)
+            note("type «${t.take(30)}» in $pendingSig")
             lastTypeWasSearch = pendingSearch
             publish("كتابة «${t.take(24)}»")
         }
@@ -160,6 +169,7 @@ class DemoRecorder(
         flushText()
         val first = visited.add(pkg)
         steps += MacroStep("open_app", text = pkg, label = app.label, dir = if (first) null else "resume")
+        note("app $pkg first=$first restart=$restart")
         lastPkg = pkg
         lastTypeWasSearch = false
         publish(if (first) "فتح ${app.label} من صفحته الأولى" else "العودة إلى ${app.label}")
@@ -218,14 +228,19 @@ class DemoRecorder(
         enterApp(pkg, restart = false)
         // The element's label exactly as the agent reads it on screen ("Title · detail"). By the time the event
         // arrives its page may be closing, so hidden children are read too; the event's own texts are the last resort.
-        val full = (src?.let { ScreenReader.labelOf(it, evenIfHidden = true) }?.takeIf { it.isNotBlank() }
-            ?: e.contentDescription?.toString()?.takeIf { it.isNotBlank() }
-            ?: e.text?.map { it.toString().trim() }?.filter { it.isNotEmpty() }?.take(3)?.joinToString(" · ").orEmpty()).trim().take(50)
+        // Two sources: the element as the agent reads it on screen, and the texts the event itself carries.
+        // The tapped page is often already closing, which leaves the first one incomplete — the fuller one wins.
+        val texts = e.text?.map { it.toString().trim() }?.filter { it.isNotEmpty() }.orEmpty()
+        val fromTree = src?.let { ScreenReader.labelOf(it, evenIfHidden = true) }.orEmpty().trim()
+        val fromEvent = e.contentDescription?.toString()?.trim()?.takeIf { it.isNotEmpty() } ?: texts.take(3).joinToString(" · ")
+        val full = (if (fromTree.length >= fromEvent.length) fromTree else fromEvent).take(50)
         if (full.isBlank() && viewId.isBlank()) return   // nothing to find it by later
         // Remembered by its title: the details beside it (last message, a count) change every time
         val label = full.substringBefore(" · ").trim().take(40)
         // A row of a list, or anything with details beside its title, may be "the one named in the phrase"
-        if (label.length >= 2 && (label != full || inList(src))) picked += label
+        val row = label != full || inList(src)
+        if (label.length >= 2 && row) picked += label
+        note("tap «$label» full=«$full» tree=«$fromTree» event=$texts id=$viewId class=$cls source=${src != null} row=$row")
         val type = if (e.eventType == AccessibilityEvent.TYPE_VIEW_CLICKED) "tap" else "long_press"
         steps += MacroStep(
             type, "$cls|$viewId|${full.take(60)}",

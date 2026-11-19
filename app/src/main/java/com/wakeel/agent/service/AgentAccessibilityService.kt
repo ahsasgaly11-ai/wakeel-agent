@@ -16,6 +16,7 @@ import android.view.Display
 import android.view.WindowManager
 import android.view.accessibility.AccessibilityEvent
 import android.view.accessibility.AccessibilityNodeInfo
+import android.view.accessibility.AccessibilityWindowInfo
 import com.wakeel.agent.Hub
 import com.wakeel.agent.agent.AppMapStore
 import com.wakeel.agent.agent.Safety
@@ -208,6 +209,19 @@ class AgentAccessibilityService : AccessibilityService() {
         return ScreenReader.read(this, w, h) { pkg -> if (pkg.isNotEmpty() && pkg == activityPkg) activity else "" }
     }
 
+    /**
+     * Some pages cannot be read at all: from Android 14 an app may mark a page as sensitive, and Android then
+     * hides its content from every service that is not a disability aid (Wi‑Fi settings on some phones,
+     * parts of banking apps). Returns that window's title, or null when the screen in front is readable.
+     * The agent does not try to work around this — it tells the owner and stops.
+     */
+    fun unreadableWindow(): String? {
+        if (ScreenReader.root(this) != null) return null
+        val w = runCatching { windows }.getOrNull().orEmpty()
+            .firstOrNull { it.type == AccessibilityWindowInfo.TYPE_APPLICATION && (it.isActive || it.isFocused) } ?: return null
+        return runCatching { if (w.root == null) w.title?.toString().orEmpty() else null }.getOrNull()
+    }
+
     /** Package of the app window in front, or null while nothing is readable yet. */
     fun frontPackage(): String? = ScreenReader.root(this)?.packageName?.toString()
 
@@ -223,9 +237,17 @@ class AgentAccessibilityService : AccessibilityService() {
         while (SystemClock.uptimeMillis() < deadline && lastWindowChange < startedAt && SystemClock.uptimeMillis() - startedAt < 2500) delay(80)
         // 2) it is readable, and it is the app we asked for
         val want = pkg ?: lastWindowPkg.takeIf { lastWindowChange >= startedAt }
+        var hiddenSince = 0L
         while (SystemClock.uptimeMillis() < deadline) {
             val front = frontPackage()
             if (front != null && front != packageName && (want == null || front == want)) break
+            // A page Android hides from this service never becomes readable: do not wait the whole time for it
+            if (front == null && unreadableWindow() != null) {
+                if (hiddenSince == 0L) hiddenSince = SystemClock.uptimeMillis()
+                else if (SystemClock.uptimeMillis() - hiddenSince > 2500) break
+            } else {
+                hiddenSince = 0L
+            }
             delay(150)
         }
         // 3) it stops changing

@@ -31,6 +31,8 @@ class LocalRouter(private val ctx: Context, private val apps: AppIndex, private 
         data class Opened(val app: String, val pkg: String, val rest: String, val step: MacroStep, val fresh: Boolean = false) : Result
         /** A page the agent already knows how to reach in this app: [steps] are replayed with zero API calls. */
         data class Path(val app: String, val pkg: String, val page: String, val steps: List<MacroStep>) : Result
+        /** The page was opened, but the agent may not operate it; the owner has to finish by hand. */
+        data class Blocked(val message: String) : Result
         data object None : Result
     }
 
@@ -153,6 +155,15 @@ class LocalRouter(private val ctx: Context, private val apps: AppIndex, private 
         val t0 = SystemClock.uptimeMillis()
         if (!openSettings(cmd.key).first) return Result.None
         svc.waitForApp(null, t0, 9000)
+        // Android hides some settings pages from control apps: say so instead of spending model calls on a page nobody can read
+        val hidden = Result.Blocked(
+            "فتحتُ صفحة ${page.ar}، لكنّ أندرويد يحجب محتوى هذه الصفحة عن تطبيقات التحكم، فلا أستطيع تبديل المفتاح. " +
+                "الصفحة مفتوحة أمامك: بدّله بيدك."
+        )
+        if (svc.unreadableWindow() != null) {
+            delay(1500)
+            if (svc.unreadableWindow() != null) return hidden
+        }
         val words = page.words.map { Text.norm(it) }
         repeat(8) {
             val scr = svc.readScreen()
@@ -184,6 +195,7 @@ class LocalRouter(private val ctx: Context, private val apps: AppIndex, private 
             }
             delay(400)
         }
+        if (svc.unreadableWindow() != null) return hidden
         // The page is open but its switch was not recognised — let the model finish (one reply).
         return Result.Opened("الإعدادات", "com.android.settings", task, MacroStep("open_settings", text = cmd.key, label = page.ar))
     }
