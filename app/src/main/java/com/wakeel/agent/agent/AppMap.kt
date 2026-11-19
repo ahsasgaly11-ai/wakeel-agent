@@ -40,8 +40,22 @@ class AppMap(val pkg: String) {
     val screens = LinkedHashMap<String, MapScreen>()
     val edges = ArrayList<MapEdge>()
 
-    /** Key of the screen the app shows right after a fresh start. */
-    var root: String = ""
+    /**
+     * Screens the app has shown right after a fresh start. More than one is kept: the same first page can
+     * be recorded under slightly different keys (one more row visible, a banner on top), and a path learned
+     * from one of them must still be found when the latest start produced another.
+     */
+    val roots = LinkedHashSet<String>()
+
+    /** The most recent first page. */
+    var root: String
+        get() = roots.lastOrNull().orEmpty()
+        set(v) {
+            if (v.isEmpty()) return
+            roots.remove(v)
+            roots.add(v)
+            while (roots.size > 4) roots.remove(roots.first())
+        }
 
     /**
      * The shortest known tap sequence from the app's first screen to the page called [query]: a tab,
@@ -50,8 +64,9 @@ class AppMap(val pkg: String) {
      */
     fun findPath(query: String): List<MapEdge>? {
         val q = Text.norm(query)
-        if (q.length < 2 || root.isEmpty() || root !in screens) return null
-        if (Text.norm(screens[root]?.name.orEmpty()) == q) return emptyList()
+        val starts = roots.filter { it in screens }
+        if (q.length < 2 || starts.isEmpty()) return null
+        if (starts.any { Text.norm(screens[it]?.name.orEmpty()) == q }) return emptyList()
 
         fun score(e: MapEdge): Int {
             val label = Text.norm(e.label)
@@ -66,15 +81,20 @@ class AppMap(val pkg: String) {
 
         val usable = edges.filter { it.label != AppMapStore.ITEM && it.from in screens && it.to in screens }.sortedByDescending { it.count }
         val reachedBy = HashMap<String, MapEdge>()
-        val depth = hashMapOf(root to 0)
-        val queue = ArrayDeque(listOf(root))
+        val depth = HashMap<String, Int>()
+        val queue = ArrayDeque<String>()
+        // The latest first page is tried first
+        for (s in starts.reversed()) {
+            depth[s] = 0
+            queue += s
+        }
         var partial: MapEdge? = null
 
         fun pathTo(e: MapEdge): List<MapEdge>? {
             val out = ArrayList<MapEdge>()
             out += e
             var at = e.from
-            while (at != root) {
+            while (at !in starts) {
                 val p = reachedBy[at] ?: return null
                 out += p
                 at = p.from
@@ -135,7 +155,7 @@ class AppMapStore(ctx: Context) {
             val structural = s.structural()
             val ids = structural.asSequence().map { it.viewId }.filter { it.isNotEmpty() }.distinct().sorted().take(24).toList()
             val basis = if (ids.size >= 3) ids.joinToString(",")
-            else structural.asSequence().map { Text.norm(it.title) }.filter { okLabel(it) }.distinct().sorted().take(16).joinToString(",")
+            else structural.asSequence().map { Text.norm(it.title) }.filter { okLabel(it) }.distinct().take(8).joinToString(",")
             return s.activity + "#" + Integer.toHexString((basis + "|" + Text.norm(tabOf(s))).hashCode())
         }
 
@@ -176,7 +196,9 @@ class AppMapStore(ctx: Context) {
                 val e = ea.optJSONObject(i) ?: continue
                 m.edges += MapEdge(e.optString("f"), e.optString("l"), e.optString("t"), e.optInt("c", 1), e.optString("i"))
             }
-            m.root = o.optString("r")
+            val rs = o.optJSONArray("rs")
+            if (rs != null) for (i in 0 until rs.length()) m.root = rs.optString(i)
+            else m.root = o.optString("r")
         }
         return m
     }
@@ -354,7 +376,7 @@ class AppMapStore(ctx: Context) {
                 if (e.id.isNotEmpty()) eo.put("i", e.id)
                 ea.put(eo)
             }
-            o.put("s", sa).put("e", ea).put("r", m.root)
+            o.put("s", sa).put("e", ea).put("rs", JSONArray(m.roots.toList()))
             runCatching { file(pkg).writeText(o.toString()) }
         }
         dirty.clear()

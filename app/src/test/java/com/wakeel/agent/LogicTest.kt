@@ -105,6 +105,10 @@ class LogicTest {
         assertEquals(listOf("#btn_prefs"), m.findPath("Preferences")?.map { it.label })
         assertEquals(emptyList<String>(), m.findPath("Home")?.map { it.label })
         assertNull(m.findPath("Wallet"))
+        // The same first page recorded again under another key (one more row was visible): old paths still count
+        m.screens["home2"] = scr("home2", tab = "Home")
+        m.root = "home2"
+        assertEquals(listOf("Profile", "Edit profile"), m.findPath("Edit profile")?.map { it.label })
     }
 
     @Test
