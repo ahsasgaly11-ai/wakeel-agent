@@ -17,10 +17,12 @@ data class MacroStep(
     val dir: String? = null,
     val label: String? = null,
     val confirm: Boolean = false,
+    /** The owner chose "always allow" for this step of this skill: it is carried out without asking again. */
+    val approved: Boolean = false,
 ) {
     fun toJson(): JSONObject = JSONObject().put("t", type).apply {
         sig?.let { put("s", it) }; text?.let { put("x", it) }; dir?.let { put("d", it) }
-        label?.let { put("l", it) }; if (confirm) put("c", true)
+        label?.let { put("l", it) }; if (confirm) put("c", true); if (approved) put("a", true)
     }
 
     companion object {
@@ -31,6 +33,7 @@ data class MacroStep(
             o.optString("d").ifEmpty { null },
             o.optString("l").ifEmpty { null },
             o.optBoolean("c", false),
+            o.optBoolean("a", false),
         )
     }
 }

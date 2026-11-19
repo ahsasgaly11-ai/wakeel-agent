@@ -12,6 +12,7 @@
     <item name="chat_to" type="id" />
     <item name="message" type="id" />
     <item name="btn_send" type="id" />
+    <item name="sent_count" type="id" />
     <item name="coin_search" type="id" />
     <item name="btn_buy" type="id" />
     <item name="btn_history" type="id" />

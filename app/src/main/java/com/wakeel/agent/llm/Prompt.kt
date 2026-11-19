@@ -37,19 +37,20 @@ ACTING
 6. If the element list is not enough (canvas, images, unlabeled icons) add a `screenshot` action — it arrives next turn; then use tap_xy / drag with screenshot pixels. Ask for "hd" (text:"hd") only to judge small visual details (best frame, tiny text).
 7. Never repeat an action that failed or caused "no change"; change approach. If a requested option does not exist (e.g. a 10-minute timeframe), stop looking after 2 tries, use the nearest available and say so.
 8. Visual or taste judgments ("best frame", "nicest photo") are yours to make — do not ask the owner.
+9. Sending and posting: apps show NO separate confirmation screen. The proof is that the input field is empty again and the message appears in the conversation; the LOG then says `SENT`. Once that happened the sending is finished — call done. Never type or send the same text a second time, and plan `done` right after the send tap when sending is the whole task.
 
 SAFETY
-9. Set sensitive=true when any action sends, posts, pays, buys, sells, deletes, transfers, calls, installs, subscribes or changes account/security settings; the owner confirms first.
-10. Never type passwords, OTP codes, card or bank details — use ask_user or fail.
-11. Read-only apps (the LOG says so): you may navigate, search and read, never act on money or orders.
-12. ask_user only when the task is truly ambiguous or needs information only the owner has.
+10. Set sensitive=true when any action sends, posts, pays, buys, sells, deletes, transfers, calls, installs, subscribes or changes account/security settings; the owner confirms first.
+11. Never type passwords, OTP codes, card or bank details — use ask_user or fail.
+12. Read-only apps (the LOG says so): you may navigate, search and read, never act on money or orders.
+13. ask_user only when the task is truly ambiguous or needs information only the owner has.
 
 FINISHING
-13. Information / analysis / diagnostic tasks: gather what you need in few replies, saving every number or fact in `memo` (earlier screens are not shown again), then call done. Partial data with clear caveats beats no answer.
-14. done.text is what the owner reads, in the owner's language (Arabic if the task is Arabic). For answers and reports: first line = the bottom line in one sentence; then short "## " sections with "- " bullets, **bold** key numbers, signed percentages (+1.4% / -0.8%), a small "|" table only to compare values (max 4 columns); about 1200 characters at most. For simple actions one short sentence.
-15. When a "FINAL STEP" note appears you must call done (best answer from MEMO and SCREEN, stating limits) or fail.
-16. If the task is impossible or blocked, call fail with a short reason in the owner's language.
-17. Keep `thought` under 15 words, in the owner's language.
+14. Information / analysis / diagnostic tasks: gather what you need in few replies, saving every number or fact in `memo` (earlier screens are not shown again), then call done. Partial data with clear caveats beats no answer.
+15. done.text is what the owner reads, in the owner's language (Arabic if the task is Arabic). For answers and reports: first line = the bottom line in one sentence; then short "## " sections with "- " bullets, **bold** key numbers, signed percentages (+1.4% / -0.8%), a small "|" table only to compare values (max 4 columns); about 1200 characters at most. For simple actions one short sentence.
+16. When a "FINAL STEP" note appears you must call done (best answer from MEMO and SCREEN, stating limits) or fail.
+17. If the task is impossible or blocked, call fail with a short reason in the owner's language.
+18. Keep `thought` under 15 words, in the owner's language.
 """.trim()
 
     const val TOOL_NAME = "act"

@@ -47,6 +47,7 @@ class Overlay(private val svc: AgentAccessibilityService) {
     private var statusTv: TextView? = null
     private var questionTv: TextView? = null
     private var confirmRow: LinearLayout? = null
+    private var alwaysBtn: TextView? = null
     private var mainBtn: TextView? = null
     private var stopBtn: TextView? = null
 
@@ -235,6 +236,12 @@ class Overlay(private val svc: AgentAccessibilityService) {
         }
         p.addView(confirmRow)
 
+        // Only for a step of a saved skill: allow it once and for all, so the skill runs without asking
+        alwaysBtn = pill("سماح دائماً لهذه المهارة", 0xFF0B6B55.toInt()) { Hub.engine.answerConfirm(true, always = true) }.apply {
+            visibility = View.GONE
+        }
+        p.addView(alwaysBtn, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { topMargin = dp(8) })
+
         val actions = LinearLayout(svc).apply {
             orientation = LinearLayout.HORIZONTAL
             setPadding(0, dp(12), 0, 0)
@@ -283,6 +290,7 @@ class Overlay(private val svc: AgentAccessibilityService) {
         panel?.let { runCatching { wm.removeView(it) } }
         panel = null
         statusTv = null; questionTv = null; confirmRow = null; mainBtn = null; stopBtn = null
+        alwaysBtn = null
         recStatusTv = null
         openedToAsk = false
     }
@@ -476,6 +484,7 @@ class Overlay(private val svc: AgentAccessibilityService) {
             visibility = if (q != null) View.VISIBLE else View.GONE
         }
         confirmRow?.visibility = if (s is EngineState.Confirm) View.VISIBLE else View.GONE
+        alwaysBtn?.visibility = if (s is EngineState.Confirm && s.canAlways) View.VISIBLE else View.GONE
         mainBtn?.visibility = if (s is EngineState.Idle || s is EngineState.Ask) View.VISIBLE else View.GONE
         mainBtn?.text = if (s is EngineState.Ask) "اكتب الرد" else "مهمة جديدة"
         stopBtn?.visibility = if (s is EngineState.Idle) View.GONE else View.VISIBLE

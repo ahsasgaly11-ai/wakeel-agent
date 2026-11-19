@@ -36,6 +36,9 @@ public class SandboxActivity extends Activity {
         "Tariq", "Salma", "Nasser", "Reem", "Fahad", "Dana", "Majid", "Hind", "Saeed", "Lina", "Badr", "Zaid",
     };
 
+    /** How many messages each contact received since the app started — a duplicate send shows up here. */
+    static final Map<String, Integer> SENT = new HashMap<>();
+
     private TextView status;
 
     @Override
@@ -116,12 +119,17 @@ public class SandboxActivity extends Activity {
         TextView to = text("To: " + name);
         to.setId(R.id.chat_to);
         c.addView(to);
+        final TextView count = text("messages sent to " + name + ": " + sentTo(name));
+        count.setId(R.id.sent_count);
         final EditText message = edit(R.id.message, "Message");
         c.addView(message);
         c.addView(button(R.id.btn_send, "Send", v -> {
+            SENT.put(name, sentTo(name) + 1);
+            count.setText("messages sent to " + name + ": " + sentTo(name));
             status.setText("sent: " + message.getText() + " to " + name);
             message.setText("");
         }));
+        c.addView(count);
     }
 
     private void wallet(LinearLayout c) {
@@ -216,6 +224,11 @@ public class SandboxActivity extends Activity {
         t.setTextSize(18f);
         t.setPadding(0, dp(8), 0, dp(8));
         return t;
+    }
+
+    private static int sentTo(String name) {
+        Integer n = SENT.get(name);
+        return n == null ? 0 : n;
     }
 
     private int dp(int v) {

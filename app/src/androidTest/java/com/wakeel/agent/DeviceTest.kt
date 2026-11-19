@@ -63,6 +63,10 @@ private object FakeModel : LlmClient {
     @Volatile
     var calls = 0
 
+    /** What the model was last shown. */
+    @Volatile
+    var lastUser = ""
+
     private const val NO_PLAN = """{"thought":"لا خطة","actions":[{"type":"fail","text":"انتهت الخطط المجهّزة للاختبار."}],"sensitive":false}"""
 
     override suspend fun callTool(
@@ -72,6 +76,7 @@ private object FakeModel : LlmClient {
         return when (tool.name) {
             "act" -> {
                 calls++
+                lastUser = user
                 lastKnowledge = extraSystem
                 val p = synchronized(plans) { plans.removeFirstOrNull() } ?: NO_PLAN
                 ToolResult(JSONObject(p), Usage(900, 60))
@@ -165,6 +170,7 @@ class DeviceTest {
     // ------------------------------------------------------------------ helpers
 
     private var confirmed = false
+    private var confirmCount = 0
 
     private fun svc(): AgentAccessibilityService =
         AgentAccessibilityService.instance ?: throw AssertionError("the accessibility service is not connected")
@@ -214,12 +220,18 @@ class DeviceTest {
         Thread.sleep(400)
     }
 
-    private fun await(before: Long?, what: String, allow: Boolean, timeoutMs: Long): TaskRecord {
+    private fun await(before: Long?, what: String, allow: Boolean, timeoutMs: Long, always: Boolean = false): TaskRecord {
         confirmed = false
+        confirmCount = 0
+        var asking = false
         val finished = waitUntil(timeoutMs, 150) {
             if (Hub.engine.state.value is EngineState.Confirm) {
+                if (!asking) confirmCount++
+                asking = true
                 confirmed = true
-                Hub.engine.answerConfirm(allow)
+                Hub.engine.answerConfirm(allow, always)
+            } else {
+                asking = false
             }
             val top = Hub.history.records.value.firstOrNull()
             top != null && top.id != before && !Hub.engine.isRunning
@@ -235,11 +247,11 @@ class DeviceTest {
         return rec
     }
 
-    private fun run(task: String, allow: Boolean = true, timeoutMs: Long = 120_000): TaskRecord {
+    private fun run(task: String, allow: Boolean = true, timeoutMs: Long = 120_000, always: Boolean = false): TaskRecord {
         val before = Hub.history.records.value.firstOrNull()?.id
         note("▶ TASK: $task")
         Hub.engine.start(task)
-        return await(before, task, allow, timeoutMs)
+        return await(before, task, allow, timeoutMs, always)
     }
 
     private fun plan(actions: String, sensitive: Boolean = false): String =
@@ -378,14 +390,6 @@ class DeviceTest {
         assertEquals(1, second.calls)
         assertTrue(confirmed)
 
-        // Third time: no model at all — and the contact is far down the list, so it has to scroll to find it
-        val third = run("أرسل في Sandbox إلى Saeed: تمام")
-        dump("after the free replay")
-        assertEquals(TaskStatus.DONE, third.status)
-        assertEquals("sent: تمام to Saeed", status())
-        assertEquals("a trusted skill must not call the model", 0, third.calls)
-        assertEquals("أرسلتُ «تمام» إلى Saeed.", third.result)
-
         // Saying no to the confirmation stops the task: nothing is sent, and no model call is spent on another way
         val before = Hub.skills.skills.value.single()
         val denied = run("أرسل في Sandbox إلى Layla: لا ترسل", allow = false)
@@ -394,6 +398,23 @@ class DeviceTest {
         assertEquals(TaskStatus.STOPPED, denied.status)
         assertEquals(0, denied.calls)
         assertEquals("a refusal is not a failure of the skill", before.fails, Hub.skills.skills.value.single().fails)
+
+        // Third time: no model at all — and the contact is far down the list, so it has to scroll to find it.
+        // This time the owner answers "always allow for this skill".
+        val third = run("أرسل في Sandbox إلى Saeed: تمام", always = true)
+        dump("after the free replay")
+        assertEquals(TaskStatus.DONE, third.status)
+        assertEquals("sent: تمام to Saeed", status())
+        assertEquals("a trusted skill must not call the model", 0, third.calls)
+        assertEquals("أرسلتُ «تمام» إلى Saeed.", third.result)
+        assertTrue(confirmed)
+
+        // From now on this skill sends without asking
+        val fourth = run("أرسل في Sandbox إلى Yousef: بلا سؤال")
+        assertEquals(TaskStatus.DONE, fourth.status)
+        assertEquals("sent: بلا سؤال to Yousef", status())
+        assertEquals(0, fourth.calls)
+        assertFalse("the skill was allowed for good, yet it asked again", confirmed)
     }
 
     @Test
@@ -558,6 +579,29 @@ class DeviceTest {
         val r = run(task)
         assertTrue("the owner was not told why", r.logs.any { it.text.contains("ناقصة") })
         assertNull("the unfinished skill is still stored", Hub.skills.byId("broken1"))
+    }
+
+    @Test
+    fun t19_sameMessageIsNeverSentTwice() {
+        // What happened on a real phone: the message went out, the model was not sure, and it sent it again.
+        FakeModel.plans += plan(
+            """[{"type":"open_app","text":"Sandbox"},{"type":"tap","find":"Contacts"},{"type":"tap","find":"Mariam"},
+                {"type":"type","find":"Message","text":"مرة واحدة فقط"},{"type":"tap","find":"Send"}]""",
+            sensitive = true,
+        )
+        // The unsure model tries the very same message again…
+        FakeModel.plans += plan(
+            """[{"type":"type","find":"Message","text":"مرة واحدة فقط"},{"type":"tap","find":"Send"},{"type":"done","text":"أرسلتُها مرة أخرى."}]""",
+            sensitive = true,
+        )
+        FakeModel.plans += plan("""[{"type":"done","text":"أُرسلت الرسالة."}]""")
+        val r = run("أبلغ Mariam في Sandbox: مرة واحدة فقط")
+        dump("after the guarded send")
+        assertEquals(TaskStatus.DONE, r.status)
+        assertEquals("the message must have gone out exactly once", "messages sent to Mariam: 1", byId("sent_count")?.label)
+        assertEquals("the owner must be asked once, not once per attempt", 1, confirmCount)
+        assertTrue("the second attempt was not stopped", r.logs.any { it.text.contains("منعتُ") })
+        assertTrue("the model was not told the message went out", FakeModel.lastUser.contains("SENT"))
     }
 
     @Test

@@ -221,6 +221,15 @@ class SkillStore(ctx: Context) {
         persist(_skills.value.filterNot { Text.norm(it.pattern) == np || Text.norm(it.example) == ne } + skill)
     }
 
+    /** "Always allow" for one step of one skill. Re-learning the skill asks again. */
+    @Synchronized
+    fun approveStep(id: String, index: Int) {
+        persist(_skills.value.map { sk ->
+            if (sk.id != id || index !in sk.steps.indices) sk
+            else sk.copy(steps = sk.steps.mapIndexed { i, st -> if (i == index) st.copy(approved = true) else st })
+        })
+    }
+
     fun forPackage(pkg: String): List<Skill> = _skills.value.filter { it.pkg == pkg }
     fun remove(id: String) = persist(_skills.value.filter { it.id != id })
     fun clear() = persist(emptyList())

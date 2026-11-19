@@ -51,7 +51,8 @@ import kotlinx.coroutines.withTimeout
 sealed interface EngineState {
     data object Idle : EngineState
     data class Running(val line: String, val step: Int, val max: Int) : EngineState
-    data class Confirm(val question: String) : EngineState
+    /** [canAlways]: the step belongs to a saved skill, so the owner may allow it once and for all. */
+    data class Confirm(val question: String, val canAlways: Boolean = false) : EngineState
     data class Ask(val question: String) : EngineState
 }
 
@@ -88,6 +89,7 @@ class AgentEngine(
     val lastResult = MutableStateFlow<String?>(null)
 
     @Volatile private var confirmGate: CompletableDeferred<Boolean>? = null
+    @Volatile private var confirmAlways = false
     @Volatile private var askGate: CompletableDeferred<String?>? = null
 
     val isRunning: Boolean get() = job?.isActive == true
@@ -125,7 +127,9 @@ class AgentEngine(
         job?.cancel()
     }
 
-    fun answerConfirm(allow: Boolean) {
+    /** [always] (with [allow]): do not ask again for this step of this saved skill. */
+    fun answerConfirm(allow: Boolean, always: Boolean = false) {
+        confirmAlways = allow && always
         confirmGate?.complete(allow)
     }
 
@@ -145,6 +149,45 @@ class AgentEngine(
 
     /** How a tapped element is named in a saved route: by its title, since the details beside it (a count, a status) change. */
     private fun stepLabel(n: UiNode): String = n.title.take(40)
+
+    /** Texts sitting in input fields right now (real text only: no hints, no passwords). */
+    private fun draftsOf(s: Screen): List<String> = s.nodes
+        .filter { it.editable && !it.password && runCatching { !it.info.isShowingHintText }.getOrDefault(true) }
+        .map { it.label.trim() }
+        .filter { it.isNotEmpty() && it != "(password)" }
+
+    /**
+     * Where on the phone a text is being sent: the app plus the name in its top bar (a chat's contact, a page's
+     * title). Icons are skipped and only the first name is used — a status line under it ("online") comes and goes.
+     */
+    private fun placeOf(s: Screen): String = s.pkg + "|" + s.nodes
+        .firstOrNull {
+            !it.inList && !it.editable && it.label.isNotBlank() && it.role != "ibtn" && it.role != "img" &&
+                it.bounds.centerY() < s.height * 0.16f
+        }?.let { Text.norm(it.title) }.orEmpty()
+
+    private fun sentKey(s: Screen, text: String) = placeOf(s) + "::" + Text.norm(text)
+
+    /**
+     * After a send/post/save tap: a text that was in an input field and is no longer there went through.
+     * Apps show no separate "sent" screen, so this is the confirmation — the model is told, and the same
+     * text is not sent to the same place again in this task.
+     */
+    private suspend fun committed(svc: AgentAccessibilityService, run: Run, before: Screen, drafts: List<String>): String {
+        if (drafts.isEmpty()) return ""
+        svc.waitForIdle(450, 2500)
+        val left = draftsOf(svc.readScreen()).map { Text.norm(it) }.toSet()
+        val gone = drafts.filter { Text.norm(it) !in left }
+        if (gone.isEmpty()) return ""
+        gone.forEach { run.sent += sentKey(before, it) }
+        run.sentShown += gone
+        log(run, LogKind.INFO, "أُرسل النص «${gone.first().take(40)}»: خلا حقل الكتابة بعد الضغط")
+        return " — SENT: the text left the input field, so it went through. Do not send it again; if that was the task, call done."
+    }
+
+    /** What the owner should know when a task ends badly although something was already sent. */
+    private fun sentFootnote(run: Run): String =
+        if (run.sentShown.isEmpty()) "" else "\n\nللعلم: أُرسل النص «${run.sentShown.first().take(60)}» خلال هذه المهمة (خلا حقل الكتابة بعد الضغط على الإرسال)."
 
     private val power by lazy { ctx.getSystemService(PowerManager::class.java) }
     private val keyguard by lazy { ctx.getSystemService(KeyguardManager::class.java) }
@@ -201,6 +244,10 @@ class AgentEngine(
         var playbook: Playbook? = null
         val knowledge = HashMap<String, String?>()
         val readOnlyNoted = HashSet<String>()
+
+        /** "where::text" of everything this task already sent, so the same text is never sent twice to the same place. */
+        val sent = HashSet<String>()
+        val sentShown = ArrayList<String>()
     }
 
     private class Stop(val status: TaskStatus, msg: String) : Exception(msg)
@@ -613,7 +660,7 @@ class AgentEngine(
                         }
                         throw Stop(TaskStatus.DONE, result)
                     }
-                    ActionType.FAIL -> throw Stop(TaskStatus.FAILED, a.text ?: "تعذّر إكمال المهمة.")
+                    ActionType.FAIL -> throw Stop(TaskStatus.FAILED, (a.text ?: "تعذّر إكمال المهمة.") + sentFootnote(run))
                     else -> Unit
                 }
                 prevHash = cur.hash
@@ -645,7 +692,7 @@ class AgentEngine(
                 log(run, LogKind.WARN, "تعثّر الوكيل — سيستعين بالنموذج الأقوى ولقطة شاشة للخطوة القادمة")
             }
         }
-        throw Stop(TaskStatus.FAILED, "توقّف الوكيل بعد بلوغ الحد الأقصى للطلبات ($max).")
+        throw Stop(TaskStatus.FAILED, "توقّف الوكيل بعد بلوغ الحد الأقصى للطلبات ($max)." + sentFootnote(run))
     }
 
     private suspend fun learn(client: LlmClient, run: Run, result: String, screenPkg: String) {
@@ -697,12 +744,22 @@ class AgentEngine(
                     return Outcome("${a.describe()} \"${n.label.take(30)}\" ✗ REFUSED: read-only app (no orders, transfers or confirmations)", abort = true, breaksMacro = true)
                 }
                 val risky = sensitive || Safety.isSensitiveLabel(n.label)
+                val here = if (risky) svc.readScreen() else cur
+                val drafts = if (risky) draftsOf(here) else emptyList()
+                drafts.firstOrNull { sentKey(here, it) in run.sent }?.let { dup ->
+                    log(run, LogKind.WARN, "منعتُ إرسال النص نفسه مرة ثانية: «${dup.take(40)}»")
+                    return Outcome(
+                        "${a.describe()} ✗ REFUSED: «${dup.take(40)}» was already SENT here in this task — sending it again would duplicate it. Call done.",
+                        abort = true, breaksMacro = true,
+                    )
+                }
                 if (!confirm(run, risky, if (a.type == ActionType.TAP) "الضغط على «${n.label.take(40)}»" else "الضغط المطوّل على «${n.label.take(40)}»"))
                     return Outcome("${a.describe()} ✗ DENIED by owner — do not retry", abort = true, breaksMacro = true)
                 val ok = if (a.type == ActionType.TAP) click(svc, n) else longClick(svc, n)
                 if (ok) run.pending = pendingFor(cur.pkg, run.lastKey, n)
+                val sentNote = if (ok) committed(svc, run, here, drafts) else ""
                 Outcome(
-                    "${a.describe()} \"${n.label.take(30)}\" ${mark(ok)}", abort = !ok,
+                    "${a.describe()} \"${n.label.take(30)}\" ${mark(ok)}$sentNote", abort = !ok,
                     macro = if (ok) MacroStep(a.type.key, n.signature, label = stepLabel(n), confirm = risky) else null,
                     breaksMacro = !ok, tap = ok, onEditable = n.editable,
                 )
@@ -748,6 +805,13 @@ class AgentEngine(
                 if (readOnly && !Safety.isSearchField(field.label, field.viewId))
                     return Outcome("type ✗ REFUSED: read-only app — only search fields may be typed in", abort = true, breaksMacro = true)
                 val txt = a.text.orEmpty()
+                if (txt.isNotBlank() && sentKey(svc.readScreen(), txt) in run.sent) {
+                    log(run, LogKind.WARN, "منعتُ كتابة نص أُرسل للتوّ: «${txt.take(40)}»")
+                    return Outcome(
+                        "type ✗ REFUSED: «${txt.take(40)}» was already SENT here in this task — do not send it twice. Call done.",
+                        abort = true, breaksMacro = true,
+                    )
+                }
                 val (ok, now) = setTextVerified(svc, field, txt)
                 Outcome(
                     "type #${field.id} ${mark(ok)} — field now: \"${now.replace("\n", "\\n").take(160)}\"" +
@@ -764,9 +828,16 @@ class AgentEngine(
                     if (f == null || !Safety.isSearchField(f.label, f.viewId))
                         return Outcome("enter ✗ REFUSED: read-only app — only search fields", abort = true, breaksMacro = true)
                 }
+                val here = svc.readScreen()
+                val drafts = draftsOf(here)
+                if (sensitive) drafts.firstOrNull { sentKey(here, it) in run.sent }?.let { dup ->
+                    log(run, LogKind.WARN, "منعتُ إرسال النص نفسه مرة ثانية: «${dup.take(40)}»")
+                    return Outcome("enter ✗ REFUSED: «${dup.take(40)}» was already SENT here in this task. Call done.", abort = true, breaksMacro = true)
+                }
                 if (!confirm(run, sensitive, "إرسال/تأكيد النص المكتوب")) return Outcome("enter ✗ DENIED by owner", abort = true, breaksMacro = true)
                 val ok = pressEnter(svc, cur, if (byFind) null else a.id?.let { orig.byId(it) })
-                Outcome("enter ${mark(ok)}", abort = !ok, macro = if (ok) MacroStep("enter", confirm = sensitive) else null, breaksMacro = !ok)
+                val sentNote = if (ok && sensitive) committed(svc, run, here, drafts) else ""
+                Outcome("enter ${mark(ok)}$sentNote", abort = !ok, macro = if (ok) MacroStep("enter", confirm = sensitive) else null, breaksMacro = !ok)
             }
 
             ActionType.SCROLL -> {
@@ -863,17 +934,28 @@ class AgentEngine(
             val text = Templates.fill(s.text, params)
             val label = Templates.fill(s.label, params)
             var filled = s.copy(text = text, label = label)
+            var sentNote = ""
             val ok: Boolean = if (pol == Policy.BLOCKED) false else when (s.type) {
                 "tap", "long_press" -> {
                     val n = waitFor(svc, s, params)
                     if (n == null || (pol == Policy.READ_ONLY && Safety.isTradeLabel(n.label))) false
-                    else if (!confirm(run, s.confirm || Safety.isSensitiveLabel(n.label), "الضغط على «${n.title.take(40)}»")) {
+                    else if (!confirm(run, !s.approved && (s.confirm || Safety.isSensitiveLabel(n.label)), "الضغط على «${n.title.take(40)}»", canAlways = skill.id.isNotEmpty())) {
                         // The owner said no: stop here. Nothing failed, and no model call is spent looking for another way.
                         throw Stop(TaskStatus.STOPPED, "توقّفتُ قبل «${n.title.take(40)}» لأنك لم توافق.")
                     } else {
+                        if (confirmAlways && skill.id.isNotEmpty()) {
+                            confirmAlways = false
+                            skills.approveStep(skill.id, i)
+                            log(run, LogKind.LOCAL, "لن أسألك مجدداً عن «${n.title.take(30)}» في مهارة «${skill.title.take(30)}»")
+                        }
                         filled = filled.copy(sig = n.signature, label = stepLabel(n))
+                        // A send/post step: remember what was in the input field, to know afterwards that it went out
+                        val commits = s.confirm || s.approved || Safety.isSensitiveLabel(n.label)
+                        val shown = if (commits) svc.readScreen() else here
+                        val drafts = if (commits) draftsOf(shown) else emptyList()
                         val done = if (s.type == "tap") click(svc, n) else longClick(svc, n)
                         if (done) run.pending = pendingFor(here.pkg, run.lastKey, n)
+                        if (done) sentNote = committed(svc, run, shown, drafts)
                         done
                     }
                 }
@@ -882,7 +964,11 @@ class AgentEngine(
                     if (n == null || n.password) false else setTextVerified(svc, n, text.orEmpty()).first
                 }
                 "enter" -> {
-                    if (!confirm(run, s.confirm, "إرسال/تأكيد النص المكتوب")) throw Stop(TaskStatus.STOPPED, "توقّفتُ قبل الإرسال لأنك لم توافق.")
+                    if (!confirm(run, s.confirm && !s.approved, "إرسال/تأكيد النص المكتوب", canAlways = skill.id.isNotEmpty())) throw Stop(TaskStatus.STOPPED, "توقّفتُ قبل الإرسال لأنك لم توافق.")
+                    if (confirmAlways && skill.id.isNotEmpty()) {
+                        confirmAlways = false
+                        skills.approveStep(skill.id, i)
+                    }
                     pressEnter(svc, svc.readScreen(), null)
                 }
                 "scroll" -> scroll(svc, s.sig?.let { here.find(it) }, s.dir ?: "down")
@@ -931,7 +1017,7 @@ class AgentEngine(
             run.localSteps++
             run.steps++
             pushStats(run)
-            trail += "${s.type} ${label ?: text?.take(30) ?: ""} ✓"
+            trail += "${s.type} ${label ?: text?.take(30) ?: ""} ✓$sentNote"
             log(run, LogKind.ACTION, "⚡ ${actionWord(s.type)} ${label ?: text?.take(30) ?: ""}".trim())
         }
         return skill.steps.size
@@ -1063,13 +1149,14 @@ class AgentEngine(
 
     // ------------------------------------------------------------------ gates
 
-    private suspend fun confirm(run: Run, risky: Boolean, what: String): Boolean {
+    private suspend fun confirm(run: Run, risky: Boolean, what: String, canAlways: Boolean = false): Boolean {
+        confirmAlways = false
         if (!risky || !settings.confirmSensitive) return true
         val gate = CompletableDeferred<Boolean>()
         confirmGate = gate
         val q = "$what — هل تسمح؟"
         log(run, LogKind.WARN, "بانتظار موافقتك: $what")
-        _state.value = EngineState.Confirm(q)
+        _state.value = EngineState.Confirm(q, canAlways)
         val ok = try {
             withTimeout(120_000) { gate.await() }
         } catch (e: TimeoutCancellationException) {
