@@ -7,18 +7,22 @@ import android.content.Context
 import android.content.Intent
 import android.graphics.Bitmap
 import android.graphics.Path
+import android.graphics.PixelFormat
 import android.os.Handler
 import android.os.Looper
 import android.os.SystemClock
 import android.provider.Settings
 import android.util.Base64
 import android.view.Display
+import android.view.Gravity
+import android.view.View
 import android.view.WindowManager
 import android.view.accessibility.AccessibilityEvent
 import android.view.accessibility.AccessibilityNodeInfo
 import android.view.accessibility.AccessibilityWindowInfo
 import com.wakeel.agent.Hub
 import com.wakeel.agent.agent.AppMapStore
+import com.wakeel.agent.agent.EngineState
 import com.wakeel.agent.agent.Safety
 import com.wakeel.agent.core.Policy
 import com.wakeel.agent.core.Shot
@@ -32,6 +36,9 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withContext
@@ -58,7 +65,7 @@ class AgentAccessibilityService : AccessibilityService() {
 
     private var overlay: Overlay? = null
     private val main = Handler(Looper.getMainLooper())
-    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+    private var scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
 
     @Volatile
     private var lastEvent = 0L
@@ -93,7 +100,38 @@ class AgentAccessibilityService : AccessibilityService() {
         super.onServiceConnected()
         instance = this
         _connected.value = true
+        // Android may reconnect the same service object after pausing it; its background work needs a live scope again
+        if (!scope.isActive) scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
         overlay = Overlay(this).also { if (Hub.settings.showBubble) it.show() }
+        // The agent works on what the screen shows, so the screen must not time out in the middle of a task
+        scope.launch {
+            combine(Hub.engine.state, Hub.recorder.state) { engine, rec -> engine !is EngineState.Idle || rec.active }
+                .distinctUntilChanged()
+                .collect { keepAwake(it) }
+        }
+    }
+
+    private var awakeView: View? = null
+
+    /** Holds the screen on (through an invisible one-pixel window) for as long as a task or a recording runs. */
+    private fun keepAwake(on: Boolean) {
+        main.post {
+            val wm = getSystemService(WindowManager::class.java)
+            if (on && awakeView == null) {
+                val v = View(this)
+                val lp = WindowManager.LayoutParams(
+                    1, 1,
+                    WindowManager.LayoutParams.TYPE_ACCESSIBILITY_OVERLAY,
+                    WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE or
+                        WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON,
+                    PixelFormat.TRANSLUCENT,
+                ).apply { gravity = Gravity.TOP or Gravity.LEFT }
+                if (runCatching { wm.addView(v, lp) }.isSuccess) awakeView = v
+            } else if (!on) {
+                awakeView?.let { runCatching { wm.removeView(it) } }
+                awakeView = null
+            }
+        }
     }
 
     override fun onAccessibilityEvent(event: AccessibilityEvent?) {
@@ -149,6 +187,8 @@ class AgentAccessibilityService : AccessibilityService() {
         overlay?.hide()
         overlay?.dispose()
         overlay = null
+        awakeView?.let { v -> runCatching { getSystemService(WindowManager::class.java).removeView(v) } }
+        awakeView = null
         instance = null
         _connected.value = false
     }

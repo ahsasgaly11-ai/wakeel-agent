@@ -1,12 +1,14 @@
 package com.wakeel.agent.agent
 
 import android.accessibilityservice.AccessibilityService
+import android.app.KeyguardManager
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
+import android.os.PowerManager
 import android.os.SystemClock
 import android.view.accessibility.AccessibilityNodeInfo
 import android.view.accessibility.AccessibilityNodeInfo.AccessibilityAction
@@ -144,6 +146,32 @@ class AgentEngine(
     /** How a tapped element is named in a saved route: by its title, since the details beside it (a count, a status) change. */
     private fun stepLabel(n: UiNode): String = n.title.take(40)
 
+    private val power by lazy { ctx.getSystemService(PowerManager::class.java) }
+    private val keyguard by lazy { ctx.getSystemService(KeyguardManager::class.java) }
+
+    /** False while the display is off or the lock screen is up: there is no app screen to read or tap then. */
+    private fun screenUsable(): Boolean = runCatching { power.isInteractive && !keyguard.isKeyguardLocked }.getOrDefault(true)
+
+    /**
+     * The agent works on what the screen shows. If the owner locks the phone in the middle of a task,
+     * it waits here — no model calls, no taps — and carries on when the screen is back.
+     */
+    private suspend fun awaitScreen(svc: AgentAccessibilityService, run: Run) {
+        if (screenUsable()) return
+        log(run, LogKind.WARN, "الشاشة مطفأة أو مقفلة: توقّفتُ مؤقتاً دون أي استهلاك، وأكمل حين تفتحها.")
+        val since = SystemClock.elapsedRealtime()
+        while (!screenUsable()) {
+            currentCoroutineContext().ensureActive()
+            if (SystemClock.elapsedRealtime() - since > PAUSE_LIMIT_MS) {
+                throw Stop(TaskStatus.FAILED, "أُقفلت الشاشة أثناء المهمة ولم تُفتح خلال ${PAUSE_LIMIT_MS / 60_000} دقائق، فأوقفتُها دون استهلاك. اطلبها من جديد والشاشة مفتوحة.")
+            }
+            _state.value = EngineState.Running("متوقف مؤقتاً: افتح الشاشة لأكمل", run.step, settings.maxSteps)
+            delay(1000)
+        }
+        log(run, LogKind.INFO, "فُتحت الشاشة — أكمل المهمة.")
+        svc.waitForIdle(600, 3000)
+    }
+
     private val uiLang: String
         get() = runCatching { ctx.resources.configuration.locales[0].toLanguageTag() }.getOrDefault("ar")
 
@@ -176,6 +204,11 @@ class AgentEngine(
     }
 
     private class Stop(val status: TaskStatus, msg: String) : Exception(msg)
+
+    private companion object {
+        /** How long a task waits for a locked screen before giving up. */
+        const val PAUSE_LIMIT_MS = 10 * 60_000L
+    }
 
     private class Outcome(
         val line: String,
@@ -438,6 +471,7 @@ class AgentEngine(
         for (step in 1..max) {
             currentCoroutineContext().ensureActive()
             run.step = step
+            awaitScreen(svc, run)
             budgetCheck(run)
             svc.waitForIdle()
             var screen = observe(svc, run)
@@ -551,6 +585,7 @@ class AgentEngine(
             var prevHash = 0
             for ((i, a) in d.actions.withIndex()) {
                 currentCoroutineContext().ensureActive()
+                awaitScreen(svc, run)
                 if (i > 0) {
                     svc.waitForIdle(350, 2500)
                     cur = observe(svc, run)
@@ -821,6 +856,7 @@ class AgentEngine(
         for ((i, s) in skill.steps.withIndex()) {
             currentCoroutineContext().ensureActive()
             run.step = i + 1
+            awaitScreen(svc, run)
             svc.waitForIdle()
             val here = observe(svc, run)
             val pol = Safety.policy(here.pkg, settings, apps)
@@ -975,6 +1011,7 @@ class AgentEngine(
         for (item in bar.take(6)) {
             currentCoroutineContext().ensureActive()
             run.step++
+            awaitScreen(svc, run)
             var scr = svc.readScreen()
             if (scr.pkg != pkg) {
                 val t = SystemClock.uptimeMillis()

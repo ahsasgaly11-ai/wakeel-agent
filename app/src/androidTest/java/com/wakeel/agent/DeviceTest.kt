@@ -1,9 +1,11 @@
 package com.wakeel.agent
 
 import android.accessibilityservice.AccessibilityService
+import android.app.KeyguardManager
 import android.app.UiAutomation
 import android.content.Intent
 import android.os.ParcelFileDescriptor
+import android.os.PowerManager
 import android.os.SystemClock
 import android.provider.Settings
 import android.util.Log
@@ -57,6 +59,10 @@ private object FakeModel : LlmClient {
     @Volatile
     var lastKnowledge: String? = null
 
+    /** How many times the model was asked to plan. */
+    @Volatile
+    var calls = 0
+
     private const val NO_PLAN = """{"thought":"لا خطة","actions":[{"type":"fail","text":"انتهت الخطط المجهّزة للاختبار."}],"sensitive":false}"""
 
     override suspend fun callTool(
@@ -65,6 +71,7 @@ private object FakeModel : LlmClient {
         Log.i(TAG, "   ◇ model asked (${tool.name}): " + user.lineSequence().firstOrNull().orEmpty().take(120))
         return when (tool.name) {
             "act" -> {
+                calls++
                 lastKnowledge = extraSystem
                 val p = synchronized(plans) { plans.removeFirstOrNull() } ?: NO_PLAN
                 ToolResult(JSONObject(p), Usage(900, 60))
@@ -551,6 +558,68 @@ class DeviceTest {
         val r = run(task)
         assertTrue("the owner was not told why", r.logs.any { it.text.contains("ناقصة") })
         assertNull("the unfinished skill is still stored", Hub.skills.byId("broken1"))
+    }
+
+    @Test
+    fun t18_lockedScreenPausesAndRunningTaskKeepsScreenOn() {
+        val pm = ctx.getSystemService(PowerManager::class.java)
+        val km = ctx.getSystemService(KeyguardManager::class.java)
+        fun wake() {
+            shell("input keyevent 224")   // wake up
+            shell("wm dismiss-keyguard")
+            waitUntil(10_000) { pm.isInteractive && !km.isKeyguardLocked }
+            Thread.sleep(1000)
+        }
+        try {
+            // 1) The screen is off: the task waits — no model call on a dark screen — and carries on once it is back
+            shell("input keyevent 223")   // sleep
+            assertTrue("could not turn the emulator screen off", waitUntil(10_000) { !pm.isInteractive })
+            FakeModel.plans += plan("""[{"type":"open_app","text":"Sandbox"},{"type":"tap","find":"Contacts"},{"type":"done","text":"فتحتُ جهات الاتصال."}]""")
+            val before = Hub.history.records.value.firstOrNull()?.id
+            val asked = FakeModel.calls
+            note("▶ TASK (screen off): اعرض جهات الاتصال التجريبية")
+            Hub.engine.start("اعرض جهات الاتصال التجريبية")
+            Thread.sleep(8000)
+            note("while the screen is off: running=${Hub.engine.isRunning} · ${Hub.engine.state.value} · model calls=${FakeModel.calls - asked}")
+            assertTrue("the task should be waiting, not over", Hub.engine.isRunning)
+            assertEquals("no model call may be spent on a dark screen", asked, FakeModel.calls)
+            wake()
+            val resumed = await(before, "resume after the screen came back", true, 90_000)
+            assertEquals(TaskStatus.DONE, resumed.status)
+            assertTrue("the pause was not explained", resumed.logs.any { it.text.contains("مطفأة") })
+            assertNotNull("the task did not carry on after the screen came back", find("Ahmed"))
+
+            // 2) Nobody touches the phone: on its own the screen times out, but not while a task is running
+            shell("settings put global stay_on_while_plugged_in 0")
+            shell("settings put system screen_off_timeout 10000")
+            goHome()
+            Thread.sleep(17_000)
+            val timesOut = !pm.isInteractive
+            note("idle emulator screen turns itself off after the timeout: $timesOut")
+            wake()
+            FakeModel.plans += plan(
+                """[{"type":"open_app","text":"Sandbox"},{"type":"wait"},{"type":"wait"},{"type":"wait"},{"type":"wait"},{"type":"wait"},
+                    {"type":"wait"},{"type":"wait"},{"type":"wait"},{"type":"tap","find":"Wallet"},{"type":"done","text":"فتحتُ المحفظة بعد انتظار طويل."}]"""
+            )
+            val before2 = Hub.history.records.value.firstOrNull()?.id
+            val started = SystemClock.uptimeMillis()
+            note("▶ TASK (nobody touching the phone): انتظر طويلاً ثم اعرض المحفظة التجريبية")
+            Hub.engine.start("انتظر طويلاً ثم اعرض المحفظة التجريبية")
+            var wentDark = false
+            waitUntil(100_000, 400) {
+                if (!pm.isInteractive) wentDark = true
+                val top = Hub.history.records.value.firstOrNull()
+                top != null && top.id != before2 && !Hub.engine.isRunning
+            }
+            val long = await(before2, "long task", true, 5_000)
+            note("the task ran for ${(SystemClock.uptimeMillis() - started) / 1000}s with nobody touching the phone · screen went dark: $wentDark")
+            assertEquals(TaskStatus.DONE, long.status)
+            assertTrue("the control did not work: the emulator screen never times out, so this proves nothing", timesOut)
+            assertFalse("the screen turned itself off in the middle of a task", wentDark)
+        } finally {
+            shell("settings put system screen_off_timeout 1800000")
+            wake()
+        }
     }
 
     // ------------------------------------------------------------------ the phone's own Settings app
