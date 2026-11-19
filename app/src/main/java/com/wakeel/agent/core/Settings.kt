@@ -1,0 +1,146 @@
+package com.wakeel.agent.core
+
+import android.content.Context
+import java.time.LocalDate
+
+data class Preset(
+    val id: String,
+    val title: String,
+    val base: String,
+    val fast: String,
+    val strong: String,
+    val keyUrl: String,
+)
+
+object Presets {
+    val all = listOf(
+        Preset("anthropic", "Claude", "https://api.anthropic.com", "claude-haiku-5-5", "claude-sonnet-5-5", "https://console.anthropic.com/settings/keys"),
+        Preset("openai", "OpenAI", "https://api.openai.com/v1", "", "", "https://platform.openai.com/api-keys"),
+        Preset("gemini", "Gemini", "https://generativelanguage.googleapis.com/v1beta/openai", "", "", "https://aistudio.google.com/apikey"),
+        Preset("openrouter", "OpenRouter", "https://openrouter.ai/api/v1", "", "", "https://openrouter.ai/keys"),
+        Preset("custom", "مخصص", "", "", "", ""),
+    )
+
+    fun of(id: String) = all.firstOrNull { it.id == id } ?: all.first()
+}
+
+class Settings(ctx: Context) {
+    private val p = ctx.getSharedPreferences("wakeel_settings", Context.MODE_PRIVATE)
+    private val secure = SecureStore(ctx)
+
+    private fun str(k: String, d: String) = p.getString(k, d) ?: d
+    private fun putStr(k: String, v: String) = p.edit().putString(k, v).apply()
+    private fun bool(k: String, d: Boolean) = p.getBoolean(k, d)
+    private fun putBool(k: String, v: Boolean) = p.edit().putBoolean(k, v).apply()
+    private fun float(k: String, d: Float) = p.getFloat(k, d)
+    private fun putFloat(k: String, v: Float) = p.edit().putFloat(k, v).apply()
+
+    // ---- Provider ----
+    var provider: String
+        get() = str("provider", "anthropic")
+        set(v) = putStr("provider", v)
+
+    val preset get() = Presets.of(provider)
+
+    var apiKey: String
+        get() = secure.get("key_$provider") ?: ""
+        set(v) = secure.put("key_$provider", v.trim())
+
+    var baseUrl: String
+        get() = str("base_$provider", preset.base)
+        set(v) = putStr("base_$provider", v.trim())
+
+    var fastModel: String
+        get() = str("fast_$provider", preset.fast)
+        set(v) = putStr("fast_$provider", v.trim())
+
+    var strongModel: String
+        get() = str("strong_$provider", preset.strong)
+        set(v) = putStr("strong_$provider", v.trim())
+
+    var escalate: Boolean
+        get() = bool("escalate", true)
+        set(v) = putBool("escalate", v)
+
+    // ---- Budget (USD) ----
+    var maxSteps: Int
+        get() = p.getInt("max_steps", 25)
+        set(v) = p.edit().putInt("max_steps", v.coerceIn(3, 100)).apply()
+
+    var taskBudget: Float
+        get() = float("task_budget", 0.05f)
+        set(v) = putFloat("task_budget", v)
+
+    var dailyBudget: Float
+        get() = float("daily_budget", 1.0f)
+        set(v) = putFloat("daily_budget", v)
+
+    // Prices per 1M tokens (defaults: Claude Haiku 5.5 / Sonnet 5.5 list prices)
+    var fastIn: Float
+        get() = float("p_fast_in", 0.10f)
+        set(v) = putFloat("p_fast_in", v)
+    var fastOut: Float
+        get() = float("p_fast_out", 0.50f)
+        set(v) = putFloat("p_fast_out", v)
+    var strongIn: Float
+        get() = float("p_strong_in", 2.0f)
+        set(v) = putFloat("p_strong_in", v)
+    var strongOut: Float
+        get() = float("p_strong_out", 10.0f)
+        set(v) = putFloat("p_strong_out", v)
+
+    // ---- Safety ----
+    var confirmSensitive: Boolean
+        get() = bool("confirm", true)
+        set(v) = putBool("confirm", v)
+
+    var allowScreenshots: Boolean
+        get() = bool("screenshots", true)
+        set(v) = putBool("screenshots", v)
+
+    var blockedKeywords: String
+        get() = str("blocked_kw", DEFAULT_BLOCKED)
+        set(v) = putStr("blocked_kw", v)
+
+    var blockedPkgs: Set<String>
+        get() = p.getStringSet("blocked_pkgs", emptySet())?.toSet() ?: emptySet()
+        set(v) = p.edit().putStringSet("blocked_pkgs", v).apply()
+
+    var allowlistMode: Boolean
+        get() = bool("allowlist_mode", false)
+        set(v) = putBool("allowlist_mode", v)
+
+    var allowedPkgs: Set<String>
+        get() = p.getStringSet("allowed_pkgs", emptySet())?.toSet() ?: emptySet()
+        set(v) = p.edit().putStringSet("allowed_pkgs", v).apply()
+
+    // ---- Savings / UI ----
+    var useMacros: Boolean
+        get() = bool("macros", true)
+        set(v) = putBool("macros", v)
+
+    var showBubble: Boolean
+        get() = bool("bubble", true)
+        set(v) = putBool("bubble", v)
+
+    fun isStrong(model: String) = model == strongModel && model != fastModel
+
+    fun cost(model: String, u: Usage): Double {
+        val strong = isStrong(model)
+        val inP = (if (strong) strongIn else fastIn).toDouble()
+        val outP = (if (strong) strongOut else fastOut).toDouble()
+        return (u.input * inP + u.cacheWrite * inP * 1.25 + u.cacheRead * inP * 0.1 + u.output * outP) / 1_000_000.0
+    }
+
+    private fun dayKey() = "spend_" + LocalDate.now().toString()
+    fun todaySpend(): Double = p.getFloat(dayKey(), 0f).toDouble()
+    fun addSpend(v: Double) {
+        if (v > 0) p.edit().putFloat(dayKey(), (todaySpend() + v).toFloat()).apply()
+    }
+
+    companion object {
+        const val DEFAULT_BLOCKED =
+            "bank, wallet, pay, qnb, qib, cbq, alrayan, masraf, dukhan, dohabank, ahlibank, paypal, " +
+                "authenticator, authy, 1password, bitwarden, lastpass, binance, metamask, crypto, packageinstaller"
+    }
+}

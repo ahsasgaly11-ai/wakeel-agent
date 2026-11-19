@@ -1,0 +1,99 @@
+package com.wakeel.agent.agent
+
+import android.content.Context
+import com.wakeel.agent.core.TaskRecord
+import com.wakeel.agent.core.Text
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import org.json.JSONArray
+import org.json.JSONObject
+import java.io.File
+
+/** One step of a saved route: replayed later with zero API calls. */
+data class MacroStep(
+    val type: String,
+    val sig: String? = null,
+    val text: String? = null,
+    val dir: String? = null,
+    val label: String? = null,
+    val confirm: Boolean = false,
+) {
+    fun toJson(): JSONObject = JSONObject().put("t", type).apply {
+        sig?.let { put("s", it) }; text?.let { put("x", it) }; dir?.let { put("d", it) }
+        label?.let { put("l", it) }; if (confirm) put("c", true)
+    }
+
+    companion object {
+        fun fromJson(o: JSONObject) = MacroStep(
+            o.optString("t"),
+            o.optString("s").ifEmpty { null },
+            o.optString("x").ifEmpty { null },
+            o.optString("d").ifEmpty { null },
+            o.optString("l").ifEmpty { null },
+            o.optBoolean("c", false),
+        )
+    }
+}
+
+class MacroStore(ctx: Context) {
+    private val file = File(ctx.filesDir, "routes.json")
+    private val data: JSONObject = runCatching { JSONObject(file.readText()) }.getOrDefault(JSONObject())
+    private val _count = MutableStateFlow(data.length())
+    val count: StateFlow<Int> = _count.asStateFlow()
+
+    private fun key(task: String) = Text.norm(task)
+
+    @Synchronized
+    fun find(task: String): List<MacroStep>? {
+        val a = data.optJSONArray(key(task)) ?: return null
+        return (0 until a.length()).mapNotNull { a.optJSONObject(it)?.let(MacroStep::fromJson) }.takeIf { it.isNotEmpty() }
+    }
+
+    @Synchronized
+    fun save(task: String, steps: List<MacroStep>) {
+        if (steps.isEmpty()) return
+        data.put(key(task), JSONArray().also { a -> steps.forEach { a.put(it.toJson()) } })
+        persist()
+    }
+
+    @Synchronized
+    fun remove(task: String) {
+        data.remove(key(task)); persist()
+    }
+
+    @Synchronized
+    fun clear() {
+        data.keys().asSequence().toList().forEach { data.remove(it) }
+        persist()
+    }
+
+    private fun persist() {
+        runCatching { file.writeText(data.toString()) }
+        _count.value = data.length()
+    }
+}
+
+class HistoryStore(ctx: Context) {
+    private val file = File(ctx.filesDir, "history.json")
+    private val _records = MutableStateFlow(load())
+    val records: StateFlow<List<TaskRecord>> = _records.asStateFlow()
+
+    private fun load(): List<TaskRecord> = runCatching {
+        val a = JSONArray(file.readText())
+        (0 until a.length()).mapNotNull { a.optJSONObject(it)?.let(TaskRecord::fromJson) }
+    }.getOrDefault(emptyList())
+
+    @Synchronized
+    fun add(r: TaskRecord) {
+        val list = (listOf(r) + _records.value).take(60)
+        _records.value = list
+        runCatching { file.writeText(JSONArray().also { a -> list.forEach { a.put(it.toJson()) } }.toString()) }
+    }
+
+    @Synchronized
+    fun clear() {
+        _records.value = emptyList()
+        runCatching { file.delete() }
+    }
+}
