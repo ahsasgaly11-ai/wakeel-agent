@@ -1,6 +1,7 @@
 package com.wakeel.sandbox;
 
 import android.app.Activity;
+import android.content.Context;
 import android.content.Intent;
 import android.os.Bundle;
 import android.text.Editable;
@@ -9,9 +10,14 @@ import android.text.TextWatcher;
 import android.view.Gravity;
 import android.view.View;
 import android.view.ViewGroup;
+import android.view.accessibility.AccessibilityNodeInfo;
 import android.view.inputmethod.EditorInfo;
+import android.widget.AbsListView;
+import android.widget.BaseAdapter;
 import android.widget.Button;
+import android.widget.CheckBox;
 import android.widget.EditText;
+import android.widget.GridView;
 import android.widget.ImageButton;
 import android.widget.LinearLayout;
 import android.widget.ListView;
@@ -20,6 +26,7 @@ import android.widget.Switch;
 import android.widget.TextView;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -27,8 +34,8 @@ import java.util.Map;
 /**
  * One activity that plays every screen of a small pretend app: a home page with a search box and an
  * icon-only button, a long contact list that opens a chat, a wallet with a "Buy" button, a profile with
- * a password page, and a bottom tab bar. Every action writes what happened into the status line,
- * so a test can read back exactly what the agent did.
+ * a password page, a dense photo grid with a selection mode, and a bottom tab bar. Every action writes
+ * what happened into the status line, so a test can read back exactly what the agent did.
  */
 public class SandboxActivity extends Activity {
     static final String[] NAMES = {
@@ -72,6 +79,7 @@ public class SandboxActivity extends Activity {
             case "security": setTitle("Security"); security(content); tab = "profile"; break;
             case "prefs": setTitle("Preferences"); prefs(content); break;
             case "about": setTitle("About"); content.addView(text("Sandbox 1.0 — a pretend app for tests")); break;
+            case "photos": setTitle("Photos"); photos(content); break;
             default: setTitle("Home"); home(content); break;
         }
         root.addView(tabs(tab));
@@ -97,6 +105,7 @@ public class SandboxActivity extends Activity {
         c.addView(prefs, new LinearLayout.LayoutParams(dp(64), dp(64)));
 
         c.addView(button(R.id.btn_about, "About", v -> open("about", null, false)));
+        c.addView(button(R.id.btn_photos, "Photos", v -> open("photos", null, false)));
     }
 
     private void contacts(LinearLayout c) {
@@ -172,6 +181,158 @@ public class SandboxActivity extends Activity {
         dark.setText("Dark mode");
         dark.setOnCheckedChangeListener((v, on) -> status.setText("dark: " + (on ? "on" : "off")));
         c.addView(dark);
+    }
+
+    /**
+     * A photo tile that behaves like the grid of a real gallery: it says it can be long-pressed, accepts
+     * the accessibility request — and ignores it. Only a real finger held on it starts the selection.
+     */
+    static final class Tile extends View {
+        Tile(Context c) {
+            super(c);
+            setLongClickable(true);
+        }
+
+        @Override
+        public boolean performAccessibilityAction(int action, Bundle arguments) {
+            if (action == AccessibilityNodeInfo.ACTION_LONG_CLICK) return true;
+            return super.performAccessibilityAction(action, arguments);
+        }
+    }
+
+    /** More thumbnails on one page than an agent can list: the bars around the grid must stay readable. */
+    private void photos(LinearLayout c) {
+        final int total = 360;
+        final boolean[] picked = new boolean[total];
+        final boolean[] selecting = {false};
+        final boolean[] quiet = {false};
+        final Runnable[] refresh = new Runnable[1];
+
+        LinearLayout top = new LinearLayout(this);
+        top.setOrientation(LinearLayout.HORIZONTAL);
+        final CheckBox all = new CheckBox(this);
+        all.setId(R.id.sel_all);
+        all.setText("All");
+        all.setVisibility(View.GONE);
+        final TextView count = text("Camera: " + total + " photos");
+        count.setId(R.id.sel_count);
+        top.addView(all);
+        top.addView(count);
+        c.addView(top);
+
+        final BaseAdapter adapter = new BaseAdapter() {
+            @Override public int getCount() { return total; }
+            @Override public Object getItem(int position) { return position; }
+            @Override public long getItemId(int position) { return position; }
+
+            @Override
+            public View getView(final int position, View convert, ViewGroup parent) {
+                Tile t = convert instanceof Tile ? (Tile) convert : new Tile(SandboxActivity.this);
+                t.setLayoutParams(new AbsListView.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(34)));
+                t.setContentDescription("Photo " + (position + 1));
+                t.setActivated(picked[position]);
+                t.setBackgroundColor(picked[position] ? 0xFF1E88E5 : (position % 2 == 0 ? 0xFFB0BEC5 : 0xFF90A4AE));
+                t.setOnClickListener(v -> {
+                    if (selecting[0]) {
+                        picked[position] = !picked[position];
+                        refresh[0].run();
+                    } else {
+                        status.setText("opened photo " + (position + 1));
+                    }
+                });
+                t.setOnLongClickListener(v -> {
+                    selecting[0] = true;
+                    picked[position] = true;
+                    refresh[0].run();
+                    return true;
+                });
+                return t;
+            }
+        };
+        final GridView grid = new GridView(this);
+        grid.setId(R.id.photo_grid);
+        grid.setNumColumns(12);
+        grid.setAdapter(adapter);
+        c.addView(grid, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f));
+
+        // Selection bar, as in a gallery: Share, Delete, More → Move to album / Copy to album
+        final LinearLayout actions = new LinearLayout(this);
+        actions.setOrientation(LinearLayout.HORIZONTAL);
+        actions.setVisibility(View.GONE);
+        final LinearLayout more = new LinearLayout(this);
+        more.setOrientation(LinearLayout.HORIZONTAL);
+        more.setVisibility(View.GONE);
+        final LinearLayout picker = new LinearLayout(this);
+        picker.setOrientation(LinearLayout.VERTICAL);
+        picker.setVisibility(View.GONE);
+        final String[] verb = {"moved"};
+
+        actions.addView(button(R.id.btn_share, "Share", v -> status.setText("shared " + chosen(picked) + " photos")));
+        actions.addView(button(R.id.btn_delete, "Delete", v -> status.setText("deleted " + chosen(picked) + " photos")));
+        actions.addView(button(R.id.btn_more, "More", v -> more.setVisibility(View.VISIBLE)));
+        View.OnClickListener toAlbum = v -> {
+            verb[0] = v.getId() == R.id.btn_copy ? "copied" : "moved";
+            grid.setVisibility(View.GONE);
+            actions.setVisibility(View.GONE);
+            more.setVisibility(View.GONE);
+            picker.setVisibility(View.VISIBLE);
+        };
+        more.addView(button(R.id.btn_move, "Move to album", toAlbum));
+        more.addView(button(R.id.btn_copy, "Copy to album", toAlbum));
+
+        final EditText name = edit(R.id.album_name, "Album name");
+        name.setVisibility(View.GONE);
+        final Button create = button(R.id.btn_create, "Create", null);
+        create.setVisibility(View.GONE);
+        final Button newAlbum = button(R.id.btn_new_album, "Create album", null);
+        newAlbum.setOnClickListener(v -> {
+            newAlbum.setVisibility(View.GONE);
+            name.setVisibility(View.VISIBLE);
+            create.setVisibility(View.VISIBLE);
+        });
+        create.setOnClickListener(v -> {
+            status.setText(verb[0] + " " + chosen(picked) + " photos to album " + name.getText());
+            Arrays.fill(picked, false);
+            selecting[0] = false;
+            name.setText("");
+            name.setVisibility(View.GONE);
+            create.setVisibility(View.GONE);
+            newAlbum.setVisibility(View.VISIBLE);
+            picker.setVisibility(View.GONE);
+            grid.setVisibility(View.VISIBLE);
+            refresh[0].run();
+        });
+        picker.addView(text("Choose an album"));
+        picker.addView(newAlbum);
+        picker.addView(name);
+        picker.addView(create);
+
+        c.addView(actions);
+        c.addView(more);
+        c.addView(picker);
+
+        all.setOnCheckedChangeListener((b, on) -> {
+            if (quiet[0]) return;
+            Arrays.fill(picked, on);
+            refresh[0].run();
+        });
+        refresh[0] = () -> {
+            int n = chosen(picked);
+            count.setText(selecting[0] ? n + " selected" : "Camera: " + total + " photos");
+            all.setVisibility(selecting[0] ? View.VISIBLE : View.GONE);
+            quiet[0] = true;
+            all.setChecked(selecting[0] && n == total);
+            quiet[0] = false;
+            actions.setVisibility(selecting[0] ? View.VISIBLE : View.GONE);
+            if (!selecting[0]) more.setVisibility(View.GONE);
+            adapter.notifyDataSetChanged();
+        };
+    }
+
+    private static int chosen(boolean[] picked) {
+        int n = 0;
+        for (boolean p : picked) if (p) n++;
+        return n;
     }
 
     // ------------------------------------------------------------------ parts

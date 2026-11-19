@@ -625,7 +625,17 @@ class AgentEngine(
                     log(run, LogKind.WARN, "يكرر الوكيل نفس الخطوة — سيستعين بالنموذج الأقوى وبلقطة شاشة")
                     continue
                 }
-                throw Stop(TaskStatus.FAILED, "توقّف الوكيل لأنه يكرر نفس الخطوة دون تقدّم، وأوقفته لتوفير الاستهلاك. جرّب صياغة أوضح للمهمة.")
+                // Say which step it was: "try a clearer wording" tells the owner nothing they can act on.
+                val first = d.actions.first()
+                val target = first.find?.take(30) ?: first.id?.let { screen.byId(it)?.title?.take(30) }
+                val what = actionLabel(first, target?.takeIf { it.isNotBlank() } ?: "عنصر بلا اسم")
+                val where = apps.byPackage(screen.pkg)?.label?.let { " في «$it»" }.orEmpty()
+                throw Stop(
+                    TaskStatus.FAILED,
+                    "توقّفتُ لأن خطوة واحدة تتكرر والشاشة لا تتغيّر: $what$where.\n" +
+                        "ما يفيد الآن: اذكر لي الخطوات بالترتيب وبأسماء الأزرار كما تراها، " +
+                        "أو نفّذ المهمة بيدك مرة واحدة من «علّمني مهمة» فأعيدها بعدها دون استهلاك." + sentFootnote(run),
+                )
             }
 
             if (d.actions.size >= 3) log(run, LogKind.INFO, "خطة من ${d.actions.size} خطوات في طلب واحد")
@@ -1207,10 +1217,22 @@ class AgentEngine(
         return svc.tap(n.bounds.exactCenterX(), n.bounds.exactCenterY())
     }
 
+    /**
+     * Long-presses an element. Galleries and file managers often accept the accessibility request and then
+     * ignore it — their grids enter selection mode only under a real finger — so when the screen did not
+     * react, a real long touch on the same element follows.
+     */
     private suspend fun longClick(svc: AgentAccessibilityService, n: UiNode): Boolean {
         svc.markAction()
         val info = n.info
-        if (info.refresh() && info.isLongClickable && info.performAction(AccessibilityNodeInfo.ACTION_LONG_CLICK)) return true
+        if (info.refresh() && info.isLongClickable) {
+            val before = svc.readScreen().hash
+            if (info.performAction(AccessibilityNodeInfo.ACTION_LONG_CLICK)) {
+                svc.waitForIdle(350, 1500)
+                if (svc.readScreen().hash != before) return true
+                svc.markAction()
+            }
+        }
         return svc.tap(n.bounds.exactCenterX(), n.bounds.exactCenterY(), long = true)
     }
 

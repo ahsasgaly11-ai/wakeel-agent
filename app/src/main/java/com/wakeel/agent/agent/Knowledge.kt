@@ -54,9 +54,11 @@ object ArabicLabels {
         "Messages (SMS)" to "Compose=إنشاء رسالة|بدء محادثة; Recipient=المستلم; Message field=رسالة|رسالة نصية; Send=إرسال",
         "Contacts" to "Search=بحث; Create=إنشاء جهة اتصال; Name=الاسم; Phone=الهاتف; Save=حفظ; Edit=تعديل; Delete=حذف",
         "Camera" to "Photo=صورة; Video=فيديو; Portrait=بورتريه|عمودي; More=المزيد; Switch camera=تبديل الكاميرا",
-        "Gallery / Photos" to "Pictures=الصور; Albums=الألبومات; Stories=القصص; Search=بحث; Share=مشاركة; Delete=حذف; Edit=تعديل; Details=التفاصيل; More=المزيد",
+        "Gallery / Photos" to "Pictures=الصور; Albums=الألبومات; Stories=القصص; Search=بحث; All=الكل; Select=تحديد; Share=مشاركة; Delete=حذف; More=المزيد; " +
+            "Move to album=نقل إلى ألبوم|نقل إلى الألبوم; Copy to album=نسخ إلى ألبوم|نسخ إلى الألبوم; Create album=إنشاء ألبوم|إنشاء الألبوم; Album=ألبوم; Create=إنشاء; " +
+            "Camera=الكاميرا; Edit=تعديل; Details=التفاصيل; Done=تم",
         "Files" to "Images=الصور; Videos=الفيديوهات|ملفات الفيديو; Audio=الملفات الصوتية; Documents=المستندات; Downloads=التنزيلات; Installation files=ملفات التثبيت; " +
-            "Internal storage=مكان التخزين الداخلي; Analyse storage=تحليل مساحة التخزين; Recycle bin=سلة المحذوفات",
+            "Internal storage=مكان التخزين الداخلي; Analyse storage=تحليل مساحة التخزين; Recycle bin=سلة المحذوفات; All=الكل; Move=نقل; Copy=نسخ; Move here=نقل إلى هنا; Copy here=نسخ إلى هنا; Create folder=إنشاء مجلد; Search=بحث",
         "Clock" to "Alarm=المنبه; World clock=الساعة العالمية; Stopwatch=ساعة الإيقاف; Timer=المؤقت",
         "Calendar" to "Title=العنوان; Save=حفظ; Today=اليوم",
         "Notes" to "Search=بحث; Title=العنوان; New note=ملاحظة جديدة",
@@ -176,11 +178,17 @@ object KnowledgeBase {
         AppGuide(listOf("camera"), "Camera", TOOLS, "Shutter (bottom center), switch camera, mode row (Photo, Video, Portrait, More), gallery thumbnail. Icons are often unlabeled — use a screenshot."),
         AppGuide(
             listOf("com.sec.android.gallery3d", "com.google.android.apps.photos"), "Gallery / Photos", TOOLS,
-            "Tabs: Pictures/Photos, Albums, Stories/Memories; search. Long-press selects; then Share, Delete (sensitive), More. Open an item: Edit (pencil), Details (ⓘ)."
+            "Samsung Gallery: bottom tabs Pictures, Albums, Stories (+ ≡ menu). The magnifier searches by place, date, person or thing (e.g. 'India', 'November 2025'): tap the matching suggestion or 'see all' to list every match. " +
+                "Selection mode: long_press one thumbnail (or ⋮ → Select / Edit). Then 'All' (top corner) selects everything listed; the circle on a date header selects that whole day. " +
+                "Bottom bar: Share, Delete (sensitive), More → 'Move to album' / 'Copy to album' → pick an album or 'Create album' (+) → type its name → Create. " +
+                "New empty album: Albums tab → + (or ⋮ → Create album) → name → Create. " +
+                "Thumbnails carry at most a type and a date, never what the picture shows: to gather the photos of a trip or a subject, search first; if search finds nothing, ask the owner for the dates. " +
+                "Open an item: Edit (pencil), Details (ⓘ: date, place, file name). Google Photos: tabs Photos, Collections/Library, Search; long_press selects; + / 'Add to' → Album → New album."
         ),
         AppGuide(
             listOf("com.sec.android.app.myfiles", "com.google.android.apps.nbu.files", "documentsui"), "Files", TOOLS,
-            "Categories: Images, Videos, Audio, Documents, Downloads, Installation files (APK), Compressed. Storage: Internal storage. Samsung My Files: 'Analyse storage' (large files, duplicates, unused apps) and Recycle bin. Deleting is sensitive."
+            "Categories: Images, Videos, Audio, Documents, Downloads, Installation files (APK), Compressed. Storage: Internal storage. Samsung My Files: 'Analyse storage' (large files, duplicates, unused apps) and Recycle bin. " +
+                "Selection: long_press one item, then 'All'; bottom bar Move / Copy → open the destination → 'Move here' / 'Copy here'; ⋮ → Create folder. Search on top filters by name or type. Deleting is sensitive."
         ),
         AppGuide(listOf("deskclock", "clockpackage"), "Clock", TOOLS, "Tabs: Alarm, World clock, Stopwatch, Timer. + adds an alarm; switches enable/disable."),
         AppGuide(listOf("calendar"), "Calendar", WORK, "Month/week view; + creates an event (Title, time, Save). Tap a day to list its events."),

@@ -42,8 +42,11 @@ class AppIndex(private val ctx: Context) {
         .filter { it.priority >= 0 && it.activityInfo.packageName != "com.android.settings" }
         .map { it.activityInfo.packageName }.toSet().also { launchers = it }
 
-    private fun matchKeys(keys: List<String>): App? =
-        all().firstOrNull { a -> keys.any { k -> a.norm.contains(k) || a.pkg.contains(k) } }
+    /** Keys are listed by preference: the first key that an installed app answers to wins. */
+    private fun matchKeys(keys: List<String>): App? {
+        for (k in keys) all().firstOrNull { it.norm.contains(k) || it.pkg.contains(k) }?.let { return it }
+        return null
+    }
 
     /** Strict match — used by the local router so "واتساب وأرسل…" never matches wrongly. */
     fun exact(q: String): App? {
@@ -128,7 +131,8 @@ class AppIndex(private val ctx: Context) {
             listOf("الرسائل", "رسائل") to listOf("messaging", "mms", "messages"),
             listOf("الهاتف", "الاتصال", "المكالمات") to listOf("dialer"),
             listOf("جهات الاتصال", "الاسماء") to listOf("contacts"),
-            listOf("الصور", "المعرض", "الاستديو", "الاستوديو") to listOf("apps.photos", "gallery"),
+            listOf("المعرض", "الاستديو", "الاستوديو", "استوديو الصور") to listOf("gallery", "apps.photos"),
+            listOf("الصور") to listOf("apps.photos", "gallery"),
             listOf("الساعه", "المنبه") to listOf("deskclock", "clock"),
             listOf("التقويم") to listOf("calendar"),
             listOf("الحاسبه", "الاله الحاسبه") to listOf("calculator"),
@@ -148,7 +152,7 @@ class AppIndex(private val ctx: Context) {
             listOf("درايف", "جوجل درايف") to listOf("apps.docs", "drive"),
             listOf("يوتيوب ميوزك") to listOf("youtube.music"),
             listOf("المسجل", "مسجل الصوت") to listOf("recorder"),
-            listOf("الملاحظات", "ملاحظات") to listOf("keep", "notes", "memo"),
+            listOf("الملاحظات", "ملاحظات") to listOf("notes", "keep", "memo"),
         )
 
         private val MENTION_IGNORE = setOf("الهاتف", "الاتصال", "المتجر", "الساعه", "جوجل", "قوقل").map { Text.norm(it) }.toSet()

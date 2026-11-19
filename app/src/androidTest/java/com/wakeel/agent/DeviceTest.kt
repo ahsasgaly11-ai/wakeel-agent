@@ -605,6 +605,40 @@ class DeviceTest {
     }
 
     @Test
+    fun t20_manyItemsAreSelectedAndMovedInOnePlan() {
+        // A gallery-like page: 360 thumbnails, far more on one screen than can be listed, and a grid that
+        // accepts the accessibility long-press and ignores it — as real galleries do. Only a real touch selects.
+        FakeModel.plans += plan(
+            """[{"type":"open_app","text":"Sandbox"},{"type":"tap","find":"Photos"},{"type":"long_press","find":"Photo 1"},
+                {"type":"tap","find":"All"},{"type":"tap","find":"More"},{"type":"tap","find":"Move to album"},
+                {"type":"tap","find":"Create album"},{"type":"type","find":"Album name","text":"صور الهند"},{"type":"tap","find":"Create"},
+                {"type":"done","text":"نقلتُ الصور إلى ألبوم «صور الهند»."}]"""
+        )
+        val r = run("انقل كل صور Sandbox إلى ألبوم جديد اسمه صور الهند")
+        dump("after moving the photos")
+        val s = screen()
+        note("dense grid: ${s.nodes.size} elements read, ${s.nodes.count { it.inList }} of them thumbnails")
+        assertEquals(TaskStatus.DONE, r.status)
+        assertEquals("one planning call for the whole job, plus one learning call", 2, r.calls)
+        assertEquals("the bars around a dense grid must stay readable", "moved 360 photos to album صور الهند", status())
+        assertTrue("the grid must not use up the whole element list", s.nodes.count { it.inList } <= 110)
+        assertNotNull("the tab bar under the grid was crowded out", s.nodes.firstOrNull { it.viewId == "tab_wallet" })
+    }
+
+    @Test
+    fun t21_aRepeatedStepIsNamedWhenTheTaskStops() {
+        FakeModel.plans += plan("""[{"type":"open_app","text":"Sandbox"},{"type":"tap","find":"Wallet"}]""")
+        // The model keeps pressing something that does nothing
+        repeat(3) { FakeModel.plans += plan("""[{"type":"tap","find":"Balance: 100 USDT"}]""") }
+        val r = run("اضغط على الرصيد في محفظة Sandbox حتى يتغيّر")
+        assertEquals(TaskStatus.FAILED, r.status)
+        assertEquals("the third identical step must end the task", 4, r.calls)
+        assertTrue("the owner is not told which step kept repeating: ${r.result}", r.result.contains("Balance: 100 USDT"))
+        assertTrue("the owner is not told where it happened: ${r.result}", r.result.contains("Sandbox"))
+        assertTrue("no way forward is offered: ${r.result}", r.result.contains("علّمني مهمة"))
+    }
+
+    @Test
     fun t18_lockedScreenPausesAndRunningTaskKeepsScreenOn() {
         val pm = ctx.getSystemService(PowerManager::class.java)
         val km = ctx.getSystemService(KeyguardManager::class.java)

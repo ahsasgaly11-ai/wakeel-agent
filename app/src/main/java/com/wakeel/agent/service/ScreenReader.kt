@@ -109,6 +109,9 @@ class Screen(val pkg: String, val activity: String, val nodes: List<UiNode>, val
 
 object ScreenReader {
     private const val MAX_NODES = 160
+
+    /** A dense grid (a gallery, a file list) may fill the page; the bars above and below it must still be read. */
+    private const val MAX_LIST_NODES = 110
     private const val MAX_LABEL = 50
 
     /**
@@ -125,7 +128,7 @@ object ScreenReader {
         val root = root(svc) ?: return Screen("", "", emptyList(), w, h)
         val pkg = root.packageName?.toString() ?: ""
         val out = ArrayList<UiNode>()
-        walk(root, out, w, h, false, false, 0)
+        walk(root, out, w, h, false, false, 0, null)
         return Screen(pkg, activityFor(pkg), out, w, h)
     }
 
@@ -157,9 +160,10 @@ object ScreenReader {
 
     private fun walk(
         n: AccessibilityNodeInfo, out: MutableList<UiNode>, w: Int, h: Int,
-        underLabeled: Boolean, inList: Boolean, depth: Int,
+        underLabeled: Boolean, inList: Boolean, depth: Int, listRoom: IntArray?,
     ) {
         if (out.size >= MAX_NODES || depth > 45) return
+        if (listRoom != null && listRoom[0] <= 0) return
         if (!n.isVisibleToUser) return
         val b = Rect()
         n.getBoundsInScreen(b)
@@ -191,12 +195,15 @@ object ScreenReader {
                 inList = inList,
                 info = n,
             )
+            listRoom?.let { it[0]-- }
         }
         val childUnder = underLabeled || merged || (interactive && own.isNotEmpty() && !n.isScrollable)
-        val childInList = inList || isDynamicList(n)
+        val dynamic = isDynamicList(n)
+        val childInList = inList || dynamic
+        val childRoom = listRoom ?: if (dynamic) intArrayOf(MAX_LIST_NODES) else null
         for (i in 0 until n.childCount) {
             val c = n.getChild(i) ?: continue
-            walk(c, out, w, h, childUnder, childInList, depth + 1)
+            walk(c, out, w, h, childUnder, childInList, depth + 1, childRoom)
         }
     }
 

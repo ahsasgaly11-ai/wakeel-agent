@@ -22,4 +22,16 @@
     <item name="pin" type="id" />
     <item name="pin_len" type="id" />
     <item name="sw_dark" type="id" />
+    <item name="btn_photos" type="id" />
+    <item name="photo_grid" type="id" />
+    <item name="sel_all" type="id" />
+    <item name="sel_count" type="id" />
+    <item name="btn_share" type="id" />
+    <item name="btn_delete" type="id" />
+    <item name="btn_more" type="id" />
+    <item name="btn_move" type="id" />
+    <item name="btn_copy" type="id" />
+    <item name="btn_new_album" type="id" />
+    <item name="album_name" type="id" />
+    <item name="btn_create" type="id" />
 </resources>
