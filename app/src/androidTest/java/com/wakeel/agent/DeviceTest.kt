@@ -594,10 +594,10 @@ class DeviceTest {
             """[{"type":"type","find":"Message","text":"مرة واحدة فقط"},{"type":"tap","find":"Send"},{"type":"done","text":"أرسلتُها مرة أخرى."}]""",
             sensitive = true,
         )
-        FakeModel.plans += plan("""[{"type":"done","text":"أُرسلت الرسالة."}]""")
         val r = run("أبلغ Mariam في Sandbox: مرة واحدة فقط")
         dump("after the guarded send")
-        assertEquals(TaskStatus.DONE, r.status)
+        assertEquals("the task is done — the message did go out", TaskStatus.DONE, r.status)
+        assertEquals("the second attempt ends the task instead of costing more calls", 2, r.calls)
         assertEquals("the message must have gone out exactly once", "messages sent to Mariam: 1", byId("sent_count")?.label)
         assertEquals("the owner must be asked once, not once per attempt", 1, confirmCount)
         assertTrue("the second attempt was not stopped", r.logs.any { it.text.contains("منعتُ") })

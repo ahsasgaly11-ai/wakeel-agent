@@ -185,6 +185,16 @@ class AgentEngine(
         return " — SENT: the text left the input field, so it went through. Do not send it again; if that was the task, call done."
     }
 
+    /**
+     * The model is about to send again a text that already went out to the same place in this task.
+     * That only happens when it did not believe the first send. The message is there, so the task ends
+     * here as done — no duplicate, and no further calls spent on doubting it.
+     */
+    private fun alreadySent(run: Run, text: String): Nothing {
+        log(run, LogKind.WARN, "منعتُ إرسال النص نفسه مرة ثانية: «${text.take(40)}»")
+        throw Stop(TaskStatus.DONE, "أُرسل «${text.take(80)}» مرة واحدة. أوقفتُ محاولة إرساله ثانيةً حتى لا يتكرر.")
+    }
+
     /** What the owner should know when a task ends badly although something was already sent. */
     private fun sentFootnote(run: Run): String =
         if (run.sentShown.isEmpty()) "" else "\n\nللعلم: أُرسل النص «${run.sentShown.first().take(60)}» خلال هذه المهمة (خلا حقل الكتابة بعد الضغط على الإرسال)."
@@ -746,13 +756,7 @@ class AgentEngine(
                 val risky = sensitive || Safety.isSensitiveLabel(n.label)
                 val here = if (risky) svc.readScreen() else cur
                 val drafts = if (risky) draftsOf(here) else emptyList()
-                drafts.firstOrNull { sentKey(here, it) in run.sent }?.let { dup ->
-                    log(run, LogKind.WARN, "منعتُ إرسال النص نفسه مرة ثانية: «${dup.take(40)}»")
-                    return Outcome(
-                        "${a.describe()} ✗ REFUSED: «${dup.take(40)}» was already SENT here in this task — sending it again would duplicate it. Call done.",
-                        abort = true, breaksMacro = true,
-                    )
-                }
+                drafts.firstOrNull { sentKey(here, it) in run.sent }?.let { alreadySent(run, it) }
                 if (!confirm(run, risky, if (a.type == ActionType.TAP) "الضغط على «${n.label.take(40)}»" else "الضغط المطوّل على «${n.label.take(40)}»"))
                     return Outcome("${a.describe()} ✗ DENIED by owner — do not retry", abort = true, breaksMacro = true)
                 val ok = if (a.type == ActionType.TAP) click(svc, n) else longClick(svc, n)
@@ -805,13 +809,7 @@ class AgentEngine(
                 if (readOnly && !Safety.isSearchField(field.label, field.viewId))
                     return Outcome("type ✗ REFUSED: read-only app — only search fields may be typed in", abort = true, breaksMacro = true)
                 val txt = a.text.orEmpty()
-                if (txt.isNotBlank() && sentKey(svc.readScreen(), txt) in run.sent) {
-                    log(run, LogKind.WARN, "منعتُ كتابة نص أُرسل للتوّ: «${txt.take(40)}»")
-                    return Outcome(
-                        "type ✗ REFUSED: «${txt.take(40)}» was already SENT here in this task — do not send it twice. Call done.",
-                        abort = true, breaksMacro = true,
-                    )
-                }
+                if (txt.isNotBlank() && sentKey(svc.readScreen(), txt) in run.sent) alreadySent(run, txt)
                 val (ok, now) = setTextVerified(svc, field, txt)
                 Outcome(
                     "type #${field.id} ${mark(ok)} — field now: \"${now.replace("\n", "\\n").take(160)}\"" +
@@ -830,10 +828,7 @@ class AgentEngine(
                 }
                 val here = svc.readScreen()
                 val drafts = draftsOf(here)
-                if (sensitive) drafts.firstOrNull { sentKey(here, it) in run.sent }?.let { dup ->
-                    log(run, LogKind.WARN, "منعتُ إرسال النص نفسه مرة ثانية: «${dup.take(40)}»")
-                    return Outcome("enter ✗ REFUSED: «${dup.take(40)}» was already SENT here in this task. Call done.", abort = true, breaksMacro = true)
-                }
+                if (sensitive) drafts.firstOrNull { sentKey(here, it) in run.sent }?.let { alreadySent(run, it) }
                 if (!confirm(run, sensitive, "إرسال/تأكيد النص المكتوب")) return Outcome("enter ✗ DENIED by owner", abort = true, breaksMacro = true)
                 val ok = pressEnter(svc, cur, if (byFind) null else a.id?.let { orig.byId(it) })
                 val sentNote = if (ok && sensitive) committed(svc, run, here, drafts) else ""
