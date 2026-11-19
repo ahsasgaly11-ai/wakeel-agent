@@ -278,6 +278,7 @@ class AgentEngine(
         var wantHd = false
         val recent = ArrayDeque<String>()
         var escalatedForLoop = false
+        var blockedHits = 0
         val max = settings.maxSteps
 
         for (step in 1..max) {
@@ -293,9 +294,17 @@ class AgentEngine(
                     svc.global(AccessibilityService.GLOBAL_ACTION_HOME); svc.waitForIdle(); screen = svc.readScreen()
                 }
             }
-            Safety.blockReason(screen.pkg, settings, apps)?.let {
+            Safety.blockReason(screen.pkg, settings, apps)?.let { reason ->
+                // A protected app came up (usually a mis-tap): leave it at once and let the agent recover.
+                svc.global(AccessibilityService.GLOBAL_ACTION_BACK)
                 svc.global(AccessibilityService.GLOBAL_ACTION_HOME)
-                throw Stop(TaskStatus.FAILED, it)
+                blockedHits++
+                if (blockedHits >= 2) throw Stop(TaskStatus.FAILED, reason)
+                log(run, LogKind.WARN, "فُتح تطبيق محمي بالخطأ — خرج الوكيل منه فوراً دون لمس أي شيء")
+                trail += "(a protected app ${screen.pkg} opened by mistake — it is off-limits; you are back on the home screen. Use open_app to reach the intended app, never tap home-screen icons)"
+                run.routeOk = false
+                svc.waitForIdle()
+                continue
             }
 
             val needShot = settings.allowScreenshots && !screen.hasPassword && (wantShot || screen.nodes.size < 3)
