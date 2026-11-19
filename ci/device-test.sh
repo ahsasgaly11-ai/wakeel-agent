@@ -35,21 +35,28 @@ adb shell dumpsys accessibility > "$R/release-accessibility.txt" 2>&1
 if grep -i "bound services" "$R/release-accessibility.txt" | grep -q "Service\["; then say "accessibility service binds: OK"; else say "accessibility service binds: FAILED"; fi
 shot 2-release-service-on
 
-# The floating bubble opens the quick-command window
+# The floating bubble opens the quick-command window…
 adb shell input tap 88 760
 sleep 4
 shot 3-release-bubble-command
-adb shell input keyevent 4; sleep 1
-adb shell input keyevent 4; sleep 2
+python3 ci/ui.py dump > "$R/release-command-text.txt" 2>&1
+if grep -q "تنفيذ" "$R/release-command-text.txt"; then say "the bubble opens the command window: OK"; else say "the bubble opens the command window: FAILED"; fi
+sleep 6
 
-# One real task through the real screens: device diagnosis (runs locally, no API key needed)
+# …and one real task goes through it: bubble → command → engine → result window.
+# (Device diagnosis: it runs locally, so it needs no API key.)
 python3 ci/ui.py tap "شخّص الهاتف" 6 >> "$R/release-ui.txt" 2>&1
 sleep 2
-python3 ci/ui.py tap "نفّذ المهمة" 7 >> "$R/release-ui.txt" 2>&1
-sleep 9
+python3 ci/ui.py tap "تنفيذ" 7 >> "$R/release-ui.txt" 2>&1
+sleep 10
 shot 4-release-task-result
 python3 ci/ui.py dump > "$R/release-result-text.txt" 2>&1
-if grep -q "البطارية" "$R/release-result-text.txt"; then say "a task runs end to end and shows its result: OK"; else say "a task runs end to end and shows its result: NOT CONFIRMED (see 4-release-task-result.png)"; fi
+if grep -q "مهمة جديدة" "$R/release-result-text.txt" && grep -q "حالة الهاتف" "$R/release-result-text.txt"; then
+  say "a task runs from the bubble to its result window: OK"
+else
+  say "a task runs from the bubble to its result window: NOT CONFIRMED (see 4-release-task-result.png)"
+fi
+adb shell input keyevent 4; sleep 1
 
 adb logcat -d -v time > "$R/release-logcat-full.txt" 2>&1
 grep -E "FATAL EXCEPTION|AndroidRuntime|$PKG" "$R/release-logcat-full.txt" | grep -E "FATAL|AndroidRuntime: |Exception|Error" | head -150 > "$R/release-errors.txt"

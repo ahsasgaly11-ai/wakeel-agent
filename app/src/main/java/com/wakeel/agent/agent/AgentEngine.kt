@@ -7,6 +7,7 @@ import android.content.Context
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
+import android.os.SystemClock
 import android.view.accessibility.AccessibilityNodeInfo
 import android.view.accessibility.AccessibilityNodeInfo.AccessibilityAction
 import android.widget.Toast
@@ -129,12 +130,12 @@ class AgentEngine(
 
     /** What a tap is remembered as in the app's map: a list row by its title only, an icon without text by its view id. */
     private fun pendingFor(pkg: String, from: String?, n: UiNode): Pending? {
-        val label = if (n.inList) n.label.substringBefore(" · ").trim() else n.label
+        val label = n.title
         return if (label.isBlank() && n.viewId.isEmpty()) null else Pending(pkg, from, label, n.viewId)
     }
 
-    /** How a tapped element is named in a saved route: a list row by its title, since the rest of the row changes. */
-    private fun stepLabel(n: UiNode): String = (if (n.inList) n.label.substringBefore(" · ").trim() else n.label).take(40)
+    /** How a tapped element is named in a saved route: by its title, since the details beside it (a count, a status) change. */
+    private fun stepLabel(n: UiNode): String = n.title.take(40)
 
     private val uiLang: String
         get() = runCatching { ctx.resources.configuration.locales[0].toLanguageTag() }.getOrDefault("ar")
@@ -268,6 +269,7 @@ class AgentEngine(
 
         // 2) Built-in local commands — zero cost
         if (match == null) {
+            val t0 = SystemClock.uptimeMillis()
             when (val r = router.route(task, svc)) {
                 is LocalRouter.Result.Handled -> {
                     run.localSteps++
@@ -280,7 +282,7 @@ class AgentEngine(
                     if (r.fresh) maps.expectRoot(r.pkg)
                     log(run, LogKind.LOCAL, "فُتح «${r.app}» محلياً دون استهلاك API")
                     trail += "${r.step.type} \"${r.app}\" ✓"
-                    svc.waitForIdle(600, 4000)
+                    svc.waitForApp(if (r.fresh) r.pkg else null, t0)
                 }
                 is LocalRouter.Result.Path -> {
                     // The learned map already knows the way to this page: walk it, no model involved
@@ -714,10 +716,11 @@ class AgentEngine(
                 Safety.blockReason(app.pkg, settings, apps)?.let { return Outcome("open_app \"${app.label}\" ✗ blocked by owner settings", abort = true) }
                 // Already opened a moment ago by the local router: do not restart it a second time
                 val justOpened = cur.pkg == app.pkg && run.route.lastOrNull()?.let { it.type == "open_app" && it.text == app.pkg } == true
+                val t0 = SystemClock.uptimeMillis()
                 val ok = justOpened || apps.launch(app.pkg, fresh = true)
                 if (ok && !justOpened) {
+                    svc.waitForApp(app.pkg, t0)
                     maps.expectRoot(app.pkg)
-                    svc.waitForIdle(600, 4000)
                 }
                 run.pending = null
                 Outcome(
@@ -728,10 +731,11 @@ class AgentEngine(
 
             ActionType.OPEN_SETTINGS -> {
                 val key = a.text.orEmpty()
+                val t0 = SystemClock.uptimeMillis()
                 val (ok, label) = router.openSettings(key)
                 if (ok) {
+                    svc.waitForApp(null, t0)
                     if (key.trim().equals("main", ignoreCase = true)) maps.expectRoot("com.android.settings")
-                    svc.waitForIdle(600, 4000)
                 }
                 run.pending = null
                 Outcome(
@@ -743,8 +747,9 @@ class AgentEngine(
             ActionType.OPEN_URL -> {
                 val url = LocalRouter.normalizeUrl(a.text.orEmpty())
                     ?: return Outcome("open_url ✗ this link type is not allowed", abort = true)
+                val t0 = SystemClock.uptimeMillis()
                 val ok = router.openUrl(url)
-                if (ok) svc.waitForIdle(800, 5000)
+                if (ok) svc.waitForApp(null, t0)
                 run.pending = null
                 Outcome("open_url ${url.take(90)} ${mark(ok)}", abort = !ok, macro = if (ok) MacroStep("open_url", text = url) else null)
             }
@@ -790,8 +795,9 @@ class AgentEngine(
                 "tap", "long_press" -> {
                     val n = waitFor(svc, s, params)
                     if (n == null || (pol == Policy.READ_ONLY && Safety.isTradeLabel(n.label))) false
-                    else if (!confirm(run, s.confirm || Safety.isSensitiveLabel(n.label), "الضغط على «${n.label.take(40)}»")) {
-                        trail += "(owner denied a saved step)"; return i
+                    else if (!confirm(run, s.confirm || Safety.isSensitiveLabel(n.label), "الضغط على «${n.title.take(40)}»")) {
+                        // The owner said no: stop here. Nothing failed, and no model call is spent looking for another way.
+                        throw Stop(TaskStatus.STOPPED, "توقّفتُ قبل «${n.title.take(40)}» لأنك لم توافق.")
                     } else {
                         filled = filled.copy(sig = n.signature, label = stepLabel(n))
                         val done = if (s.type == "tap") click(svc, n) else longClick(svc, n)
@@ -804,7 +810,7 @@ class AgentEngine(
                     if (n == null || n.password) false else setTextVerified(svc, n, text.orEmpty()).first
                 }
                 "enter" -> {
-                    if (!confirm(run, s.confirm, "إرسال/تأكيد النص المكتوب")) { trail += "(owner denied a saved step)"; return i }
+                    if (!confirm(run, s.confirm, "إرسال/تأكيد النص المكتوب")) throw Stop(TaskStatus.STOPPED, "توقّفتُ قبل الإرسال لأنك لم توافق.")
                     pressEnter(svc, svc.readScreen(), null)
                 }
                 "scroll" -> scroll(svc, s.sig?.let { here.find(it) }, s.dir ?: "down")
@@ -815,26 +821,31 @@ class AgentEngine(
                 "open_app" -> s.text?.let { pkg ->
                     // Saved routes begin on the app's first page ("resume" marks a return to an app mid-task)
                     val fresh = s.dir != "resume"
+                    val t0 = SystemClock.uptimeMillis()
                     Safety.blockReason(pkg, settings, apps) == null && apps.launch(pkg, fresh).also {
                         if (it) {
-                            if (fresh) maps.expectRoot(pkg)
                             run.pending = null
-                            svc.waitForIdle(600, 4000)
+                            svc.waitForApp(pkg, t0)
+                            if (fresh) maps.expectRoot(pkg)
                         }
                     }
                 } ?: false
-                "open_settings" -> router.openSettings(s.text.orEmpty()).first.also {
-                    if (it) {
-                        if (s.text?.trim().equals("main", ignoreCase = true)) maps.expectRoot("com.android.settings")
-                        run.pending = null
-                        svc.waitForIdle(600, 4000)
+                "open_settings" -> {
+                    val t0 = SystemClock.uptimeMillis()
+                    router.openSettings(s.text.orEmpty()).first.also {
+                        if (it) {
+                            run.pending = null
+                            svc.waitForApp(null, t0)
+                            if (s.text?.trim().equals("main", ignoreCase = true)) maps.expectRoot("com.android.settings")
+                        }
                     }
                 }
                 "open_url" -> {
                     // Values inside a link are percent-encoded
                     val url = Templates.fill(s.text, params.mapValues { Commands.enc(it.value) }).orEmpty()
                     filled = filled.copy(text = url)
-                    router.openUrl(url).also { if (it) svc.waitForIdle(800, 5000) }
+                    val t0 = SystemClock.uptimeMillis()
+                    router.openUrl(url).also { if (it) svc.waitForApp(null, t0) }
                 }
                 "wait" -> { delay(2000); true }
                 else -> false
@@ -911,10 +922,11 @@ class AgentEngine(
             ?: throw Stop(TaskStatus.FAILED, "خدمة إمكانية الوصول غير مفعّلة.")
         if (Safety.policy(pkg, settings, apps) == Policy.BLOCKED) throw Stop(TaskStatus.FAILED, "هذا التطبيق محجوب عن الوكيل، فلا يمكن استكشافه.")
         log(run, LogKind.LOCAL, "استكشاف آمن: يزور التبويبات السفلية فقط، دون كتابة أو إرسال، ودون استهلاك API")
+        val t0 = SystemClock.uptimeMillis()
         if (!apps.launch(pkg, fresh = true)) throw Stop(TaskStatus.FAILED, "تعذّر فتح «$label».")
+        svc.waitForApp(pkg, t0, 9000)
         maps.expectRoot(pkg)
-        svc.waitForIdle(900, 6000)
-        delay(700)
+        delay(500)
         var home = svc.readScreen()
         if (home.pkg != pkg) { delay(1800); home = svc.readScreen() }
         if (home.pkg != pkg) throw Stop(TaskStatus.FAILED, "لم يظهر «$label» في المقدمة (ربما يطلب تسجيل دخول أو إذناً).")

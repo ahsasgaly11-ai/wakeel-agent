@@ -135,7 +135,7 @@ class AppMapStore(ctx: Context) {
             val structural = s.structural()
             val ids = structural.asSequence().map { it.viewId }.filter { it.isNotEmpty() }.distinct().sorted().take(24).toList()
             val basis = if (ids.size >= 3) ids.joinToString(",")
-            else structural.asSequence().map { Text.norm(it.label) }.filter { okLabel(it) }.distinct().sorted().take(16).joinToString(",")
+            else structural.asSequence().map { Text.norm(it.title) }.filter { okLabel(it) }.distinct().sorted().take(16).joinToString(",")
             return s.activity + "#" + Integer.toHexString((basis + "|" + Text.norm(tabOf(s))).hashCode())
         }
 
@@ -207,7 +207,7 @@ class AppMapStore(ctx: Context) {
             rootPkg = ""
         }
         for (n in s.structural()) {
-            val l = clean(n.label)
+            val l = clean(n.title)   // "Battery · 100%" is remembered as "Battery": the detail changes, the name does not
             if (!okLabel(l)) continue
             val k = if (n.editable) "✎$l" else l
             sc.elements[k] = (sc.elements[k] ?: 0) + 1

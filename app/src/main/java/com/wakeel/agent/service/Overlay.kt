@@ -51,6 +51,7 @@ class Overlay(private val svc: AgentAccessibilityService) {
     private var stopBtn: TextView? = null
 
     private var lastState: EngineState = EngineState.Idle
+    private var openedToAsk = false
 
     // Learning by demonstration
     private var rec = DemoRecorder.State()
@@ -282,6 +283,7 @@ class Overlay(private val svc: AgentAccessibilityService) {
         panel = null
         statusTv = null; questionTv = null; confirmRow = null; mainBtn = null; stopBtn = null
         recStatusTv = null
+        openedToAsk = false
     }
 
     // ---------- Learning by demonstration ----------
@@ -394,7 +396,13 @@ class Overlay(private val svc: AgentAccessibilityService) {
         }
         if (bubble == null) return
         paintBubble()
-        if (s is EngineState.Confirm && panel == null) openPanel()
+        if (s is EngineState.Confirm && panel == null) {
+            openPanel()
+            openedToAsk = panel != null
+        } else if (prev is EngineState.Confirm && s is EngineState.Running && openedToAsk) {
+            // It opened by itself to ask for approval: get out of the way of the app being worked on
+            closePanel()
+        }
         if (panel == null) return
         val result = Hub.engine.lastResult.value
         statusTv?.text = when (s) {

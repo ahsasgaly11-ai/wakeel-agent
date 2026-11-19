@@ -180,6 +180,14 @@ class DeviceTest {
         val s = screen()
         note("── $title: app=${s.pkg} activity=${s.activity} elements=${s.nodes.size}")
         s.compact().lineSequence().take(45).forEach { if (it.isNotBlank()) note("     $it") }
+        if (s.nodes.isEmpty()) {
+            // Nothing readable: say which windows Android reports, to tell "still loading" from "cannot be read"
+            runCatching {
+                svc().windows.forEach { w ->
+                    note("     window type=${w.type} active=${w.isActive} focused=${w.isFocused} title=${w.title} app=${runCatching { w.root?.packageName }.getOrNull()}")
+                }
+            }
+        }
     }
 
     private fun goHome() {
@@ -192,7 +200,7 @@ class DeviceTest {
     private fun closeOwnWindows(waitMs: Long) {
         if (!waitUntil(waitMs) { screen().pkg == ctx.packageName }) return
         svc().global(AccessibilityService.GLOBAL_ACTION_BACK)
-        waitUntil(4000) { screen().pkg != ctx.packageName }
+        waitUntil(5000) { screen().pkg.let { it.isNotEmpty() && it != ctx.packageName } }
         Thread.sleep(400)
     }
 
@@ -260,7 +268,7 @@ class DeviceTest {
         assertTrue("Wakeel's main screen did not appear", waitUntil(20_000) { screen().pkg == ctx.packageName })
         assertNotNull("command box missing", find("ماذا أنجز لك؟", 10_000))
         dump("Wakeel · القيادة")
-        val expect = linkedMapOf("المعرفة" to "التطبيقات", "السجل" to "لا توجد مهام بعد", "الإعدادات" to "إنفاق اليوم", "القيادة" to "ماذا أنجز لك؟")
+        val expect = linkedMapOf("المعرفة" to "التطبيقات", "السجل" to "لا توجد مهام بعد", "الإعدادات" to "مزوّد الذكاء الاصطناعي", "القيادة" to "ماذا أنجز لك؟")
         for ((tab, marker) in expect) {
             val node = screen().nodes.lastOrNull { it.label.trim() == tab && it.clickable }
                 ?: screen().nodes.lastOrNull { it.label.trim() == tab }
@@ -368,10 +376,14 @@ class DeviceTest {
         assertEquals("a trusted skill must not call the model", 0, third.calls)
         assertEquals("أرسلتُ «تمام» إلى Saeed.", third.result)
 
-        // Denying the confirmation must stop the message
+        // Saying no to the confirmation stops the task: nothing is sent, and no model call is spent on another way
+        val before = Hub.skills.skills.value.single()
         val denied = run("أرسل في Sandbox إلى Layla: لا ترسل", allow = false)
         note("denied run: ${denied.status} · ${status()}")
         assertFalse("a denied message was sent anyway", status().contains("لا ترسل"))
+        assertEquals(TaskStatus.STOPPED, denied.status)
+        assertEquals(0, denied.calls)
+        assertEquals("a refusal is not a failure of the skill", before.fails, Hub.skills.skills.value.single().fails)
     }
 
     @Test
@@ -496,6 +508,7 @@ class DeviceTest {
         assertEquals(TaskStatus.DONE, first.status)
         assertEquals(SETTINGS_APP, screen().pkg)
         note("settings map:\n" + Hub.maps.describe(SETTINGS_APP))
+        assertNotNull("the row must be remembered by its title", Hub.maps.findPath(SETTINGS_APP, "Network & internet"))
 
         goHome()
         FakeModel.plans += plan("""[{"type":"done","text":"فتحتُ صفحة الشبكة."}]""")
@@ -518,6 +531,10 @@ class DeviceTest {
     fun t14_wifiSwitchIsHandledLocally() {
         val r = run("شغل الواي فاي")
         dump("wifi page")
+        if (r.status != TaskStatus.DONE) {
+            Thread.sleep(4000)
+            dump("wifi page, four seconds later")
+        }
         assertEquals(TaskStatus.DONE, r.status)
         assertEquals(0, r.calls)
     }

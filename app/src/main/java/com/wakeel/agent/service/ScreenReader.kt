@@ -3,6 +3,7 @@ package com.wakeel.agent.service
 import android.accessibilityservice.AccessibilityService
 import android.graphics.Rect
 import android.view.accessibility.AccessibilityNodeInfo
+import android.view.accessibility.AccessibilityWindowInfo
 import com.wakeel.agent.core.Text
 import kotlin.math.abs
 
@@ -26,6 +27,9 @@ class UiNode(
 ) {
     /** Stable identity across screen reads (used for batching and saved routes). */
     val signature: String get() = "$cls|$viewId|${label.take(60)}"
+
+    /** What the element is called. A row shows "Title · detail · detail"; the details change, the title does not. */
+    val title: String get() = label.substringBefore(" · ").trim()
 }
 
 class Screen(val pkg: String, val activity: String, val nodes: List<UiNode>, val width: Int, val height: Int) {
@@ -107,18 +111,32 @@ object ScreenReader {
     private const val MAX_NODES = 160
     private const val MAX_LABEL = 50
 
+    /**
+     * The app window to read. Normally the active one; while a page is still starting, Android may not
+     * report an active window yet, so the front-most app window is used instead.
+     */
+    fun root(svc: AccessibilityService): AccessibilityNodeInfo? {
+        svc.rootInActiveWindow?.let { return it }
+        val apps = runCatching { svc.windows }.getOrNull().orEmpty().filter { it.type == AccessibilityWindowInfo.TYPE_APPLICATION }
+        return runCatching { (apps.firstOrNull { it.isActive } ?: apps.firstOrNull { it.isFocused } ?: apps.firstOrNull())?.root }.getOrNull()
+    }
+
     fun read(svc: AccessibilityService, w: Int, h: Int, activityFor: (String) -> String): Screen {
-        val root = svc.rootInActiveWindow ?: return Screen("", "", emptyList(), w, h)
+        val root = root(svc) ?: return Screen("", "", emptyList(), w, h)
         val pkg = root.packageName?.toString() ?: ""
         val out = ArrayList<UiNode>()
         walk(root, out, w, h, false, false, 0)
         return Screen(pkg, activityFor(pkg), out, w, h)
     }
 
-    /** The label the agent would show for [n] on screen (its own text, or the text of what it contains). */
-    fun labelOf(n: AccessibilityNodeInfo): String {
+    /**
+     * The label the agent shows for [n] on screen: its own text, or the text of what it contains.
+     * [evenIfHidden] also reads children that are no longer visible — the element was just tapped
+     * and its page may already be closing.
+     */
+    fun labelOf(n: AccessibilityNodeInfo, evenIfHidden: Boolean = false): String {
         val own = ownText(n)
-        return (if (own.isEmpty() && !n.isScrollable) collectText(n, 3) else own).take(MAX_LABEL)
+        return (if (own.isEmpty() && !n.isScrollable) collectText(n, 3, evenIfHidden) else own).take(MAX_LABEL)
     }
 
     private fun ownText(n: AccessibilityNodeInfo): String {
@@ -182,7 +200,7 @@ object ScreenReader {
         }
     }
 
-    private fun collectText(n: AccessibilityNodeInfo, max: Int): String {
+    private fun collectText(n: AccessibilityNodeInfo, max: Int, evenIfHidden: Boolean = false): String {
         val parts = ArrayList<String>()
         val queue = ArrayDeque<AccessibilityNodeInfo>()
         for (i in 0 until n.childCount) n.getChild(i)?.let(queue::add)
@@ -190,7 +208,7 @@ object ScreenReader {
         while (queue.isNotEmpty() && parts.size < max && visited < 40) {
             val c = queue.removeFirst()
             visited++
-            if (!c.isVisibleToUser) continue
+            if (!evenIfHidden && !c.isVisibleToUser) continue
             val t = ownText(c)
             if (t.isNotEmpty() && t !in parts) parts += t
             for (i in 0 until c.childCount) c.getChild(i)?.let(queue::add)

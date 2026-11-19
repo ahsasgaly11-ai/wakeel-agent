@@ -118,6 +118,7 @@ class DemoRecorder(
         _state.value = State(true, task, 0, "افتح التطبيق ونفّذ المهمة بيدك")
         // Always begin from the home screen, the place a replay begins from
         armedAt = SystemClock.uptimeMillis() + 1300
+        svc.setFastEvents(true)
         Handler(Looper.getMainLooper()).postDelayed({ svc.global(AccessibilityService.GLOBAL_ACTION_HOME) }, 500)
         return true
     }
@@ -215,20 +216,19 @@ class DemoRecorder(
         if (src?.isEditable == true) return   // tapping a text field only focuses it; the typing step does that itself
         flushText()
         enterApp(pkg, restart = false)
-        val full = (src?.let { ScreenReader.labelOf(it) }?.takeIf { it.isNotBlank() }
+        // The element's label exactly as the agent reads it on screen ("Title · detail"). By the time the event
+        // arrives its page may be closing, so hidden children are read too; the event's own texts are the last resort.
+        val full = (src?.let { ScreenReader.labelOf(it, evenIfHidden = true) }?.takeIf { it.isNotBlank() }
             ?: e.contentDescription?.toString()?.takeIf { it.isNotBlank() }
-            ?: e.text?.joinToString(" ") { it.toString() }.orEmpty()).trim().take(50)
+            ?: e.text?.map { it.toString().trim() }?.filter { it.isNotEmpty() }?.take(3)?.joinToString(" · ").orEmpty()).trim().take(50)
         if (full.isBlank() && viewId.isBlank()) return   // nothing to find it by later
-        var label = full
-        if (inList(src)) {
-            // A list row: keep its title only (a chat name, a result) — the rest of the row changes every time
-            label = full.substringBefore(" · ").trim()
-            if (label.length >= 2) picked += label
-        }
-        label = label.take(40)
+        // Remembered by its title: the details beside it (last message, a count) change every time
+        val label = full.substringBefore(" · ").trim().take(40)
+        // A row of a list, or anything with details beside its title, may be "the one named in the phrase"
+        if (label.length >= 2 && (label != full || inList(src))) picked += label
         val type = if (e.eventType == AccessibilityEvent.TYPE_VIEW_CLICKED) "tap" else "long_press"
         steps += MacroStep(
-            type, "$cls|$viewId|${if (label == full.take(40)) full.take(60) else label}",
+            type, "$cls|$viewId|${full.take(60)}",
             label = label.ifBlank { "#$viewId" }, confirm = Safety.isSensitiveLabel(label),
         )
         lastTypeWasSearch = false
@@ -241,6 +241,7 @@ class DemoRecorder(
         if (!active) return null
         flushText()
         _state.value = State()
+        AgentAccessibilityService.instance?.setFastEvents(false)
         val route = steps.toMutableList()
         if (!save || route.isEmpty()) return null
         // A search typed last was submitted from the keyboard, which cannot be observed: press enter on replay

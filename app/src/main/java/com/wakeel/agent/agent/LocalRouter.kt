@@ -7,6 +7,7 @@ import android.hardware.camera2.CameraCharacteristics
 import android.hardware.camera2.CameraManager
 import android.media.AudioManager
 import android.net.Uri
+import android.os.SystemClock
 import android.provider.AlarmClock
 import android.view.KeyEvent
 import android.view.accessibility.AccessibilityNodeInfo
@@ -149,10 +150,11 @@ class LocalRouter(private val ctx: Context, private val apps: AppIndex, private 
 
     private suspend fun toggle(cmd: Cmd.Toggle, task: String, svc: AgentAccessibilityService): Result {
         val page = SettingsCatalog.page(cmd.key) ?: return Result.None
+        val t0 = SystemClock.uptimeMillis()
         if (!openSettings(cmd.key).first) return Result.None
-        svc.waitForIdle(600, 4000)
+        svc.waitForApp(null, t0, 9000)
         val words = page.words.map { Text.norm(it) }
-        repeat(5) {
+        repeat(8) {
             val scr = svc.readScreen()
             val switches = scr.nodes.filter { it.role == "sw" }
             val onDedicatedPage = scr.nodes.any { n ->

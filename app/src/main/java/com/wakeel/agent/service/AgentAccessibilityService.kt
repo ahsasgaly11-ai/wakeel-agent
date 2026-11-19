@@ -69,6 +69,13 @@ class AgentAccessibilityService : AccessibilityService() {
     @Volatile
     private var activityPkg = ""
 
+    /** When another app last showed a new window, and which app it was. */
+    @Volatile
+    private var lastWindowChange = 0L
+
+    @Volatile
+    private var lastWindowPkg = ""
+
     // Passive learning (only when the owner enabled it): last thing the owner tapped and where.
     private var passiveJob: Job? = null
 
@@ -95,6 +102,8 @@ class AgentAccessibilityService : AccessibilityService() {
         if (recording) runCatching { Hub.recorder.onEvent(event) }
         when (event.eventType) {
             AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED -> {
+                lastWindowChange = lastEvent
+                lastWindowPkg = pkg
                 val cls = event.className?.toString().orEmpty()
                 val isWindowChrome = cls.startsWith("android.") || cls.contains("Dialog") || cls.contains("Popup") ||
                     cls.contains("Menu") || cls.contains("Toast") || !cls.contains('.')
@@ -197,6 +206,42 @@ class AgentAccessibilityService : AccessibilityService() {
     fun readScreen(): Screen {
         val (w, h) = screenSize()
         return ScreenReader.read(this, w, h) { pkg -> if (pkg.isNotEmpty() && pkg == activityPkg) activity else "" }
+    }
+
+    /** Package of the app window in front, or null while nothing is readable yet. */
+    fun frontPackage(): String? = ScreenReader.root(this)?.packageName?.toString()
+
+    /**
+     * After starting an app or a page at [startedAt] (uptime): waits until its window has actually appeared,
+     * can be read, and has stopped changing. Waiting only "until idle" returns too early — right after the
+     * launch nothing has started to change yet, and the previous screen would be read as if it were the new one.
+     * [pkg] is the expected app when known.
+     */
+    suspend fun waitForApp(pkg: String?, startedAt: Long, maxMs: Long = 7000) {
+        val deadline = startedAt + maxMs
+        // 1) a new window shows up (if none does within a moment, the page was already in front)
+        while (SystemClock.uptimeMillis() < deadline && lastWindowChange < startedAt && SystemClock.uptimeMillis() - startedAt < 2500) delay(80)
+        // 2) it is readable, and it is the app we asked for
+        val want = pkg ?: lastWindowPkg.takeIf { lastWindowChange >= startedAt }
+        while (SystemClock.uptimeMillis() < deadline) {
+            val front = frontPackage()
+            if (front != null && front != packageName && (want == null || front == want)) break
+            delay(150)
+        }
+        // 3) it stops changing
+        waitForIdle(450, (deadline - SystemClock.uptimeMillis()).coerceIn(600, 3000))
+    }
+
+    /**
+     * While the owner teaches a task, events are delivered at once instead of batched, so the element
+     * they tapped can still be read before its page closes.
+     */
+    fun setFastEvents(on: Boolean) {
+        runCatching {
+            val info = serviceInfo ?: return
+            info.notificationTimeout = if (on) 0 else 100
+            serviceInfo = info
+        }
     }
 
     /** Waits until the UI stops changing (no accessibility events for [quietMs]) or [maxMs] passes. */
