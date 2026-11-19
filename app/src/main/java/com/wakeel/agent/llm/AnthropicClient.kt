@@ -1,6 +1,5 @@
 package com.wakeel.agent.llm
 
-import com.wakeel.agent.core.AgentDecision
 import com.wakeel.agent.core.Shot
 import com.wakeel.agent.core.Usage
 import okhttp3.Request
@@ -11,8 +10,7 @@ import org.json.JSONObject
 /** Claude Messages API with a forced tool call and prompt caching on the static prefix (tools + system). */
 class AnthropicClient(private val key: String, private val base: String) : LlmClient {
 
-    override suspend fun decide(model: String, user: String, shot: Shot?): LlmResult {
-        val ephemeral = JSONObject().put("type", "ephemeral")
+    override suspend fun callTool(model: String, system: String, user: String, shot: Shot?, tool: ToolSpec, maxTokens: Int): ToolResult {
         val content = JSONArray()
         if (shot != null) {
             content.put(
@@ -26,17 +24,14 @@ class AnthropicClient(private val key: String, private val base: String) : LlmCl
 
         val body = JSONObject()
             .put("model", model)
-            .put("max_tokens", 700)
+            .put("max_tokens", maxTokens)
+            .put("tools", JSONArray().put(JSONObject().put("name", tool.name).put("description", tool.description).put("input_schema", tool.schema)))
+            .put("tool_choice", JSONObject().put("type", "tool").put("name", tool.name))
             .put(
-                "tools", JSONArray().put(
-                    JSONObject()
-                        .put("name", Prompt.TOOL_NAME)
-                        .put("description", Prompt.TOOL_DESC)
-                        .put("input_schema", Prompt.schema())
+                "system", JSONArray().put(
+                    JSONObject().put("type", "text").put("text", system).put("cache_control", JSONObject().put("type", "ephemeral"))
                 )
             )
-            .put("tool_choice", JSONObject().put("type", "tool").put("name", Prompt.TOOL_NAME))
-            .put("system", JSONArray().put(JSONObject().put("type", "text").put("text", Prompt.SYSTEM).put("cache_control", ephemeral)))
             .put("messages", JSONArray().put(JSONObject().put("role", "user").put("content", content)))
 
         val req = Request.Builder()
@@ -62,6 +57,6 @@ class AnthropicClient(private val key: String, private val base: String) : LlmCl
             u?.optInt("cache_read_input_tokens") ?: 0,
             u?.optInt("cache_creation_input_tokens") ?: 0,
         )
-        return LlmResult(input?.let { AgentDecision.parse(it) } ?: AgentDecision("", emptyList(), false), usage)
+        return ToolResult(input, usage)
     }
 }

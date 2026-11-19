@@ -4,7 +4,7 @@ import org.json.JSONArray
 import org.json.JSONObject
 
 enum class ActionType(val key: String) {
-    TAP("tap"), TAP_XY("tap_xy"), LONG_PRESS("long_press"), TYPE("type"), ENTER("enter"),
+    TAP("tap"), TAP_XY("tap_xy"), LONG_PRESS("long_press"), DRAG("drag"), TYPE("type"), ENTER("enter"),
     SCROLL("scroll"), BACK("back"), HOME("home"), RECENTS("recents"), NOTIFICATIONS("notifications"),
     OPEN_APP("open_app"), WAIT("wait"), SCREENSHOT("screenshot"), ASK_USER("ask_user"),
     DONE("done"), FAIL("fail");
@@ -21,6 +21,8 @@ data class AgentAction(
     val dir: String? = null,
     val x: Int? = null,
     val y: Int? = null,
+    val x2: Int? = null,
+    val y2: Int? = null,
 ) {
     fun describe(): String = buildString {
         append(type.key)
@@ -42,7 +44,7 @@ data class AgentDecision(val thought: String, val actions: List<AgentAction>, va
                 val t = ActionType.of(a.optString("type")) ?: continue
                 fun str(k: String) = if (a.has(k) && !a.isNull(k)) a.optString(k).takeIf { it.isNotBlank() } else null
                 fun int(k: String) = if (a.has(k) && !a.isNull(k)) a.optDouble(k).takeIf { !it.isNaN() }?.toInt() else null
-                list += AgentAction(t, int("id"), str("text"), str("dir")?.lowercase(), int("x"), int("y"))
+                list += AgentAction(t, int("id"), str("text"), str("dir")?.lowercase(), int("x"), int("y"), int("x2"), int("y2"))
             }
             return AgentDecision(o.optString("thought"), list.take(5), o.optBoolean("sensitive", false))
         }

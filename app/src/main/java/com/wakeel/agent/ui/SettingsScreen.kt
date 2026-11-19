@@ -98,13 +98,19 @@ fun SettingsScreen() {
                 NumberField("أقصى عدد خطوات للمهمة", s.maxSteps.toString(), Modifier.fillMaxWidth(), decimal = false) { it.toIntOrNull()?.let { v -> s.maxSteps = v } }
                 Text("إنفاق اليوم: ${T.money(s.todaySpend())}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-                var macros by remember { mutableStateOf(s.useMacros) }
-                SwitchRow("حفظ المسارات الناجحة", "تكرار المهمة نفسها لاحقاً يتم محلياً دون استهلاك تقريباً", macros) { macros = it; s.useMacros = it }
-                val count by Hub.macros.count.collectAsStateWithLifecycle()
+                var learn by remember { mutableStateOf(s.autoLearn) }
+                SwitchRow("التعلّم التلقائي", "يحوّل كل مهمة ناجحة إلى مهارة بمتغيّرات تُنفَّذ لاحقاً محلياً دون استهلاك، ويحفظ ملاحظات عن شكل التطبيقات", learn) { learn = it; s.autoLearn = it }
+                val skillList by Hub.skills.skills.collectAsStateWithLifecycle()
+                val noteCount by Hub.notes.count.collectAsStateWithLifecycle()
+                var showSkills by remember { mutableStateOf(false) }
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text("المسارات المحفوظة: $count", Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium)
-                    TextButton(onClick = { Hub.macros.clear() }, enabled = count > 0) { Text("مسحها") }
+                    Column(Modifier.weight(1f)) {
+                        Text("المهارات المتعلَّمة: ${skillList.size}", style = MaterialTheme.typography.bodyMedium)
+                        Text("موثوقة (دون أي استهلاك): ${skillList.count { it.trusted }} · ملاحظات التطبيقات: $noteCount", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                    OutlinedButton(onClick = { showSkills = true }) { Text("إدارة") }
                 }
+                if (showSkills) SkillsDialog(onDismiss = { showSkills = false })
                 var shots by remember { mutableStateOf(s.allowScreenshots) }
                 SwitchRow("السماح بلقطات الشاشة عند الحاجة", "تُرسل مصغّرة وفقط حين لا يكفي نص الشاشة", shots) { shots = it; s.allowScreenshots = it }
                 var esc by remember { mutableStateOf(s.escalate) }
@@ -248,6 +254,57 @@ private fun ProviderFields() {
             if (testing) CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp)
         }
         testMsg?.let { Text(it, style = MaterialTheme.typography.bodySmall) }
+    }
+}
+
+@Composable
+private fun SkillsDialog(onDismiss: () -> Unit) {
+    val list by Hub.skills.skills.collectAsStateWithLifecycle()
+    var confirmClear by remember { mutableStateOf(false) }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("المهارات المتعلَّمة") },
+        text = {
+            if (list.isEmpty()) {
+                Text("لا توجد مهارات بعد. كل مهمة تنجح يتعلّمها الوكيل تلقائياً.", color = MaterialTheme.colorScheme.onSurfaceVariant)
+            } else {
+                Box(Modifier.heightIn(max = 420.dp)) {
+                    LazyColumn(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                        items(list.sortedByDescending { it.lastUsed.coerceAtLeast(it.createdAt) }, key = { it.id }) { sk ->
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        Text(sk.title, style = MaterialTheme.typography.titleSmall, modifier = Modifier.weight(1f, fill = false))
+                                        Spacer(Modifier.width(6.dp))
+                                        if (sk.trusted) StatusChip("مجانية", Brand.Green) else StatusChip("تحت التجربة", Brand.Amber)
+                                    }
+                                    Text(sk.pattern, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.primary)
+                                    Text(
+                                        "${sk.steps.size} خطوة · نجحت ${sk.successes} · تعثّرت ${sk.fails}" + if (sk.readout) " · تقرأ معلومات" else "",
+                                        style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    )
+                                }
+                                TextButton(onClick = { Hub.skills.remove(sk.id) }) { Text("حذف") }
+                            }
+                            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = { TextButton(onClick = onDismiss) { Text("تم") } },
+        dismissButton = {
+            if (list.isNotEmpty()) TextButton(onClick = { confirmClear = true }) { Text("مسح الكل") }
+        },
+    )
+    if (confirmClear) {
+        AlertDialog(
+            onDismissRequest = { confirmClear = false },
+            title = { Text("مسح كل ما تعلّمه الوكيل؟") },
+            text = { Text("ستُحذف كل المهارات وملاحظات التطبيقات، وسيعود لاستخدام الذكاء الاصطناعي في كل مهمة.") },
+            confirmButton = { TextButton(onClick = { Hub.skills.clear(); Hub.notes.clear(); confirmClear = false; onDismiss() }) { Text("مسح") } },
+            dismissButton = { TextButton(onClick = { confirmClear = false }) { Text("إلغاء") } },
+        )
     }
 }
 

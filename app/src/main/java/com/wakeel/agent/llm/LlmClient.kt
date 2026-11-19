@@ -20,10 +20,20 @@ import kotlin.coroutines.resumeWithException
 
 data class LlmResult(val decision: AgentDecision, val usage: Usage)
 
+data class ToolSpec(val name: String, val description: String, val schema: JSONObject)
+
+data class ToolResult(val input: JSONObject?, val usage: Usage)
+
 class LlmException(message: String) : Exception(message)
 
 interface LlmClient {
-    suspend fun decide(model: String, user: String, shot: Shot?): LlmResult
+    /** One forced tool call. Every request the app makes goes through here. */
+    suspend fun callTool(model: String, system: String, user: String, shot: Shot?, tool: ToolSpec, maxTokens: Int = 700): ToolResult
+
+    suspend fun decide(model: String, user: String, shot: Shot?): LlmResult {
+        val r = callTool(model, Prompt.SYSTEM, user, shot, Prompt.actTool())
+        return LlmResult(r.input?.let { AgentDecision.parse(it) } ?: AgentDecision("", emptyList(), false), r.usage)
+    }
 
     companion object {
         fun create(s: Settings): LlmClient =
@@ -82,7 +92,7 @@ object Http {
             code == 401 || code == 403 -> "مفتاح API غير صالح أو لا يملك صلاحية."
             msg.contains("credit", true) || msg.contains("balance", true) || msg.contains("billing", true) ->
                 "الرصيد غير كافٍ في حساب الـ API. اشحن الرصيد ثم أعد المحاولة."
-            code == 404 || msg.contains("model", true) && code == 400 -> "اسم النموذج أو عنوان الخادم غير صحيح: $msg"
+            code == 404 || (msg.contains("model", true) && code == 400) -> "اسم النموذج أو عنوان الخادم غير صحيح: $msg"
             code == 429 -> "تجاوزت حد الطلبات، حاول بعد قليل."
             code == 529 -> "الخادم مشغول حالياً، حاول بعد قليل."
             else -> "خطأ من الخادم ($code): $msg"

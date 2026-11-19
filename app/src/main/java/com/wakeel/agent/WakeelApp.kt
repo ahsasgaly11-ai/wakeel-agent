@@ -4,7 +4,8 @@ import android.app.Application
 import com.wakeel.agent.agent.AgentEngine
 import com.wakeel.agent.agent.AppIndex
 import com.wakeel.agent.agent.HistoryStore
-import com.wakeel.agent.agent.MacroStore
+import com.wakeel.agent.agent.AppNotes
+import com.wakeel.agent.agent.SkillStore
 import com.wakeel.agent.core.Settings
 
 class WakeelApp : Application() {
@@ -20,7 +21,9 @@ object Hub {
         private set
     lateinit var history: HistoryStore
         private set
-    lateinit var macros: MacroStore
+    lateinit var skills: SkillStore
+        private set
+    lateinit var notes: AppNotes
         private set
     lateinit var apps: AppIndex
         private set
@@ -30,8 +33,9 @@ object Hub {
     fun init(app: Application) {
         settings = Settings(app)
         history = HistoryStore(app)
-        macros = MacroStore(app)
+        skills = SkillStore(app)
+        notes = AppNotes(app)
         apps = AppIndex(app)
-        engine = AgentEngine(app, settings, history, macros, apps)
+        engine = AgentEngine(app, settings, history, skills, notes, apps)
     }
 }

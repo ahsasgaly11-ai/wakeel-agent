@@ -115,9 +115,9 @@ class Settings(ctx: Context) {
         set(v) = p.edit().putStringSet("allowed_pkgs", v).apply()
 
     // ---- Savings / UI ----
-    var useMacros: Boolean
-        get() = bool("macros", true)
-        set(v) = putBool("macros", v)
+    var autoLearn: Boolean
+        get() = bool("auto_learn", true)
+        set(v) = putBool("auto_learn", v)
 
     var showBubble: Boolean
         get() = bool("bubble", true)

@@ -89,6 +89,8 @@ private val templates = listOf(
     "منبه الساعة 6:00 صباحاً",
     "افتح واتساب وأرسل لـ … رسالة: …",
     "ابحث في جوجل عن الطقس في الدوحة",
+    "افتح انستقرام وعدّل النبذة في ملفي إلى: …",
+    "افتح انستقرام وأنشئ ريلز من آخر فيديو مع وصف: …",
 )
 
 @OptIn(ExperimentalLayoutApi::class, androidx.compose.material3.ExperimentalMaterial3Api::class)

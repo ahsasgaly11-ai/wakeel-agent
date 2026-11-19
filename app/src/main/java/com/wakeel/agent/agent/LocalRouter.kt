@@ -19,7 +19,7 @@ class LocalRouter(private val ctx: Context, private val apps: AppIndex) {
 
     sealed interface Result {
         data class Handled(val message: String) : Result
-        data class Opened(val app: String, val rest: String) : Result
+        data class Opened(val app: String, val pkg: String, val rest: String) : Result
         data object None : Result
     }
 
@@ -105,7 +105,7 @@ class LocalRouter(private val ctx: Context, private val apps: AppIndex) {
                 val app = apps.exact(rest.take(k).joinToString(" ")) ?: continue
                 if (!apps.launch(app.pkg)) break
                 val remaining = rest.drop(k).joinToString(" ").trim()
-                return if (remaining.isEmpty()) Result.Handled("تم فتح ${app.label}") else Result.Opened(app.label, remaining)
+                return if (remaining.isEmpty()) Result.Handled("تم فتح ${app.label}") else Result.Opened(app.label, app.pkg, remaining)
             }
         }
         return Result.None

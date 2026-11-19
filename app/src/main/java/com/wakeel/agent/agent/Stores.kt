@@ -2,7 +2,6 @@ package com.wakeel.agent.agent
 
 import android.content.Context
 import com.wakeel.agent.core.TaskRecord
-import com.wakeel.agent.core.Text
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -33,44 +32,6 @@ data class MacroStep(
             o.optString("l").ifEmpty { null },
             o.optBoolean("c", false),
         )
-    }
-}
-
-class MacroStore(ctx: Context) {
-    private val file = File(ctx.filesDir, "routes.json")
-    private val data: JSONObject = runCatching { JSONObject(file.readText()) }.getOrDefault(JSONObject())
-    private val _count = MutableStateFlow(data.length())
-    val count: StateFlow<Int> = _count.asStateFlow()
-
-    private fun key(task: String) = Text.norm(task)
-
-    @Synchronized
-    fun find(task: String): List<MacroStep>? {
-        val a = data.optJSONArray(key(task)) ?: return null
-        return (0 until a.length()).mapNotNull { a.optJSONObject(it)?.let(MacroStep::fromJson) }.takeIf { it.isNotEmpty() }
-    }
-
-    @Synchronized
-    fun save(task: String, steps: List<MacroStep>) {
-        if (steps.isEmpty()) return
-        data.put(key(task), JSONArray().also { a -> steps.forEach { a.put(it.toJson()) } })
-        persist()
-    }
-
-    @Synchronized
-    fun remove(task: String) {
-        data.remove(key(task)); persist()
-    }
-
-    @Synchronized
-    fun clear() {
-        data.keys().asSequence().toList().forEach { data.remove(it) }
-        persist()
-    }
-
-    private fun persist() {
-        runCatching { file.writeText(data.toString()) }
-        _count.value = data.length()
     }
 }
 

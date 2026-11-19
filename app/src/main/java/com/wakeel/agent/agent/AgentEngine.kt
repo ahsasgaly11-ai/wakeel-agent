@@ -51,7 +51,8 @@ class AgentEngine(
     private val ctx: Context,
     private val settings: Settings,
     private val history: HistoryStore,
-    private val macros: MacroStore,
+    private val skills: SkillStore,
+    private val notes: AppNotes,
     private val apps: AppIndex,
 ) {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
@@ -109,6 +110,10 @@ class AgentEngine(
         var step = 0
         var status = TaskStatus.RUNNING
         var result = ""
+        /** Successful steps in order (replayed + model-driven) — the raw material for learning. */
+        val route = mutableListOf<MacroStep>()
+        var routeOk = true
+        var llmActions = 0
     }
 
     private class Stop(val status: TaskStatus, msg: String) : Exception(msg)
@@ -148,40 +153,68 @@ class AgentEngine(
                 ?: throw Stop(TaskStatus.FAILED, "خدمة إمكانية الوصول غير مفعّلة. فعّلها من الصفحة الرئيسية أولاً.")
             val trail = mutableListOf<String>()
 
-            // 1) Zero-cost local handling
-            when (val r = LocalRouter(ctx, apps).route(task, svc)) {
-                is LocalRouter.Result.Handled -> {
-                    run.localSteps++
-                    log(run, LogKind.LOCAL, "نُفّذت محلياً دون استهلاك API")
-                    throw Stop(TaskStatus.DONE, r.message)
+            // 1) A learned skill that matches locally (exact or by pattern) — zero cost
+            var match: Pair<Skill, Map<String, String>>? = if (settings.autoLearn) skills.localMatch(task) else null
+
+            // 2) Built-in local commands — zero cost
+            if (match == null) {
+                when (val r = LocalRouter(ctx, apps).route(task, svc)) {
+                    is LocalRouter.Result.Handled -> {
+                        run.localSteps++
+                        log(run, LogKind.LOCAL, "نُفّذت محلياً دون استهلاك API")
+                        throw Stop(TaskStatus.DONE, r.message)
+                    }
+                    is LocalRouter.Result.Opened -> {
+                        run.localSteps++
+                        run.route += MacroStep("open_app", text = r.pkg, label = r.app)
+                        log(run, LogKind.LOCAL, "فُتح «${r.app}» محلياً دون استهلاك API")
+                        trail += "open_app \"${r.app}\" ✓"
+                        svc.waitForIdle(600, 4000)
+                    }
+                    LocalRouter.Result.None -> Unit
                 }
-                is LocalRouter.Result.Opened -> {
-                    run.localSteps++
-                    log(run, LogKind.LOCAL, "فُتح «${r.app}» محلياً دون استهلاك API")
-                    trail += "open_app \"${r.app}\" ✓"
-                    svc.waitForIdle(600, 4000)
-                }
-                LocalRouter.Result.None -> Unit
             }
 
-            // 2) Never operate on ourselves
+            // 3) Never operate on ourselves
             if (trail.isEmpty() && ownAppInFront(svc)) {
                 svc.global(AccessibilityService.GLOBAL_ACTION_HOME)
                 svc.waitForIdle()
             }
 
-            // 3) Saved route (zero-cost replay)
-            var verifyOnly = false
-            if (settings.useMacros) {
-                macros.find(task)?.let { steps ->
-                    val done = replay(svc, run, steps, trail)
-                    verifyOnly = done == steps.size
-                    if (!verifyOnly && done == 0) macros.remove(task)
+            // 4) A learned skill with different wording/values — one tiny routing call
+            if (match == null && settings.autoLearn && settings.apiKey.isNotBlank() && settings.fastModel.isNotBlank()) {
+                val cands = skills.candidates(task)
+                if (cands.isNotEmpty()) {
+                    running(run, "يبحث في المهارات المتعلَّمة…")
+                    Learner.route(LlmClient.create(settings), settings.fastModel, task, cands)?.let { (sk, p, u) ->
+                        account(run, settings.fastModel, u)
+                        match = sk to p
+                    }
                 }
             }
 
-            // 4) Model loop
-            llmLoop(svc, run, trail, verifyOnly)
+            // 5) Replay the skill locally
+            var note: String? = null
+            var activeSkill: Skill? = null
+            match?.let { (sk, p) ->
+                val done = replay(svc, run, sk, p, trail)
+                if (done == sk.steps.size) {
+                    if (sk.trusted && !sk.readout) {
+                        skills.record(sk.id, true)
+                        throw Stop(TaskStatus.DONE, Templates.fill(sk.doneTpl, p).orEmpty().ifBlank { "تمّت المهمة بمهارة متعلَّمة." })
+                    }
+                    activeSkill = sk
+                    note = if (sk.readout)
+                        "NOTE: A saved routine for this task was just replayed locally. Read the requested information from the screen and call done with it."
+                    else
+                        "NOTE: A saved routine for this task was just replayed locally. If the task is now complete call done; otherwise continue."
+                } else {
+                    skills.record(sk.id, false)
+                }
+            }
+
+            // 6) Model loop (also learns at the end)
+            llmLoop(svc, run, trail, note, activeSkill)
         } catch (s: Stop) {
             run.status = s.status
             run.result = s.message.orEmpty()
@@ -226,16 +259,20 @@ class AgentEngine(
         if (settings.todaySpend() + run.cost >= settings.dailyBudget) throw Stop(TaskStatus.FAILED, "بلغت الحد اليومي للإنفاق (${Text.money(settings.dailyBudget.toDouble())}).")
     }
 
-    private suspend fun llmLoop(svc: AgentAccessibilityService, run: Run, trail: MutableList<String>, verifyOnly: Boolean) {
+    private fun account(run: Run, model: String, u: Usage) {
+        run.calls++
+        run.usage += u
+        run.cost += settings.cost(model, u)
+        pushStats(run)
+    }
+
+    private suspend fun llmLoop(svc: AgentAccessibilityService, run: Run, trail: MutableList<String>, note: String?, activeSkill: Skill?) {
         if (settings.apiKey.isBlank()) throw Stop(TaskStatus.FAILED, "أضف مفتاح API من الإعدادات أولاً.")
         if (settings.fastModel.isBlank()) throw Stop(TaskStatus.FAILED, "حدّد اسم النموذج في الإعدادات.")
         val client = LlmClient.create(settings)
-        val recorded = mutableListOf<MacroStep>()
-        var macroable = !verifyOnly
         var strong = false
         var stagnant = 0
         var wantShot = false
-        val note = if (verifyOnly) "NOTE: A saved route for this task was just replayed locally. If the task is now complete call done (include any requested info); otherwise continue." else null
         val max = settings.maxSteps
 
         for (step in 1..max) {
@@ -264,12 +301,9 @@ class AgentEngine(
             val useStrong = strong && settings.strongModel.isNotBlank()
             val model = if (useStrong) settings.strongModel else settings.fastModel
             running(run, if (useStrong) "يفكّر بالنموذج الأقوى…" else "يفكّر…")
-            val user = Prompt.user(run.task, trail, screen, shot, step, max, note.takeIf { step == 1 })
+            val user = Prompt.user(run.task, trail, screen, shot, step, max, note.takeIf { step == 1 }, notes.get(screen.pkg))
             val res = client.decide(model, user, shot)
-            run.calls++
-            run.usage += res.usage
-            run.cost += settings.cost(model, res.usage)
-            pushStats(run)
+            account(run, model, res.usage)
             strong = false
 
             val d = res.decision
@@ -288,11 +322,14 @@ class AgentEngine(
                 currentCoroutineContext().ensureActive()
                 when (a.type) {
                     ActionType.DONE -> {
-                        if (macroable && settings.useMacros && recorded.isNotEmpty()) {
-                            macros.save(run.task, recorded)
-                            log(run, LogKind.LOCAL, "حُفظ مسار المهمة — تكرارها لاحقاً شبه مجاني")
+                        val result = a.text ?: "تمّت المهمة."
+                        if (activeSkill != null && run.llmActions == 0) {
+                            skills.record(activeSkill.id, true)
+                            log(run, LogKind.LOCAL, "تأكّدت المهارة «${activeSkill.title}» — المرات القادمة دون أي استهلاك")
+                        } else if (settings.autoLearn && run.routeOk && run.route.isNotEmpty()) {
+                            learn(client, run, result, screen.pkg)
                         }
-                        throw Stop(TaskStatus.DONE, a.text ?: "تمّت المهمة.")
+                        throw Stop(TaskStatus.DONE, result)
                     }
                     ActionType.FAIL -> throw Stop(TaskStatus.FAILED, a.text ?: "تعذّر إكمال المهمة.")
                     else -> Unit
@@ -300,8 +337,9 @@ class AgentEngine(
                 val cur = if (i == 0) orig else { svc.waitForIdle(); svc.readScreen() }
                 val out = perform(svc, run, a, orig, cur, d.sensitive, shot)
                 run.steps++
+                run.llmActions++
                 trail += out.line
-                if (out.macro != null) recorded += out.macro else if (out.breaksMacro) macroable = false
+                if (out.macro != null) run.route += out.macro else if (out.breaksMacro) run.routeOk = false
                 if (a.type == ActionType.WAIT) waited = true
                 if (a.type == ActionType.SCREENSHOT && settings.allowScreenshots) wantShot = true
                 if (out.abort) break
@@ -318,6 +356,18 @@ class AgentEngine(
             }
         }
         throw Stop(TaskStatus.FAILED, "توقّف الوكيل بعد بلوغ الحد الأقصى للخطوات ($max).")
+    }
+
+    private suspend fun learn(client: LlmClient, run: Run, result: String, pkg: String) {
+        running(run, "يتعلّم من هذه المهمة…")
+        val learned = Learner.learn(client, settings.fastModel, run.task, run.route, result, pkg)
+        learned?.let { account(run, settings.fastModel, it.usage) }
+        if (learned != null && !learned.reusable) return
+        val skill = Learner.newSkill(run.task, learned, run.route.toList(), result)
+        skills.upsert(skill)
+        learned?.notes?.groupBy({ it.first }, { it.second })?.forEach { (p, n) -> notes.add(p, n) }
+        val vars = if (skill.params.isEmpty()) "" else " بمتغيّرات: " + skill.params.joinToString("، ")
+        log(run, LogKind.LOCAL, "تعلّمتُ مهارة «${skill.title}»$vars — ستُنفَّذ لاحقاً محلياً")
     }
 
     // ------------------------------------------------------------------
@@ -352,6 +402,14 @@ class AgentEngine(
                 if (!confirm(run, sensitive, "الضغط على نقطة في الشاشة")) return Outcome("tap_xy ✗ DENIED by owner", abort = true, breaksMacro = true)
                 val ok = svc.tap(a.x * shot.scaleX, a.y * shot.scaleY)
                 Outcome("tap_xy (${a.x},${a.y}) ${mark(ok)}", abort = true, breaksMacro = true)
+            }
+
+            ActionType.DRAG -> {
+                if (shot == null || a.x == null || a.y == null || a.x2 == null || a.y2 == null)
+                    return Outcome("drag ✗ needs a screenshot and x,y,x2,y2", abort = true)
+                if (!confirm(run, sensitive, "سحب عنصر على الشاشة")) return Outcome("drag ✗ DENIED by owner", abort = true, breaksMacro = true)
+                val ok = svc.swipe(a.x * shot.scaleX, a.y * shot.scaleY, a.x2 * shot.scaleX, a.y2 * shot.scaleY, 900)
+                Outcome("drag (${a.x},${a.y})→(${a.x2},${a.y2}) ${mark(ok)}", abort = true, breaksMacro = true)
             }
 
             ActionType.TYPE -> {
@@ -418,23 +476,33 @@ class AgentEngine(
 
     // ------------------------------------------------------------------ replay
 
-    private suspend fun replay(svc: AgentAccessibilityService, run: Run, steps: List<MacroStep>, trail: MutableList<String>): Int {
-        log(run, LogKind.LOCAL, "تشغيل مسار محفوظ (${steps.size} خطوة) دون استهلاك API")
-        for ((i, s) in steps.withIndex()) {
+    private suspend fun replay(svc: AgentAccessibilityService, run: Run, skill: Skill, params: Map<String, String>, trail: MutableList<String>): Int {
+        val vars = if (params.isEmpty()) "" else " (" + params.values.joinToString("، ") { "«$it»" } + ")"
+        log(run, LogKind.LOCAL, "مهارة متعلَّمة: «${skill.title}»$vars — تنفيذ محلي دون استهلاك API")
+        for ((i, s) in skill.steps.withIndex()) {
             currentCoroutineContext().ensureActive()
             run.step = i + 1
             svc.waitForIdle()
+            val text = Templates.fill(s.text, params)
+            val label = Templates.fill(s.label, params)
+            var filled = s.copy(text = text, label = label)
             val ok: Boolean = when (s.type) {
                 "tap", "long_press" -> {
-                    val n = waitFor(svc, s.sig) ?: null
+                    val n = waitFor(svc, s, params)
                     if (n == null) false
                     else if (!confirm(run, s.confirm || Safety.isSensitiveLabel(n.label), "الضغط على «${n.label.take(40)}»")) {
-                        trail += "(owner denied a saved-route step)"; return i
-                    } else if (s.type == "tap") click(svc, n) else longClick(svc, n)
+                        trail += "(owner denied a saved step)"; return i
+                    } else {
+                        filled = filled.copy(sig = n.signature, label = n.label.take(40))
+                        if (s.type == "tap") click(svc, n) else longClick(svc, n)
+                    }
                 }
-                "type" -> waitFor(svc, s.sig)?.let { if (it.password) false else setText(svc, it, s.text.orEmpty()) } ?: false
+                "type" -> {
+                    val n = waitFor(svc, s, params) ?: focusedEditable(svc.readScreen()) ?: svc.readScreen().nodes.singleOrNull { it.editable }
+                    if (n == null || n.password) false else setText(svc, n, text.orEmpty())
+                }
                 "enter" -> {
-                    if (!confirm(run, s.confirm, "إرسال/تأكيد النص المكتوب")) { trail += "(owner denied a saved-route step)"; return i }
+                    if (!confirm(run, s.confirm, "إرسال/تأكيد النص المكتوب")) { trail += "(owner denied a saved step)"; return i }
                     pressEnter(svc, svc.readScreen(), null)
                 }
                 "scroll" -> {
@@ -452,23 +520,37 @@ class AgentEngine(
                 else -> false
             }
             if (!ok) {
-                log(run, LogKind.WARN, "تغيّرت الشاشة عن المسار المحفوظ بعد ${i} خطوة — سيكمل الذكاء الاصطناعي")
-                trail += "(saved route: replayed $i of ${steps.size} steps, then the screen differed — continue from here)"
+                log(run, LogKind.WARN, "تغيّرت الشاشة عن المهارة المحفوظة بعد $i خطوة — سيكمل الذكاء الاصطناعي ويحدّث المهارة")
+                trail += "(saved routine: replayed $i of ${skill.steps.size} steps, then the screen differed — continue from here)"
                 return i
             }
+            run.route += filled
             run.localSteps++
             run.steps++
             pushStats(run)
-            trail += "${s.type} ${s.label ?: s.text?.take(30) ?: ""} ✓"
-            log(run, LogKind.ACTION, "مسار محفوظ: ${s.type} ${s.label ?: ""}".trim())
+            trail += "${s.type} ${label ?: text?.take(30) ?: ""} ✓"
+            log(run, LogKind.ACTION, "⚡ ${actionWord(s.type)} ${label ?: text?.take(30) ?: ""}".trim())
         }
-        return steps.size
+        return skill.steps.size
     }
 
-    private suspend fun waitFor(svc: AgentAccessibilityService, sig: String?): UiNode? {
-        if (sig == null) return null
+    private fun actionWord(type: String) = when (type) {
+        "tap" -> "ضغط على"
+        "long_press" -> "ضغط مطوّل على"
+        "type" -> "كتابة"
+        "enter" -> "إرسال"
+        "scroll" -> "تمرير"
+        "open_app" -> "فتح"
+        "back" -> "رجوع"
+        "home" -> "الرئيسية"
+        "wait" -> "انتظار"
+        else -> type
+    }
+
+    private suspend fun waitFor(svc: AgentAccessibilityService, step: MacroStep, params: Map<String, String>): UiNode? {
+        if (step.sig == null && step.label == null) return null
         repeat(10) {
-            svc.readScreen().find(sig)?.let { return it }
+            Learner.locate(svc.readScreen(), step, params)?.let { return it }
             delay(400)
         }
         return null
@@ -588,6 +670,7 @@ class AgentEngine(
         ActionType.TAP -> "ضغط على «${label ?: "#${a.id}"}»"
         ActionType.LONG_PRESS -> "ضغط مطوّل على «${label ?: "#${a.id}"}»"
         ActionType.TAP_XY -> "ضغط على نقطة (${a.x}، ${a.y})"
+        ActionType.DRAG -> "سحب من (${a.x}، ${a.y}) إلى (${a.x2}، ${a.y2})"
         ActionType.TYPE -> "كتابة «${a.text?.take(40).orEmpty()}»"
         ActionType.ENTER -> "إدخال/إرسال"
         ActionType.SCROLL -> "تمرير ${when (a.dir) { "up" -> "للأعلى"; "left" -> "لليسار"; "right" -> "لليمين"; else -> "للأسفل" }}"
