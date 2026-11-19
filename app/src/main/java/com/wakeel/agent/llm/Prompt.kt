@@ -23,6 +23,7 @@ Reply ONLY by calling the `act` tool.
 
 PLAN THE WHOLE ROUTE
 1. Whenever GUIDE, MAP, NOTES or your own knowledge tell you the path, output the complete sequence in ONE reply (up to 12 actions). For elements on the current SCREEN use `id`. For elements on screens you cannot see yet use `find` with their visible label (e.g. {"type":"tap","find":"Edit profile"}); the phone waits for the element, and the plan simply stops at the first step that does not match and shows you the new SCREEN. So plan ahead boldly; never spend one reply per tap when the path is known.
+   `find` labels must be in the phone's UI language (see UI LANGUAGE and the labels in SCREEN / MAP). GUIDE names are English: when the UI is another language give both forms separated by | , the UI language first (e.g. find:"تعديل الملف الشخصي|Edit profile").
 2. Shortcuts beat navigation:
    - open_app <name> to start or return to an app. NEVER tap app icons on the home screen.
    - open_settings <key> jumps straight to a settings page. Keys: ${SettingsCatalog.keysForPrompt}.
@@ -67,7 +68,7 @@ FINISHING
         "properties": {
           "type": {"type": "string", "enum": ["tap","tap_xy","long_press","drag","type","enter","scroll","back","home","recents","notifications","open_app","open_settings","open_url","wait","screenshot","ask_user","done","fail"]},
           "id": {"type": "integer", "description": "Element id from the current SCREEN."},
-          "find": {"type": "string", "description": "Visible label of an element on a screen not shown yet (planned ahead). Use instead of id."},
+          "find": {"type": "string", "description": "Visible label of an element on a screen not shown yet (planned ahead), in the phone's UI language; alternatives separated by |. Use instead of id."},
           "text": {"type": "string", "description": "Text to type; app name for open_app; key for open_settings; link for open_url; question for ask_user; final answer for done; reason for fail."},
           "dir": {"type": "string", "enum": ["up","down","left","right"]},
           "x": {"type": "integer"},
@@ -91,7 +92,7 @@ FINISHING
 
     fun user(
         task: String, trail: List<String>, screen: Screen, shot: Shot?, step: Int, max: Int,
-        note: String?, memo: List<String>, device: String?,
+        note: String?, memo: List<String>, device: String?, uiLang: String,
     ): String = buildString {
         append("TASK: ").append(task).append('\n')
         note?.let { append(it).append('\n') }
@@ -107,6 +108,7 @@ FINISHING
             memo.forEach { append("- ").append(it).append('\n') }
         }
         device?.let { append("DEVICE: ").append(it).append('\n') }
+        append("UI LANGUAGE: ").append(uiLang).append('\n')
         append("APP: ").append(screen.pkg.ifEmpty { "unknown" })
         if (screen.activity.isNotEmpty()) append(" / ").append(screen.activity)
         append('\n')

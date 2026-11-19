@@ -31,20 +31,6 @@ jobs:
           set -o pipefail
           gradle :app:testReleaseUnitTest :app:assembleRelease --no-daemon --console=plain 2>&1 | tee build.log
 
-      - name: Publish build log on failure
-        if: failure()
-        run: |
-          git config user.name "wakeel-ci"
-          git config user.email "ci@users.noreply.github.com"
-          grep -E "^e: |error:|FAILURE|What went wrong| FAILED|AssertionError|ComparisonFailure|Exception" -A6 build.log > errors.txt || true
-          mkdir -p /tmp/logs && cp build.log errors.txt /tmp/logs/
-          git checkout --orphan build-logs
-          git rm -rf . > /dev/null
-          cp /tmp/logs/* .
-          git add build.log errors.txt
-          git commit -m "build log for ${{ github.sha }}"
-          git push -f origin build-logs
-
       - name: Name APK
         run: |
           mkdir -p out
@@ -64,3 +50,19 @@ jobs:
             --title "وكيل v2.0.${{ github.run_number }}" \
             --notes "نسخة جاهزة للتثبيت. حمّل ملف APK من الأسفل وثبّته على هاتفك." \
             --latest
+
+      - name: Publish build report
+        if: always()
+        run: |
+          mkdir -p /tmp/report
+          cp build.log /tmp/report/ 2>/dev/null || echo "no log" > /tmp/report/build.log
+          grep -E "^e: |error:|FAILURE|What went wrong| FAILED|AssertionError|ComparisonFailure" -A6 build.log > /tmp/report/errors.txt 2>/dev/null || true
+          (grep -h -o '<testsuite [^>]*>' app/build/test-results/*/*.xml 2>/dev/null || echo "no test results") > /tmp/report/tests.txt
+          git config user.name "wakeel-ci"
+          git config user.email "ci@users.noreply.github.com"
+          git checkout --orphan build-logs
+          git rm -rf . > /dev/null
+          cp /tmp/report/* .
+          git add -f build.log errors.txt tests.txt
+          git commit -m "build report for ${{ github.sha }}"
+          git push -f origin build-logs

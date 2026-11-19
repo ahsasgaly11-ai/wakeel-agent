@@ -435,7 +435,8 @@ class AgentEngine(
             val finalNote = if (step >= max - 1) "FINAL STEP: call done now with your best answer from MEMO and this screen (state any limits), or fail with the reason." else null
             val stepNote = listOfNotNull(note.takeIf { step == 1 }, finalNote).joinToString("\n").ifEmpty { null }
             val device = if (run.playbook != null) DeviceInfo.brief(DeviceInfo.snapshot(ctx)) else null
-            val user = Prompt.user(run.task, trail, screen, shot, step, max, stepNote, memo, device)
+            val uiLang = runCatching { ctx.resources.configuration.locales[0].toLanguageTag() }.getOrDefault("ar")
+            val user = Prompt.user(run.task, trail, screen, shot, step, max, stepNote, memo, device, uiLang)
             val res = client.decide(model, user, shot, knowledgeFor(run, screen.pkg))
             account(run, model, res.usage)
             strong = false
@@ -490,8 +491,15 @@ class AgentEngine(
                     svc.waitForIdle(350, 2500)
                     cur = observe(svc, run)
                     if (prevTap && cur.hash == prevHash) {
+                        // Slow screens: give the tap one more moment before judging it
+                        delay(800)
+                        cur = observe(svc, run)
+                    }
+                    // A tap that changed nothing: a planned `find` step may still wait for its element,
+                    // but never continue blindly with ids, and never declare the task done.
+                    if (prevTap && cur.hash == prevHash && !prevOnEditable && (a.find == null || a.type == ActionType.DONE)) {
                         trail[trail.lastIndex] = trail.last() + " · no change"
-                        if (!prevOnEditable) break   // the tap did nothing: do not continue the plan blindly
+                        break
                     }
                     if (cur.pkg != orig.pkg && Safety.policy(cur.pkg, settings, apps) == Policy.BLOCKED) break
                 }

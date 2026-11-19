@@ -45,6 +45,15 @@ class Screen(val pkg: String, val activity: String, val nodes: List<UiNode>, val
 
     /** Finds an element by its visible label (or view id) — used for steps planned before the screen was seen. */
     fun match(query: String, wantEditable: Boolean = false): UiNode? {
+        if (query.contains('|')) {
+            // alternatives, e.g. "تعديل الملف الشخصي|Edit profile"
+            for (alt in query.split('|')) if (alt.isNotBlank()) matchOne(alt, wantEditable)?.let { return it }
+            return null
+        }
+        return matchOne(query, wantEditable)
+    }
+
+    private fun matchOne(query: String, wantEditable: Boolean): UiNode? {
         val raw = query.trim().trimStart('#')
         val q = Text.norm(raw)
         if (q.isEmpty()) return null
