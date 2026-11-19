@@ -1,138 +1,243 @@
 package com.wakeel.agent.agent
 
 import android.accessibilityservice.AccessibilityService
-import android.app.SearchManager
 import android.content.Context
 import android.content.Intent
+import android.hardware.camera2.CameraCharacteristics
+import android.hardware.camera2.CameraManager
+import android.media.AudioManager
 import android.net.Uri
 import android.provider.AlarmClock
-import android.provider.Settings
+import android.view.KeyEvent
+import android.view.accessibility.AccessibilityNodeInfo
+import com.wakeel.agent.core.DeviceInfo
 import com.wakeel.agent.core.Text
 import com.wakeel.agent.service.AgentAccessibilityService
+import com.wakeel.agent.service.UiNode
+import kotlinx.coroutines.delay
+import java.net.URLEncoder
 import java.util.Locale
 
 /**
- * Handles common commands directly with Android intents — zero API calls.
- * Anything it can't fully handle goes to the model (optionally after opening the app first).
+ * Executes everyday commands directly with Android APIs — zero API calls.
+ * Anything it cannot fully handle goes to the model (optionally after opening the right app or page first).
  */
 class LocalRouter(private val ctx: Context, private val apps: AppIndex) {
 
     sealed interface Result {
         data class Handled(val message: String) : Result
-        data class Opened(val app: String, val pkg: String, val rest: String) : Result
+        /** An app or page was opened locally; the model continues with [rest]. */
+        data class Opened(val app: String, val pkg: String, val rest: String, val step: MacroStep) : Result
         data object None : Result
     }
 
-    fun route(task: String, svc: AgentAccessibilityService): Result {
-        val t = Text.norm(task).trimEnd('.', '!', '؟', '?')
-        val words = t.split(' ').filter { it.isNotBlank() }
-
-        // Simple global navigation
-        when (t) {
-            in NAV_BACK -> { svc.global(AccessibilityService.GLOBAL_ACTION_BACK); return Result.Handled("تم الرجوع") }
-            in NAV_HOME -> { svc.global(AccessibilityService.GLOBAL_ACTION_HOME); return Result.Handled("تم الذهاب للشاشة الرئيسية") }
-            in NAV_NOTIF -> { svc.global(AccessibilityService.GLOBAL_ACTION_NOTIFICATIONS); return Result.Handled("تم فتح الإشعارات") }
-            in NAV_RECENTS -> { svc.global(AccessibilityService.GLOBAL_ACTION_RECENTS); return Result.Handled("تم عرض التطبيقات الأخيرة") }
-            in NAV_SHOT -> { svc.global(AccessibilityService.GLOBAL_ACTION_TAKE_SCREENSHOT); return Result.Handled("تم أخذ لقطة شاشة") }
-            in NAV_LOCK -> { svc.global(AccessibilityService.GLOBAL_ACTION_LOCK_SCREEN); return Result.Handled("تم قفل الشاشة") }
-        }
-
-        // Open a URL
-        Regex("https?://\\S+").find(task)?.let { m ->
-            val rest = Text.norm(task.replace(m.value, "")).split(' ').filter { it.isNotBlank() && it !in OPEN_VERBS && it != "الرابط" }
-            if (rest.isEmpty() && start(Intent(Intent.ACTION_VIEW, Uri.parse(m.value)))) return Result.Handled("تم فتح الرابط")
-        }
-
-        // Dial a number (the owner presses call)
-        Regex("^(اتصل|كلم|call)\\s*(ب|على|علي|to)?\\s*([+0-9][0-9 \\-]{5,})$").find(t)?.let { m ->
-            val num = m.groupValues[3].replace(" ", "").replace("-", "")
-            if (start(Intent(Intent.ACTION_DIAL, Uri.parse("tel:$num")))) return Result.Handled("فُتحت لوحة الاتصال بالرقم $num — اضغط اتصال للتأكيد")
-        }
-
-        // Alarm
-        if (words.size <= 9 && Regex("(منبه|نبهني|صحيني|alarm)").containsMatchIn(t)) {
-            Regex("(\\d{1,2})(?:[:.](\\d{2}))?").find(t)?.let { m ->
-                var hour = m.groupValues[1].toInt()
-                val min = m.groupValues[2].ifEmpty { "0" }.toInt()
-                if (hour < 12 && Regex("(مساء|مسا|\\bم\\b|pm|ليلا|بالليل|العصر|المغرب|العشاء)").containsMatchIn(t)) hour += 12
-                if (hour in 0..23 && min in 0..59) {
-                    val i = Intent(AlarmClock.ACTION_SET_ALARM)
-                        .putExtra(AlarmClock.EXTRA_HOUR, hour)
-                        .putExtra(AlarmClock.EXTRA_MINUTES, min)
-                        .putExtra(AlarmClock.EXTRA_MESSAGE, "وكيل")
-                        .putExtra(AlarmClock.EXTRA_SKIP_UI, true)
-                    if (start(i)) return Result.Handled(String.format(Locale.US, "تم ضبط منبه الساعة %02d:%02d", hour, min))
+    suspend fun route(task: String, svc: AgentAccessibilityService): Result {
+        when (val cmd = Commands.parse(task)) {
+            is Cmd.Global -> {
+                val action = when (cmd.action) {
+                    "back" -> AccessibilityService.GLOBAL_ACTION_BACK
+                    "home" -> AccessibilityService.GLOBAL_ACTION_HOME
+                    "notifications" -> AccessibilityService.GLOBAL_ACTION_NOTIFICATIONS
+                    "recents" -> AccessibilityService.GLOBAL_ACTION_RECENTS
+                    "quick_settings" -> AccessibilityService.GLOBAL_ACTION_QUICK_SETTINGS
+                    "screenshot" -> AccessibilityService.GLOBAL_ACTION_TAKE_SCREENSHOT
+                    "lock" -> AccessibilityService.GLOBAL_ACTION_LOCK_SCREEN
+                    else -> AccessibilityService.GLOBAL_ACTION_POWER_DIALOG
                 }
+                if (cmd.action == "screenshot") delay(600)   // let our own window close first
+                if (svc.global(action)) return Result.Handled(cmd.say)
             }
-        }
-
-        // Timer
-        if (words.size <= 8 && Regex("(موقت|تايمر|timer)").containsMatchIn(t)) {
-            Regex("(\\d+)\\s*(ثانيه|ثواني|ثوان|sec|دقيقه|دقايق|min|ساعه|ساعات|hour)").find(t)?.let { m ->
-                val n = m.groupValues[1].toInt()
-                val unit = m.groupValues[2]
-                val secs = when {
-                    unit.startsWith("ث") || unit == "sec" -> n
-                    unit.startsWith("س") || unit == "hour" -> n * 3600
-                    else -> n * 60
+            is Cmd.Info -> return Result.Handled(DeviceInfo.answer(cmd.kind, DeviceInfo.snapshot(ctx)))
+            is Cmd.Health -> return Result.Handled(DeviceInfo.report(DeviceInfo.snapshot(ctx)))
+            is Cmd.Torch -> if (torch(cmd.on)) return Result.Handled(if (cmd.on) "تم تشغيل الكشاف" else "تم إطفاء الكشاف")
+            is Cmd.Volume -> {
+                val am = ctx.getSystemService(AudioManager::class.java)
+                val ok = runCatching {
+                    when (cmd.dir) {
+                        1 -> repeat(2) { am.adjustStreamVolume(AudioManager.STREAM_MUSIC, AudioManager.ADJUST_RAISE, AudioManager.FLAG_SHOW_UI) }
+                        -1 -> repeat(2) { am.adjustStreamVolume(AudioManager.STREAM_MUSIC, AudioManager.ADJUST_LOWER, AudioManager.FLAG_SHOW_UI) }
+                        else -> am.adjustStreamVolume(AudioManager.STREAM_MUSIC, AudioManager.ADJUST_MUTE, AudioManager.FLAG_SHOW_UI)
+                    }
+                }.isSuccess
+                if (ok) return Result.Handled(when (cmd.dir) { 1 -> "تم رفع الصوت"; -1 -> "تم خفض الصوت"; else -> "تم كتم صوت الوسائط" })
+            }
+            is Cmd.Media -> {
+                val code = when (cmd.key) {
+                    "play" -> KeyEvent.KEYCODE_MEDIA_PLAY
+                    "pause" -> KeyEvent.KEYCODE_MEDIA_PAUSE
+                    "next" -> KeyEvent.KEYCODE_MEDIA_NEXT
+                    else -> KeyEvent.KEYCODE_MEDIA_PREVIOUS
                 }
-                val i = Intent(AlarmClock.ACTION_SET_TIMER)
-                    .putExtra(AlarmClock.EXTRA_LENGTH, secs)
+                val am = ctx.getSystemService(AudioManager::class.java)
+                val ok = runCatching {
+                    am.dispatchMediaKeyEvent(KeyEvent(KeyEvent.ACTION_DOWN, code))
+                    am.dispatchMediaKeyEvent(KeyEvent(KeyEvent.ACTION_UP, code))
+                }.isSuccess
+                if (ok) return Result.Handled(when (cmd.key) { "play" -> "تم التشغيل"; "pause" -> "تم الإيقاف المؤقت"; "next" -> "المقطع التالي"; else -> "المقطع السابق" })
+            }
+            is Cmd.Url -> if (openUrl(cmd.url)) return Result.Handled(cmd.say)
+            is Cmd.Alarm -> {
+                val i = Intent(AlarmClock.ACTION_SET_ALARM)
+                    .putExtra(AlarmClock.EXTRA_HOUR, cmd.hour)
+                    .putExtra(AlarmClock.EXTRA_MINUTES, cmd.minute)
+                    .putExtra(AlarmClock.EXTRA_MESSAGE, "وكيل")
                     .putExtra(AlarmClock.EXTRA_SKIP_UI, true)
-                if (secs > 0 && start(i)) return Result.Handled("تم تشغيل مؤقت ${m.value}")
+                if (start(i)) return Result.Handled(String.format(Locale.US, "تم ضبط منبه الساعة %02d:%02d", cmd.hour, cmd.minute))
+            }
+            is Cmd.Timer -> {
+                val i = Intent(AlarmClock.ACTION_SET_TIMER)
+                    .putExtra(AlarmClock.EXTRA_LENGTH, cmd.seconds)
+                    .putExtra(AlarmClock.EXTRA_SKIP_UI, true)
+                if (start(i)) return Result.Handled("تم تشغيل مؤقت ${cmd.label}")
+            }
+            is Cmd.SettingsPage -> {
+                val (ok, label) = openSettings(cmd.key)
+                if (ok) return Result.Handled("فُتحت صفحة $label")
+            }
+            is Cmd.Toggle -> return toggle(cmd, task, svc)
+            null -> Unit
+        }
+
+        val t = Text.norm(task).trimEnd('.', '!', '؟', '?')
+        // App details page: "معلومات تطبيق X"
+        Regex("^(افتح\\s+)?(معلومات|اعدادات|صلاحيات|اذونات|اشعارات)\\s+(تطبيق|برنامج)\\s+(.+)$").find(t)?.let { m ->
+            apps.fuzzy(m.groupValues[4])?.let { app ->
+                if (appInfo(app.pkg)) return Result.Handled("فُتحت صفحة معلومات «${app.label}»")
             }
         }
-
-        // Web search
-        if (words.isNotEmpty() && words.first() in SEARCH_VERBS && words.any { it in SEARCH_ENGINES }) {
-            val q = words.filter { it !in SEARCH_VERBS && it !in SEARCH_ENGINES && it !in SEARCH_FILLERS }.joinToString(" ")
-            if (q.isNotBlank() && start(Intent(Intent.ACTION_WEB_SEARCH).putExtra(SearchManager.QUERY, q))) return Result.Handled("تم البحث عن «$q»")
-        }
-
-        // Quick settings panels
-        val bare = t.removePrefix("افتح ").trim()
-        when (bare) {
-            in P_WIFI -> if (start(Intent(Settings.Panel.ACTION_WIFI))) return Result.Handled("تم فتح لوحة الواي فاي")
-            in P_BT -> if (start(Intent(Settings.ACTION_BLUETOOTH_SETTINGS))) return Result.Handled("تم فتح إعدادات البلوتوث")
-            in P_NET -> if (start(Intent(Settings.Panel.ACTION_INTERNET_CONNECTIVITY))) return Result.Handled("تم فتح لوحة الإنترنت")
-            in P_VOL -> if (start(Intent(Settings.Panel.ACTION_VOLUME))) return Result.Handled("تم فتح لوحة الصوت")
-        }
-
         // Open an app (optionally followed by more instructions)
-        if (words.size >= 2 && words.first() in OPEN_VERBS) {
+        val words = t.split(' ').filter { it.isNotBlank() }
+        if (words.size >= 2 && words.first() in Commands.OPEN_VERBS) {
             val rest = words.drop(1)
             for (k in minOf(rest.size, 4) downTo 1) {
                 val app = apps.exact(rest.take(k).joinToString(" ")) ?: continue
                 if (!apps.launch(app.pkg)) break
                 val remaining = rest.drop(k).joinToString(" ").trim()
-                return if (remaining.isEmpty()) Result.Handled("تم فتح ${app.label}") else Result.Opened(app.label, app.pkg, remaining)
+                return if (remaining.isEmpty()) Result.Handled("تم فتح ${app.label}") else Result.Opened(app.label, app.pkg, remaining, MacroStep("open_app", text = app.pkg, label = app.label))
             }
         }
         return Result.None
     }
 
+    // ------------------------------------------------------------------ switches
+
+    private suspend fun toggle(cmd: Cmd.Toggle, task: String, svc: AgentAccessibilityService): Result {
+        val page = SettingsCatalog.page(cmd.key) ?: return Result.None
+        if (!openSettings(cmd.key).first) return Result.None
+        svc.waitForIdle(600, 4000)
+        val words = page.words.map { Text.norm(it) }
+        repeat(5) {
+            val scr = svc.readScreen()
+            val switches = scr.nodes.filter { it.role == "sw" }
+            val onDedicatedPage = scr.nodes.any { n ->
+                n.bounds.centerY() < scr.height * 0.22f && Text.norm(n.label).let { l -> l.isNotEmpty() && words.any { w -> l.contains(w) } }
+            }
+            val sw: UiNode? = when {
+                switches.size == 1 && onDedicatedPage -> switches[0]
+                else -> switches.firstOrNull { n -> Text.norm(n.label).let { l -> words.any { w -> l.contains(w) } } }
+                    ?: if (onDedicatedPage) switches.filter { it.bounds.top < scr.height * 0.4f }.minByOrNull { it.bounds.top } else null
+            }
+            if (sw != null) {
+                val state = if (cmd.on) "مفعّل" else "متوقف"
+                if (sw.checked == cmd.on) return Result.Handled("${page.ar} $state بالفعل")
+                click(svc, sw)
+                svc.waitForIdle(500, 2500)
+                val now = svc.readScreen().nodes.filter { it.role == "sw" }.minByOrNull {
+                    kotlin.math.abs(it.bounds.centerY() - sw.bounds.centerY()) + kotlin.math.abs(it.bounds.centerX() - sw.bounds.centerX())
+                }
+                return if (now != null && now.checked == cmd.on) Result.Handled(if (cmd.on) "تم تشغيل ${page.ar}" else "تم إيقاف ${page.ar}")
+                else Result.Opened("الإعدادات", "com.android.settings", task, MacroStep("open_settings", text = cmd.key, label = page.ar))
+            }
+            delay(400)
+        }
+        // The page is open but its switch was not recognised — let the model finish (one reply).
+        return Result.Opened("الإعدادات", "com.android.settings", task, MacroStep("open_settings", text = cmd.key, label = page.ar))
+    }
+
+    private suspend fun click(svc: AgentAccessibilityService, n: UiNode) {
+        var cur: AccessibilityNodeInfo? = n.info
+        if (n.info.refresh()) {
+            repeat(5) {
+                val c = cur ?: return@repeat
+                if (c.isClickable && c.performAction(AccessibilityNodeInfo.ACTION_CLICK)) return
+                cur = c.parent
+            }
+        }
+        svc.tap(n.bounds.exactCenterX(), n.bounds.exactCenterY())
+    }
+
+    // ------------------------------------------------------------------ shared openers (also used by the engine)
+
+    /** Opens a settings page by key (see [SettingsCatalog]) or `app_info:<app>`. Returns success and a display name. */
+    fun openSettings(key: String): Pair<Boolean, String> {
+        val k = key.trim()
+        if (k.startsWith("app_info", ignoreCase = true)) {
+            val name = k.substringAfter(':', "").trim()
+            val app = apps.fuzzy(name) ?: return false to name
+            return appInfo(app.pkg) to "معلومات ${app.label}"
+        }
+        val page = SettingsCatalog.page(k)
+            ?: SettingsCatalog.keyForWords(Text.norm(k))?.let { SettingsCatalog.page(it) }
+            ?: return false to k
+        for (a in page.actions) if (start(Intent(a))) return true to page.ar
+        return start(Intent("android.settings.SETTINGS")) to page.ar
+    }
+
+    fun appInfo(pkg: String): Boolean =
+        start(Intent("android.settings.APPLICATION_DETAILS_SETTINGS", Uri.parse("package:$pkg")))
+
+    /** Opens a web link or a known deep link. `tel:` only opens the dialer; nothing is ever sent or called. */
+    fun openUrl(rawUrl: String): Boolean {
+        val url = normalizeUrl(rawUrl) ?: return false
+        val uri = Uri.parse(encodeLoose(url))
+        val intent = if (url.startsWith("tel:", ignoreCase = true)) Intent(Intent.ACTION_DIAL, uri) else Intent(Intent.ACTION_VIEW, uri)
+        return start(intent)
+    }
+
+    private fun torch(on: Boolean): Boolean = runCatching {
+        val cm = ctx.getSystemService(CameraManager::class.java)
+        val id = cm.cameraIdList.firstOrNull { cm.getCameraCharacteristics(it).get(CameraCharacteristics.FLASH_INFO_AVAILABLE) == true }
+            ?: return false
+        cm.setTorchMode(id, on)
+        true
+    }.getOrDefault(false)
+
     private fun start(i: Intent): Boolean = runCatching {
         i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-        if (i.resolveActivity(ctx.packageManager) == null) return false
         (AgentAccessibilityService.instance ?: ctx).startActivity(i)
         true
     }.getOrDefault(false)
 
     companion object {
-        private fun set(vararg s: String) = s.map { Text.norm(it) }.toSet()
-        private val OPEN_VERBS = set("افتح", "شغل", "افتحي", "روح", "ادخل", "open", "launch", "start")
-        private val SEARCH_VERBS = set("ابحث", "بحث", "دور", "دورلي", "search", "google")
-        private val SEARCH_ENGINES = set("جوجل", "قوقل", "google", "الانترنت", "النت")
-        private val SEARCH_FILLERS = set("عن", "في", "على", "علي", "for", "on", "in")
-        private val NAV_BACK = set("ارجع", "رجوع", "للخلف", "رجعني", "back")
-        private val NAV_HOME = set("الرئيسية", "الشاشة الرئيسية", "اذهب للرئيسية", "روح للرئيسية", "home")
-        private val NAV_NOTIF = set("الإشعارات", "افتح الإشعارات", "اعرض الإشعارات", "notifications")
-        private val NAV_RECENTS = set("التطبيقات الأخيرة", "التطبيقات المفتوحة", "recents")
-        private val NAV_SHOT = set("لقطة شاشة", "صور الشاشة", "خذ لقطة شاشة", "screenshot")
-        private val NAV_LOCK = set("اقفل الشاشة", "قفل الشاشة", "lock")
-        private val P_WIFI = set("الواي فاي", "واي فاي", "الوايفاي", "wifi", "إعدادات الواي فاي")
-        private val P_BT = set("البلوتوث", "بلوتوث", "bluetooth")
-        private val P_NET = set("الإنترنت", "بيانات الجوال", "البيانات")
-        private val P_VOL = set("الصوت", "مستوى الصوت")
+        private val SCHEMES = setOf(
+            "http", "https", "geo", "google.navigation", "tel", "sms", "smsto", "mailto", "market",
+            "instagram", "whatsapp", "tg", "twitter", "vnd.youtube", "youtube", "fb", "snapchat", "spotify", "zoomus", "linkedin",
+        )
+
+        /** Returns the link with an allowed scheme (https added to bare domains), or null. */
+        fun normalizeUrl(raw: String): String? {
+            var u = raw.trim().trim('"', '\'', '<', '>')
+            if (u.isEmpty()) return null
+            if (!u.contains(':') || Regex("^[A-Za-z0-9-]+(\\.[A-Za-z0-9-]+)+(/.*)?$").matches(u)) u = "https://$u"
+            val scheme = u.substringBefore(':').lowercase()
+            if (scheme !in SCHEMES) return null
+            return u
+        }
+
+        /** Percent-encodes spaces and non-ASCII so any app accepts the link. */
+        fun encodeLoose(u: String): String = buildString {
+            var i = 0
+            while (i < u.length) {
+                val cp = u.codePointAt(i)
+                val len = Character.charCount(cp)
+                val s = u.substring(i, i + len)
+                when {
+                    cp == 32 -> append("%20")
+                    cp > 127 -> append(URLEncoder.encode(s, "UTF-8"))
+                    else -> append(s)
+                }
+                i += len
+            }
+        }
     }
 }

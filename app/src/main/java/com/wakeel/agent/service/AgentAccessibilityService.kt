@@ -15,14 +15,23 @@ import android.util.Base64
 import android.view.Display
 import android.view.WindowManager
 import android.view.accessibility.AccessibilityEvent
+import android.view.accessibility.AccessibilityNodeInfo
 import com.wakeel.agent.Hub
+import com.wakeel.agent.agent.AppMapStore
+import com.wakeel.agent.agent.Safety
+import com.wakeel.agent.core.Policy
 import com.wakeel.agent.core.Shot
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.NonCancellable
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withContext
 import java.io.ByteArrayOutputStream
@@ -48,9 +57,26 @@ class AgentAccessibilityService : AccessibilityService() {
 
     private var overlay: Overlay? = null
     private val main = Handler(Looper.getMainLooper())
+    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
 
     @Volatile
     private var lastEvent = 0L
+
+    /** Short class name of the foreground activity, tracked from window events. */
+    @Volatile
+    private var activity = ""
+
+    @Volatile
+    private var activityPkg = ""
+
+    // Passive learning (only when the owner enabled it): last thing the owner tapped and where.
+    private var passiveJob: Job? = null
+
+    @Volatile
+    private var pendingClick: Triple<String, String, Long>? = null   // pkg, label, time
+
+    @Volatile
+    private var lastPassiveKey: Pair<String, String>? = null        // pkg, screen key
 
     override fun onServiceConnected() {
         super.onServiceConnected()
@@ -61,8 +87,29 @@ class AgentAccessibilityService : AccessibilityService() {
 
     override fun onAccessibilityEvent(event: AccessibilityEvent?) {
         if (event == null) return
-        if (event.packageName?.toString() == packageName) return
+        val pkg = event.packageName?.toString() ?: return
+        if (pkg == packageName) return
         lastEvent = SystemClock.uptimeMillis()
+        when (event.eventType) {
+            AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED -> {
+                val cls = event.className?.toString().orEmpty()
+                val isWindowChrome = cls.startsWith("android.") || cls.contains("Dialog") || cls.contains("Popup") ||
+                    cls.contains("Menu") || cls.contains("Toast") || !cls.contains('.')
+                if (!isWindowChrome) {
+                    activity = cls.substringAfterLast('.')
+                    activityPkg = pkg
+                } else if (pkg != activityPkg) {
+                    activity = ""
+                    activityPkg = pkg
+                }
+                schedulePassive()
+            }
+            AccessibilityEvent.TYPE_VIEW_CLICKED -> if (Hub.settings.passiveLearn) {
+                pendingClick = Triple(pkg, clickLabel(event), SystemClock.uptimeMillis())
+                schedulePassive()
+            }
+            else -> Unit
+        }
     }
 
     override fun onInterrupt() {}
@@ -80,6 +127,8 @@ class AgentAccessibilityService : AccessibilityService() {
     private fun cleanup() {
         if (instance == null) return
         Hub.engine.stop()
+        Hub.maps.flush()
+        scope.cancel()
         overlay?.hide()
         overlay?.dispose()
         overlay = null
@@ -88,6 +137,47 @@ class AgentAccessibilityService : AccessibilityService() {
     }
 
     fun setBubbleVisible(visible: Boolean) = main.post { if (visible) overlay?.show() else overlay?.hide() }
+
+    // ---------------- Passive learning ----------------
+
+    private fun clickLabel(e: AccessibilityEvent): String {
+        // List items are content (chat names, posts…), never stored — only the fact that an item was opened.
+        var n: AccessibilityNodeInfo? = runCatching { e.source }.getOrNull()
+        repeat(10) {
+            val c = n ?: return@repeat
+            val cls = c.className?.toString().orEmpty()
+            if (c.isScrollable && !(cls.endsWith("ScrollView") || cls.contains("Pager"))) return AppMapStore.ITEM
+            n = c.parent
+        }
+        val label = e.contentDescription?.toString() ?: e.text?.joinToString(" ") { it.toString() }.orEmpty()
+        return label.trim()
+    }
+
+    private fun schedulePassive() {
+        if (!Hub.settings.passiveLearn || !Hub.settings.autoLearn || Hub.engine.isRunning) return
+        passiveJob?.cancel()
+        passiveJob = scope.launch {
+            delay(900)
+            if (Hub.engine.isRunning) return@launch
+            runCatching {
+                val s = readScreen()
+                if (s.pkg.isBlank() || s.pkg == packageName || s.hasPassword) return@runCatching
+                if (s.pkg in Hub.apps.launcherPackages() || s.pkg == "com.android.systemui") return@runCatching
+                if (Safety.policy(s.pkg, Hub.settings, Hub.apps) == Policy.BLOCKED) return@runCatching
+                val key = Hub.maps.observe(s) ?: return@runCatching
+                val click = pendingClick
+                val prev = lastPassiveKey
+                if (click != null && prev != null && click.first == s.pkg && prev.first == s.pkg &&
+                    SystemClock.uptimeMillis() - click.third < 5000 && prev.second != key
+                ) {
+                    Hub.maps.edge(s.pkg, prev.second, click.second.ifBlank { AppMapStore.ITEM }, key)
+                }
+                pendingClick = null
+                lastPassiveKey = s.pkg to key
+                Hub.maps.flush(force = false)
+            }
+        }
+    }
 
     // ---------------- Reading ----------------
 
@@ -98,7 +188,7 @@ class AgentAccessibilityService : AccessibilityService() {
 
     fun readScreen(): Screen {
         val (w, h) = screenSize()
-        return ScreenReader.read(this, w, h)
+        return ScreenReader.read(this, w, h) { pkg -> if (pkg.isNotEmpty() && pkg == activityPkg) activity else "" }
     }
 
     /** Waits until the UI stops changing (no accessibility events for [quietMs]) or [maxMs] passes. */

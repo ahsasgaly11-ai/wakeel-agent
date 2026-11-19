@@ -14,7 +14,7 @@ data class Preset(
 
 object Presets {
     val all = listOf(
-        Preset("anthropic", "Claude", "https://api.anthropic.com", "claude-haiku-5-5", "claude-sonnet-5-5", "https://console.anthropic.com/settings/keys"),
+        Preset("anthropic", "Claude", "https://api.anthropic.com", "claude-haiku-5-5", "claude-sonnet-5-5", "https://platform.claude.com/settings/keys"),
         Preset("openai", "OpenAI", "https://api.openai.com/v1", "", "", "https://platform.openai.com/api-keys"),
         Preset("gemini", "Gemini", "https://generativelanguage.googleapis.com/v1beta/openai", "", "", "https://aistudio.google.com/apikey"),
         Preset("openrouter", "OpenRouter", "https://openrouter.ai/api/v1", "", "", "https://openrouter.ai/keys"),
@@ -23,6 +23,9 @@ object Presets {
 
     fun of(id: String) = all.firstOrNull { it.id == id } ?: all.first()
 }
+
+/** What the agent may do inside an app. */
+enum class Policy { ALLOWED, READ_ONLY, BLOCKED }
 
 class Settings(ctx: Context) {
     private val p = ctx.getSharedPreferences("wakeel_settings", Context.MODE_PRIVATE)
@@ -34,6 +37,8 @@ class Settings(ctx: Context) {
     private fun putBool(k: String, v: Boolean) = p.edit().putBoolean(k, v).apply()
     private fun float(k: String, d: Float) = p.getFloat(k, d)
     private fun putFloat(k: String, v: Float) = p.edit().putFloat(k, v).apply()
+    private fun set(k: String): Set<String> = p.getStringSet(k, emptySet())?.toSet() ?: emptySet()
+    private fun putSet(k: String, v: Set<String>) = p.edit().putStringSet(k, v).apply()
 
     // ---- Provider ----
     var provider: String
@@ -63,6 +68,7 @@ class Settings(ctx: Context) {
         set(v) = putBool("escalate", v)
 
     // ---- Budget (USD) ----
+    /** Maximum model replies per task. */
     var maxSteps: Int
         get() = p.getInt("max_steps", 25)
         set(v) = p.edit().putInt("max_steps", v.coerceIn(3, 100)).apply()
@@ -98,26 +104,62 @@ class Settings(ctx: Context) {
         get() = bool("screenshots", true)
         set(v) = putBool("screenshots", v)
 
+    /** Package-name keywords the agent must never touch (banks, wallets, password managers). */
     var blockedKeywords: String
-        get() = str("blocked_kw", DEFAULT_BLOCKED)
-        set(v) = putStr("blocked_kw", v)
+        get() = str("blocked_kw2", DEFAULT_BLOCKED)
+        set(v) = putStr("blocked_kw2", v)
+
+    /** Package-name keywords the agent may read but never act in (trading apps). */
+    var readOnlyKeywords: String
+        get() = str("readonly_kw", DEFAULT_READ_ONLY)
+        set(v) = putStr("readonly_kw", v)
 
     var blockedPkgs: Set<String>
-        get() = p.getStringSet("blocked_pkgs", emptySet())?.toSet() ?: emptySet()
-        set(v) = p.edit().putStringSet("blocked_pkgs", v).apply()
+        get() = set("blocked_pkgs")
+        set(v) = putSet("blocked_pkgs", v)
+
+    var readOnlyPkgs: Set<String>
+        get() = set("readonly_pkgs")
+        set(v) = putSet("readonly_pkgs", v)
+
+    /** Apps the owner explicitly allowed (overrides keywords; also the whitelist in allowlist mode). */
+    var allowedPkgs: Set<String>
+        get() = set("allowed_pkgs")
+        set(v) = putSet("allowed_pkgs", v)
 
     var allowlistMode: Boolean
         get() = bool("allowlist_mode", false)
         set(v) = putBool("allowlist_mode", v)
 
-    var allowedPkgs: Set<String>
-        get() = p.getStringSet("allowed_pkgs", emptySet())?.toSet() ?: emptySet()
-        set(v) = p.edit().putStringSet("allowed_pkgs", v).apply()
+    /** null = automatic (keywords decide). */
+    fun explicitPolicy(pkg: String): Policy? = when (pkg) {
+        in blockedPkgs -> Policy.BLOCKED
+        in readOnlyPkgs -> Policy.READ_ONLY
+        in allowedPkgs -> Policy.ALLOWED
+        else -> null
+    }
 
-    // ---- Savings / UI ----
+    fun setPolicy(pkg: String, policy: Policy?) {
+        blockedPkgs = blockedPkgs - pkg
+        readOnlyPkgs = readOnlyPkgs - pkg
+        allowedPkgs = allowedPkgs - pkg
+        when (policy) {
+            Policy.BLOCKED -> blockedPkgs = blockedPkgs + pkg
+            Policy.READ_ONLY -> readOnlyPkgs = readOnlyPkgs + pkg
+            Policy.ALLOWED -> allowedPkgs = allowedPkgs + pkg
+            null -> Unit
+        }
+    }
+
+    // ---- Learning / UI ----
     var autoLearn: Boolean
         get() = bool("auto_learn", true)
         set(v) = putBool("auto_learn", v)
+
+    /** Learn app screens while the owner uses the phone (structure only, on-device). Off by default. */
+    var passiveLearn: Boolean
+        get() = bool("passive_learn", false)
+        set(v) = putBool("passive_learn", v)
 
     var showBubble: Boolean
         get() = bool("bubble", true)
@@ -141,6 +183,9 @@ class Settings(ctx: Context) {
     companion object {
         const val DEFAULT_BLOCKED =
             "bank, wallet, pay, qnb, qib, cbq, alrayan, masraf, dukhan, dohabank, ahlibank, paypal, " +
-                "authenticator, authy, 1password, bitwarden, lastpass, binance, metamask, crypto, packageinstaller"
+                "authenticator, authy, 1password, bitwarden, lastpass, keepass, metamask, trustwallet, ledger, packageinstaller"
+        const val DEFAULT_READ_ONLY =
+            "binance, mexc, bybit, okx, okex, kucoin, bitget, gateio, huobi, htx, kraken, coinbase, crypto, " +
+                "exness, etoro, metatrader, tradingview, trading, forex, broker, invest"
     }
 }

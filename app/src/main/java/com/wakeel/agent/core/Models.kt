@@ -6,17 +6,22 @@ import org.json.JSONObject
 enum class ActionType(val key: String) {
     TAP("tap"), TAP_XY("tap_xy"), LONG_PRESS("long_press"), DRAG("drag"), TYPE("type"), ENTER("enter"),
     SCROLL("scroll"), BACK("back"), HOME("home"), RECENTS("recents"), NOTIFICATIONS("notifications"),
-    OPEN_APP("open_app"), WAIT("wait"), SCREENSHOT("screenshot"), ASK_USER("ask_user"),
-    DONE("done"), FAIL("fail");
+    OPEN_APP("open_app"), OPEN_SETTINGS("open_settings"), OPEN_URL("open_url"),
+    WAIT("wait"), SCREENSHOT("screenshot"), ASK_USER("ask_user"), DONE("done"), FAIL("fail");
 
     companion object {
         fun of(k: String?): ActionType? = entries.firstOrNull { it.key == k?.trim()?.lowercase() }
     }
 }
 
+/**
+ * One UI action. [id] targets an element of the screen the model saw;
+ * [find] targets an element by its visible label on a screen the model has not seen yet (planned ahead).
+ */
 data class AgentAction(
     val type: ActionType,
     val id: Int? = null,
+    val find: String? = null,
     val text: String? = null,
     val dir: String? = null,
     val x: Int? = null,
@@ -27,6 +32,7 @@ data class AgentAction(
     fun describe(): String = buildString {
         append(type.key)
         id?.let { append(" #").append(it) }
+        find?.let { append(" find=\"").append(it.take(30)).append('"') }
         dir?.let { append(' ').append(it) }
         if (x != null && y != null) append(" (").append(x).append(',').append(y).append(')')
     }
@@ -34,6 +40,8 @@ data class AgentAction(
 
 data class AgentDecision(val thought: String, val actions: List<AgentAction>, val sensitive: Boolean, val memo: String = "") {
     companion object {
+        const val MAX_ACTIONS = 12
+
         fun parse(o: JSONObject): AgentDecision {
             val arr: JSONArray = o.optJSONArray("actions")
                 ?: o.optString("actions").takeIf { it.trim().startsWith("[") }?.let { runCatching { JSONArray(it) }.getOrNull() }
@@ -44,9 +52,9 @@ data class AgentDecision(val thought: String, val actions: List<AgentAction>, va
                 val t = ActionType.of(a.optString("type")) ?: continue
                 fun str(k: String) = if (a.has(k) && !a.isNull(k)) a.optString(k).takeIf { it.isNotBlank() } else null
                 fun int(k: String) = if (a.has(k) && !a.isNull(k)) a.optDouble(k).takeIf { !it.isNaN() }?.toInt() else null
-                list += AgentAction(t, int("id"), str("text"), str("dir")?.lowercase(), int("x"), int("y"), int("x2"), int("y2"))
+                list += AgentAction(t, int("id"), str("find"), str("text"), str("dir")?.lowercase(), int("x"), int("y"), int("x2"), int("y2"))
             }
-            return AgentDecision(o.optString("thought"), list.take(5), o.optBoolean("sensitive", false), o.optString("memo").trim())
+            return AgentDecision(o.optString("thought"), list.take(MAX_ACTIONS), o.optBoolean("sensitive", false), o.optString("memo").trim())
         }
     }
 }

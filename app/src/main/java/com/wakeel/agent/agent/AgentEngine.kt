@@ -7,13 +7,15 @@ import android.content.Context
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
-import android.widget.Toast
 import android.view.accessibility.AccessibilityNodeInfo
 import android.view.accessibility.AccessibilityNodeInfo.AccessibilityAction
+import android.widget.Toast
 import com.wakeel.agent.core.ActionType
 import com.wakeel.agent.core.AgentAction
+import com.wakeel.agent.core.DeviceInfo
 import com.wakeel.agent.core.LogEntry
 import com.wakeel.agent.core.LogKind
+import com.wakeel.agent.core.Policy
 import com.wakeel.agent.core.Settings
 import com.wakeel.agent.core.Shot
 import com.wakeel.agent.core.TaskRecord
@@ -52,6 +54,11 @@ sealed interface EngineState {
 
 data class LiveStats(val calls: Int = 0, val cost: Double = 0.0, val usage: Usage = Usage(), val localSteps: Int = 0)
 
+/**
+ * Runs a task with the cheapest means that works:
+ *   learned skill (free) → built-in local command (free) → one planning call that uses built-in app
+ *   knowledge + the map learned on this phone to drive several screens at once → learn the result.
+ */
 class AgentEngine(
     private val ctx: Context,
     private val settings: Settings,
@@ -59,6 +66,7 @@ class AgentEngine(
     private val skills: SkillStore,
     private val notes: AppNotes,
     private val apps: AppIndex,
+    private val maps: AppMapStore,
 ) {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
     private var job: Job? = null
@@ -84,7 +92,18 @@ class AgentEngine(
         if (t.isEmpty() || isRunning) return
         job = scope.launch {
             if (delayMs > 0) delay(delayMs)
-            execute(t)
+            val run = Run(t)
+            guarded(run) { execute(run) }
+        }
+    }
+
+    /** Visits an app's bottom tabs and records its pages — no API calls, nothing is typed or submitted. */
+    fun explore(pkg: String) {
+        if (isRunning) return
+        job = scope.launch {
+            val label = apps.byPackage(pkg)?.label ?: pkg
+            val run = Run("استكشاف «$label»")
+            guarded(run) { exploreApp(run, pkg, label) }
         }
     }
 
@@ -102,7 +121,9 @@ class AgentEngine(
         askGate?.complete(text)
     }
 
-    // ------------------------------------------------------------------
+    // ------------------------------------------------------------------ run state
+
+    private class Pending(val pkg: String, val from: String?, val label: String)
 
     private class Run(val task: String) {
         val started = System.currentTimeMillis()
@@ -115,10 +136,21 @@ class AgentEngine(
         var step = 0
         var status = TaskStatus.RUNNING
         var result = ""
+
         /** Successful steps in order (replayed + model-driven) — the raw material for learning. */
         val route = mutableListOf<MacroStep>()
         var routeOk = true
         var llmActions = 0
+
+        // Map learning
+        var lastKey: String? = null
+        var pending: Pending? = null
+
+        // Knowledge given to the model
+        var targets: List<String> = emptyList()
+        var playbook: Playbook? = null
+        val knowledge = HashMap<String, String?>()
+        val readOnlyNoted = HashSet<String>()
     }
 
     private class Stop(val status: TaskStatus, msg: String) : Exception(msg)
@@ -128,6 +160,8 @@ class AgentEngine(
         val abort: Boolean = false,
         val macro: MacroStep? = null,
         val breaksMacro: Boolean = false,
+        val tap: Boolean = false,
+        val onEditable: Boolean = false,
     )
 
     private fun log(run: Run, kind: LogKind, text: String) {
@@ -146,84 +180,25 @@ class AgentEngine(
         _live.value = LiveStats(run.calls, run.cost, run.usage, run.localSteps)
     }
 
-    private suspend fun execute(task: String) {
-        val run = Run(task)
+    private fun account(run: Run, model: String, u: Usage) {
+        run.calls++
+        run.usage += u
+        run.cost += settings.cost(model, u)
+        pushStats(run)
+    }
+
+    private suspend fun guarded(run: Run, block: suspend () -> Unit) {
         _logs.value = emptyList()
         _live.value = LiveStats()
         lastResult.value = null
         running(run, "جارٍ البدء…")
-        log(run, LogKind.INFO, "المهمة: $task")
+        log(run, LogKind.INFO, "المهمة: ${run.task}")
         try {
-            val svc = AgentAccessibilityService.instance
-                ?: throw Stop(TaskStatus.FAILED, "خدمة إمكانية الوصول غير مفعّلة. فعّلها من الصفحة الرئيسية أولاً.")
-            val trail = mutableListOf<String>()
-
-            // 1) A learned skill that matches locally (exact or by pattern) — zero cost
-            var match: Pair<Skill, Map<String, String>>? = if (settings.autoLearn) skills.localMatch(task) else null
-
-            // 2) Built-in local commands — zero cost
-            if (match == null) {
-                when (val r = LocalRouter(ctx, apps).route(task, svc)) {
-                    is LocalRouter.Result.Handled -> {
-                        run.localSteps++
-                        log(run, LogKind.LOCAL, "نُفّذت محلياً دون استهلاك API")
-                        throw Stop(TaskStatus.DONE, r.message)
-                    }
-                    is LocalRouter.Result.Opened -> {
-                        run.localSteps++
-                        run.route += MacroStep("open_app", text = r.pkg, label = r.app)
-                        log(run, LogKind.LOCAL, "فُتح «${r.app}» محلياً دون استهلاك API")
-                        trail += "open_app \"${r.app}\" ✓"
-                        svc.waitForIdle(600, 4000)
-                    }
-                    LocalRouter.Result.None -> Unit
-                }
-            }
-
-            // 3) Never operate on ourselves
-            if (trail.isEmpty() && ownAppInFront(svc)) {
-                svc.global(AccessibilityService.GLOBAL_ACTION_HOME)
-                svc.waitForIdle()
-            }
-
-            // 4) A learned skill with different wording/values — one tiny routing call
-            if (match == null && settings.autoLearn && settings.apiKey.isNotBlank() && settings.fastModel.isNotBlank()) {
-                val cands = skills.candidates(task)
-                if (cands.isNotEmpty()) {
-                    running(run, "يبحث في المهارات المتعلَّمة…")
-                    Learner.route(LlmClient.create(settings), settings.fastModel, task, cands)?.let { (sk, p, u) ->
-                        account(run, settings.fastModel, u)
-                        match = sk to p
-                    }
-                }
-            }
-
-            // 5) Replay the skill locally
-            var note: String? = null
-            var activeSkill: Skill? = null
-            match?.let { (sk, p) ->
-                val done = replay(svc, run, sk, p, trail)
-                if (done == sk.steps.size) {
-                    if (sk.trusted && !sk.readout) {
-                        skills.record(sk.id, true)
-                        throw Stop(TaskStatus.DONE, Templates.fill(sk.doneTpl, p).orEmpty().ifBlank { "تمّت المهمة بمهارة متعلَّمة." })
-                    }
-                    activeSkill = sk
-                    note = if (sk.readout)
-                        "NOTE: A saved routine for this task was just replayed locally. Read the requested information from the screen and call done with it."
-                    else
-                        "NOTE: A saved routine for this task was just replayed locally. If the task is now complete call done; otherwise continue."
-                } else {
-                    skills.record(sk.id, false)
-                }
-            }
-
-            // 6) Model loop (also learns at the end)
-            llmLoop(svc, run, trail, note, activeSkill)
+            block()
         } catch (s: Stop) {
             run.status = s.status
             run.result = s.message.orEmpty()
-            log(run, if (s.status == TaskStatus.DONE) LogKind.SUCCESS else LogKind.ERROR, run.result)
+            log(run, if (s.status == TaskStatus.DONE) LogKind.SUCCESS else LogKind.ERROR, run.result.lines().first().take(200))
         } catch (c: CancellationException) {
             run.status = TaskStatus.STOPPED
             run.result = "أوقفتَ المهمة."
@@ -234,6 +209,7 @@ class AgentEngine(
             log(run, LogKind.ERROR, run.result)
         } finally {
             withContext(NonCancellable) {
+                runCatching { maps.flush() }
                 settings.addSpend(run.cost)
                 history.add(
                     TaskRecord(
@@ -264,6 +240,79 @@ class AgentEngine(
         }
     }
 
+    // ------------------------------------------------------------------ pipeline
+
+    private suspend fun execute(run: Run) {
+        val task = run.task
+        val svc = AgentAccessibilityService.instance
+            ?: throw Stop(TaskStatus.FAILED, "خدمة إمكانية الوصول غير مفعّلة. فعّلها من الصفحة الرئيسية أولاً.")
+        val trail = mutableListOf<String>()
+        val router = LocalRouter(ctx, apps)
+
+        // 1) A learned skill that matches locally (exact or by pattern) — zero cost
+        var match: Pair<Skill, Map<String, String>>? = if (settings.autoLearn) skills.localMatch(task) else null
+
+        // 2) Built-in local commands — zero cost
+        if (match == null) {
+            when (val r = router.route(task, svc)) {
+                is LocalRouter.Result.Handled -> {
+                    run.localSteps++
+                    log(run, LogKind.LOCAL, "نُفّذت محلياً دون استهلاك API")
+                    throw Stop(TaskStatus.DONE, r.message)
+                }
+                is LocalRouter.Result.Opened -> {
+                    run.localSteps++
+                    run.route += r.step
+                    log(run, LogKind.LOCAL, "فُتح «${r.app}» محلياً دون استهلاك API")
+                    trail += "${r.step.type} \"${r.app}\" ✓"
+                    svc.waitForIdle(600, 4000)
+                }
+                LocalRouter.Result.None -> Unit
+            }
+        }
+
+        // 3) Never operate on ourselves
+        if (trail.isEmpty() && ownAppInFront(svc)) {
+            svc.global(AccessibilityService.GLOBAL_ACTION_HOME)
+            svc.waitForIdle()
+        }
+
+        // 4) A learned skill with different wording/values — one tiny routing call
+        if (match == null && settings.autoLearn && settings.apiKey.isNotBlank() && settings.fastModel.isNotBlank()) {
+            val cands = skills.candidates(task)
+            if (cands.isNotEmpty()) {
+                running(run, "يبحث في المهارات المتعلَّمة…")
+                Learner.route(LlmClient.create(settings), settings.fastModel, task, cands)?.let { (sk, p, u) ->
+                    account(run, settings.fastModel, u)
+                    match = sk to p
+                }
+            }
+        }
+
+        // 5) Replay the skill locally
+        var note: String? = null
+        var activeSkill: Skill? = null
+        match?.let { (sk, p) ->
+            val done = replay(svc, run, sk, p, trail, router)
+            if (done == sk.steps.size) {
+                if (sk.trusted && !sk.readout) {
+                    skills.record(sk.id, true)
+                    throw Stop(TaskStatus.DONE, Templates.fill(sk.doneTpl, p).orEmpty().ifBlank { "تمّت المهمة بمهارة متعلَّمة." })
+                }
+                activeSkill = sk
+                note = if (sk.readout)
+                    "NOTE: A saved routine for this task was just replayed locally. Read the requested information from the screen and call done with it."
+                else
+                    "NOTE: A saved routine for this task was just replayed locally. If the task is now complete call done; otherwise continue."
+            } else {
+                skills.record(sk.id, false)
+            }
+        }
+
+        // 6) Plan with the model (and learn at the end)
+        llmLoop(svc, run, trail, note, activeSkill, router)
+    }
+
     private suspend fun ownAppInFront(svc: AgentAccessibilityService): Boolean {
         repeat(6) {
             val p = svc.readScreen().pkg
@@ -278,17 +327,58 @@ class AgentEngine(
         if (settings.todaySpend() + run.cost >= settings.dailyBudget) throw Stop(TaskStatus.FAILED, "بلغت الحد اليومي للإنفاق (${Text.money(settings.dailyBudget.toDouble())}).")
     }
 
-    private fun account(run: Run, model: String, u: Usage) {
-        run.calls++
-        run.usage += u
-        run.cost += settings.cost(model, u)
-        pushStats(run)
+    /** Reads the screen and, for free, records it in the app's map together with the tap that led here. */
+    private fun observe(svc: AgentAccessibilityService, run: Run): Screen {
+        val s = svc.readScreen()
+        val learn = settings.autoLearn && s.pkg.isNotBlank() && s.pkg != ctx.packageName && s.pkg != "com.android.systemui" &&
+            s.pkg !in apps.launcherPackages() && Safety.policy(s.pkg, settings, apps) != Policy.BLOCKED
+        if (!learn) {
+            run.lastKey = null
+            run.pending = null
+            return s
+        }
+        val key = maps.observe(s)
+        val p = run.pending
+        if (p != null && key != null && p.pkg == s.pkg && p.from != null && p.from != key) maps.edge(s.pkg, p.from, p.label, key)
+        run.pending = null
+        run.lastKey = key
+        return s
     }
 
-    private suspend fun llmLoop(svc: AgentAccessibilityService, run: Run, trail: MutableList<String>, note: String?, activeSkill: Skill?) {
+    /** Built-in guide + learned map + notes for the apps involved; identical across a task's calls so it is cached. */
+    private fun knowledgeFor(run: Run, pkg: String): String? {
+        val pkgs = (listOf(pkg) + run.targets).filter { it.isNotBlank() && it != ctx.packageName && it !in apps.launcherPackages() }.distinct().take(2)
+        val cacheKey = pkgs.joinToString("+")
+        if (run.knowledge.containsKey(cacheKey)) return run.knowledge[cacheKey]
+        val sb = StringBuilder()
+        for (p in pkgs) {
+            val guide = KnowledgeBase.guideFor(p)
+            val map = maps.describe(p)
+            val tips = notes.get(p)
+            if (guide == null && map.isBlank() && tips.isEmpty()) continue
+            sb.append("## APP KNOWLEDGE — ").append(apps.byPackage(p)?.label ?: p).append(" (").append(p).append(")\n")
+            guide?.let { sb.append("GUIDE: ").append(it.guide).append('\n') }
+            if (map.isNotBlank()) sb.append("MAP (learned on this phone):\n").append(map).append('\n')
+            if (tips.isNotEmpty()) {
+                sb.append("NOTES:\n")
+                tips.take(6).forEach { sb.append("- ").append(it).append('\n') }
+            }
+        }
+        run.playbook?.let { sb.append("## PLAYBOOK — ").append(it.id).append('\n').append(it.text).append('\n') }
+        val out = sb.toString().trim().ifEmpty { null }
+        run.knowledge[cacheKey] = out
+        return out
+    }
+
+    private suspend fun llmLoop(
+        svc: AgentAccessibilityService, run: Run, trail: MutableList<String>, note: String?, activeSkill: Skill?, router: LocalRouter,
+    ) {
         if (settings.apiKey.isBlank()) throw Stop(TaskStatus.FAILED, "أضف مفتاح API من الإعدادات أولاً.")
         if (settings.fastModel.isBlank()) throw Stop(TaskStatus.FAILED, "حدّد اسم النموذج في الإعدادات.")
         val client = LlmClient.create(settings)
+        run.targets = apps.mentioned(run.task).map { it.pkg }
+        run.playbook = KnowledgeBase.playbookFor(run.task)
+        run.playbook?.let { log(run, LogKind.INFO, "خطة تشخيص جاهزة: ${it.title}") }
         var strong = false
         var stagnant = 0
         var wantShot = false
@@ -304,26 +394,33 @@ class AgentEngine(
             run.step = step
             budgetCheck(run)
             svc.waitForIdle()
-            var screen = svc.readScreen()
+            var screen = observe(svc, run)
             if (screen.pkg == ctx.packageName) {
                 // Our own window may still be closing (e.g. after answering a question) — give it a moment
-                repeat(6) { if (screen.pkg == ctx.packageName) { delay(250); screen = svc.readScreen() } }
+                repeat(6) { if (screen.pkg == ctx.packageName) { delay(250); screen = observe(svc, run) } }
                 if (screen.pkg == ctx.packageName) {
-                    svc.global(AccessibilityService.GLOBAL_ACTION_HOME); svc.waitForIdle(); screen = svc.readScreen()
+                    svc.global(AccessibilityService.GLOBAL_ACTION_HOME); svc.waitForIdle(); screen = observe(svc, run)
                 }
             }
-            val reason = Safety.blockReason(screen.pkg, settings, apps)
-            if (reason != null) {
-                // A protected app came up (usually a mis-tap): leave it at once and let the agent recover.
-                svc.global(AccessibilityService.GLOBAL_ACTION_BACK)
-                svc.global(AccessibilityService.GLOBAL_ACTION_HOME)
-                blockedHits++
-                if (blockedHits >= 2) throw Stop(TaskStatus.FAILED, reason)
-                log(run, LogKind.WARN, "فُتح تطبيق محمي بالخطأ — خرج الوكيل منه فوراً دون لمس أي شيء")
-                trail += "(a protected app ${screen.pkg} opened by mistake — it is off-limits; you are back on the home screen. Use open_app to reach the intended app, never tap home-screen icons)"
-                run.routeOk = false
-                svc.waitForIdle()
-                continue
+            when (Safety.policy(screen.pkg, settings, apps)) {
+                Policy.BLOCKED -> {
+                    // A protected app came up (usually a mis-tap): leave it at once and let the agent recover.
+                    val reason = Safety.blockReason(screen.pkg, settings, apps).orEmpty()
+                    svc.global(AccessibilityService.GLOBAL_ACTION_BACK)
+                    svc.global(AccessibilityService.GLOBAL_ACTION_HOME)
+                    blockedHits++
+                    if (blockedHits >= 2) throw Stop(TaskStatus.FAILED, reason)
+                    log(run, LogKind.WARN, "فُتح تطبيق محمي بالخطأ — خرج الوكيل منه فوراً دون لمس أي شيء")
+                    trail += "(a protected app ${screen.pkg} opened by mistake — it is off-limits; you are back on the home screen. Use open_app to reach the intended app)"
+                    run.routeOk = false
+                    svc.waitForIdle()
+                    continue
+                }
+                Policy.READ_ONLY -> if (run.readOnlyNoted.add(screen.pkg)) {
+                    log(run, LogKind.INFO, "«${apps.byPackage(screen.pkg)?.label ?: screen.pkg}» في وضع القراءة فقط: يقرأ ويحلل ولا ينفّذ أوامر مالية")
+                    trail += "(${screen.pkg} is READ-ONLY by owner policy: navigate, search and read only — never trade, order, transfer or confirm)"
+                }
+                Policy.ALLOWED -> Unit
             }
 
             val needShot = settings.allowScreenshots && !screen.hasPassword && (wantShot || screen.nodes.size < 3)
@@ -334,19 +431,20 @@ class AgentEngine(
 
             val useStrong = strong && settings.strongModel.isNotBlank()
             val model = if (useStrong) settings.strongModel else settings.fastModel
-            running(run, if (useStrong) "يفكّر بالنموذج الأقوى…" else "يفكّر…")
+            running(run, if (useStrong) "يخطّط بالنموذج الأقوى…" else "يخطّط…")
             val finalNote = if (step >= max - 1) "FINAL STEP: call done now with your best answer from MEMO and this screen (state any limits), or fail with the reason." else null
             val stepNote = listOfNotNull(note.takeIf { step == 1 }, finalNote).joinToString("\n").ifEmpty { null }
-            val user = Prompt.user(run.task, trail, screen, shot, step, max, stepNote, notes.get(screen.pkg), memo)
-            val res = client.decide(model, user, shot)
+            val device = if (run.playbook != null) DeviceInfo.brief(DeviceInfo.snapshot(ctx)) else null
+            val user = Prompt.user(run.task, trail, screen, shot, step, max, stepNote, memo, device)
+            val res = client.decide(model, user, shot, knowledgeFor(run, screen.pkg))
             account(run, model, res.usage)
             strong = false
 
             val d = res.decision
             if (d.thought.isNotBlank()) log(run, LogKind.THINK, d.thought)
             if (d.memo.isNotBlank() && memo.none { it == d.memo }) {
-                memo += d.memo.take(240)
-                if (memo.size > 12) memo.removeAt(0)
+                memo += d.memo.take(280)
+                if (memo.size > 14) memo.removeAt(0)
                 log(run, LogKind.INFO, "📝 " + d.memo.take(140))
             }
             if (d.actions.isEmpty()) {
@@ -357,7 +455,7 @@ class AgentEngine(
             }
 
             val before = screen.hash
-            // Loop guard: the same action on the same screen again and again = no progress
+            // Loop guard: the same plan start on the same screen again and again = no progress
             val key = d.actions.first().describe() + "|" + before
             recent.addLast(key)
             if (recent.size > 6) recent.removeFirst()
@@ -373,10 +471,30 @@ class AgentEngine(
                 }
                 throw Stop(TaskStatus.FAILED, "توقّف الوكيل لأنه يكرر نفس الخطوة دون تقدّم، وأوقفته لتوفير الاستهلاك. جرّب صياغة أوضح للمهمة.")
             }
+
+            if (d.actions.size >= 3) log(run, LogKind.INFO, "خطة من ${d.actions.size} خطوات في طلب واحد")
+            // The owner confirms a model-flagged plan once, at its last committing action
+            val sensitiveIdx = if (d.sensitive) d.actions.indexOfLast {
+                it.type in setOf(ActionType.TAP, ActionType.TAP_XY, ActionType.LONG_PRESS, ActionType.ENTER, ActionType.DRAG)
+            } else -1
+
             var waited = false
             val orig = screen
+            var cur = screen
+            var prevTap = false
+            var prevOnEditable = false
+            var prevHash = 0
             for ((i, a) in d.actions.withIndex()) {
                 currentCoroutineContext().ensureActive()
+                if (i > 0) {
+                    svc.waitForIdle(350, 2500)
+                    cur = observe(svc, run)
+                    if (prevTap && cur.hash == prevHash) {
+                        trail[trail.lastIndex] = trail.last() + " · no change"
+                        if (!prevOnEditable) break   // the tap did nothing: do not continue the plan blindly
+                    }
+                    if (cur.pkg != orig.pkg && Safety.policy(cur.pkg, settings, apps) == Policy.BLOCKED) break
+                }
                 when (a.type) {
                     ActionType.DONE -> {
                         val result = a.text ?: "تمّت المهمة."
@@ -384,18 +502,20 @@ class AgentEngine(
                             skills.record(activeSkill.id, true)
                             log(run, LogKind.LOCAL, "تأكّدت المهارة «${activeSkill.title}» — المرات القادمة دون أي استهلاك")
                         } else if (settings.autoLearn && run.routeOk && run.route.isNotEmpty()) {
-                            learn(client, run, result, screen.pkg)
+                            learn(client, run, result, cur.pkg)
                         }
                         throw Stop(TaskStatus.DONE, result)
                     }
                     ActionType.FAIL -> throw Stop(TaskStatus.FAILED, a.text ?: "تعذّر إكمال المهمة.")
                     else -> Unit
                 }
-                val cur = if (i == 0) orig else { svc.waitForIdle(); svc.readScreen() }
-                val out = perform(svc, run, a, orig, cur, d.sensitive, shot)
+                prevHash = cur.hash
+                val out = perform(svc, run, a, orig, cur, i == sensitiveIdx, shot, router)
                 run.steps++
                 run.llmActions++
                 trail += out.line
+                prevTap = out.tap
+                prevOnEditable = out.onEditable
                 if (out.macro != null) run.route += out.macro else if (out.breaksMacro) run.routeOk = false
                 if (a.type == ActionType.WAIT) waited = true
                 if (a.type == ActionType.SCREENSHOT && settings.allowScreenshots) {
@@ -406,8 +526,11 @@ class AgentEngine(
             }
 
             svc.waitForIdle()
-            val after = svc.readScreen().hash
-            if (after == before && !waited && !wantShot) stagnant++ else stagnant = 0
+            val after = observe(svc, run)
+            if (prevTap && after.hash == prevHash && trail.isNotEmpty() && !trail.last().endsWith("no change")) {
+                trail[trail.lastIndex] = trail.last() + " · no change"
+            }
+            if (after.hash == before && !waited && !wantShot) stagnant++ else stagnant = 0
             if (stagnant >= 2 && settings.escalate) {
                 strong = true
                 if (settings.allowScreenshots) wantShot = true
@@ -415,52 +538,80 @@ class AgentEngine(
                 log(run, LogKind.WARN, "تعثّر الوكيل — سيستعين بالنموذج الأقوى ولقطة شاشة للخطوة القادمة")
             }
         }
-        throw Stop(TaskStatus.FAILED, "توقّف الوكيل بعد بلوغ الحد الأقصى للخطوات ($max).")
+        throw Stop(TaskStatus.FAILED, "توقّف الوكيل بعد بلوغ الحد الأقصى للطلبات ($max).")
     }
 
-    private suspend fun learn(client: LlmClient, run: Run, result: String, pkg: String) {
+    private suspend fun learn(client: LlmClient, run: Run, result: String, screenPkg: String) {
         running(run, "يتعلّم من هذه المهمة…")
+        val pkg = run.route.lastOrNull { it.type == "open_app" }?.text ?: screenPkg
         val learned = Learner.learn(client, settings.fastModel, run.task, run.route, result, pkg)
         learned?.let { account(run, settings.fastModel, it.usage) }
         if (learned != null && !learned.reusable) return
-        val skill = Learner.newSkill(run.task, learned, run.route.toList(), result)
+        val skill = Learner.newSkill(run.task, learned, run.route.toList(), result, pkg)
         skills.upsert(skill)
         learned?.notes?.groupBy({ it.first }, { it.second })?.forEach { (p, n) -> notes.add(p, n) }
         val vars = if (skill.params.isEmpty()) "" else " بمتغيّرات: " + skill.params.joinToString("، ")
         log(run, LogKind.LOCAL, "تعلّمتُ مهارة «${skill.title}»$vars — ستُنفَّذ لاحقاً محلياً")
     }
 
-    // ------------------------------------------------------------------
+    // ------------------------------------------------------------------ actions
 
     private suspend fun perform(
         svc: AgentAccessibilityService, run: Run, a: AgentAction,
-        orig: Screen, cur: Screen, sensitive: Boolean, shot: Shot?,
+        orig: Screen, cur: Screen, sensitive: Boolean, shot: Shot?, router: LocalRouter,
     ): Outcome {
-        fun target(): UiNode? {
-            val o = a.id?.let { orig.byId(it) } ?: return null
-            return if (cur === orig) o else cur.find(o.signature, o.bounds)
+        val readOnly = Safety.policy(cur.pkg, settings, apps) == Policy.READ_ONLY
+        val byFind = a.find != null && (a.id == null || cur !== orig)
+
+        /** Resolves the target: by id on the screen the model saw, or by label on a screen planned ahead. */
+        suspend fun target(wantEditable: Boolean = false): UiNode? {
+            if (!byFind) {
+                val o = a.id?.let { orig.byId(it) } ?: return null
+                return if (cur === orig) o else cur.find(o.signature, o.bounds)
+            }
+            val q = a.find ?: return null
+            cur.match(q, wantEditable)?.let { return it }
+            repeat(9) {
+                delay(400)
+                svc.readScreen().match(q, wantEditable)?.let { return it }
+            }
+            return null
         }
-        val shown = a.id?.let { orig.byId(it)?.label?.take(30) }
+
+        val shown = if (byFind) a.find?.take(30) else a.id?.let { orig.byId(it)?.label?.take(30) }
         log(run, LogKind.ACTION, actionLabel(a, shown))
+        val missing = "${a.describe()} ✗ not found on screen — plan stopped here"
 
         return when (a.type) {
             ActionType.TAP, ActionType.LONG_PRESS -> {
-                val n = target() ?: return Outcome("${a.describe()} ✗ element not on screen anymore", abort = true)
+                val n = target() ?: return Outcome(missing, abort = true)
+                if (readOnly && Safety.isTradeLabel(n.label)) {
+                    log(run, LogKind.WARN, "رُفضت الضغطة على «${n.label.take(30)}»: التطبيق في وضع القراءة فقط")
+                    return Outcome("${a.describe()} \"${n.label.take(30)}\" ✗ REFUSED: read-only app (no orders, transfers or confirmations)", abort = true, breaksMacro = true)
+                }
                 val risky = sensitive || Safety.isSensitiveLabel(n.label)
                 if (!confirm(run, risky, if (a.type == ActionType.TAP) "الضغط على «${n.label.take(40)}»" else "الضغط المطوّل على «${n.label.take(40)}»"))
                     return Outcome("${a.describe()} ✗ DENIED by owner — do not retry", abort = true, breaksMacro = true)
                 val ok = if (a.type == ActionType.TAP) click(svc, n) else longClick(svc, n)
+                if (ok && n.label.isNotBlank()) run.pending = Pending(cur.pkg, run.lastKey, n.label)
                 Outcome(
                     "${a.describe()} \"${n.label.take(30)}\" ${mark(ok)}", abort = !ok,
                     macro = if (ok) MacroStep(a.type.key, n.signature, label = n.label.take(40), confirm = risky) else null,
-                    breaksMacro = !ok,
+                    breaksMacro = !ok, tap = ok, onEditable = n.editable,
                 )
             }
 
             ActionType.TAP_XY -> {
                 if (shot == null || a.x == null || a.y == null) return Outcome("tap_xy ✗ needs a screenshot and x,y", abort = true)
+                val sx = a.x * shot.scaleX
+                val sy = a.y * shot.scaleY
+                if (readOnly) {
+                    val under = cur.at(sx, sy)
+                    if (under == null || Safety.isTradeLabel(under.label))
+                        return Outcome("tap_xy ✗ REFUSED: read-only app and the target cannot be verified as safe — use labelled elements", abort = true, breaksMacro = true)
+                }
                 if (!confirm(run, sensitive, "الضغط على نقطة في الشاشة")) return Outcome("tap_xy ✗ DENIED by owner", abort = true, breaksMacro = true)
-                val ok = svc.tap(a.x * shot.scaleX, a.y * shot.scaleY)
+                val ok = svc.tap(sx, sy)
                 Outcome("tap_xy (${a.x},${a.y}) ${mark(ok)}", abort = true, breaksMacro = true)
             }
 
@@ -473,29 +624,48 @@ class AgentEngine(
             }
 
             ActionType.TYPE -> {
-                val n = target() ?: focusedEditable(cur) ?: cur.nodes.firstOrNull { it.editable }
-                    ?: return Outcome("type ✗ no text field on screen", abort = true)
-                if (n.password) return Outcome("type ✗ refused: password field — the owner must type it", abort = true, breaksMacro = true)
+                var n: UiNode? = null
+                if (byFind) {
+                    var scr = cur
+                    for (k in 0 until 8) {
+                        n = scr.match(a.find.orEmpty(), true) ?: focusedEditable(scr) ?: scr.nodes.singleOrNull { it.editable }
+                        if (n != null) break
+                        delay(400)
+                        scr = svc.readScreen()
+                    }
+                } else {
+                    n = target() ?: focusedEditable(cur) ?: cur.nodes.firstOrNull { it.editable }
+                }
+                val field = n ?: return Outcome("type ✗ no text field on screen", abort = true)
+                if (field.password) return Outcome("type ✗ refused: password field — the owner must type it", abort = true, breaksMacro = true)
+                if (readOnly && !Safety.isSearchField(field.label, field.viewId))
+                    return Outcome("type ✗ REFUSED: read-only app — only search fields may be typed in", abort = true, breaksMacro = true)
                 val txt = a.text.orEmpty()
-                val (ok, now) = setTextVerified(svc, n, txt)
+                val (ok, now) = setTextVerified(svc, field, txt)
                 Outcome(
-                    "type #${n.id} ${mark(ok)} — field now: \"${now.replace("\n", "\\n").take(160)}\"" +
+                    "type #${field.id} ${mark(ok)} — field now: \"${now.replace("\n", "\\n").take(160)}\"" +
                         if (ok) "" else " (text did not apply; try tapping the field first, or another approach)",
                     abort = !ok,
-                    macro = if (ok) MacroStep("type", n.signature, text = txt) else null, breaksMacro = !ok,
+                    macro = if (ok) MacroStep("type", field.signature, text = txt) else null,
+                    breaksMacro = !ok,
                 )
             }
 
             ActionType.ENTER -> {
+                if (readOnly) {
+                    val f = focusedEditable(cur)
+                    if (f == null || !Safety.isSearchField(f.label, f.viewId))
+                        return Outcome("enter ✗ REFUSED: read-only app — only search fields", abort = true, breaksMacro = true)
+                }
                 if (!confirm(run, sensitive, "إرسال/تأكيد النص المكتوب")) return Outcome("enter ✗ DENIED by owner", abort = true, breaksMacro = true)
-                val ok = pressEnter(svc, cur, target())
+                val ok = pressEnter(svc, cur, if (byFind) null else a.id?.let { orig.byId(it) })
                 Outcome("enter ${mark(ok)}", abort = !ok, macro = if (ok) MacroStep("enter", confirm = sensitive) else null, breaksMacro = !ok)
             }
 
             ActionType.SCROLL -> {
                 val dir = a.dir ?: "down"
-                val n = target()?.takeIf { it.scrollable }
-                val ok = scroll(svc, cur, n, dir)
+                val n = (if (a.id != null || a.find != null) target() else null)?.takeIf { it.scrollable }
+                val ok = scroll(svc, n, dir)
                 Outcome("scroll $dir ${mark(ok)}", macro = if (ok) MacroStep("scroll", n?.signature, dir = dir) else null)
             }
 
@@ -510,10 +680,31 @@ class AgentEngine(
                 Safety.blockReason(app.pkg, settings, apps)?.let { return Outcome("open_app \"${app.label}\" ✗ blocked by owner settings", abort = true) }
                 val ok = apps.launch(app.pkg)
                 if (ok) svc.waitForIdle(600, 4000)
+                run.pending = null
                 Outcome(
-                    "open_app \"${app.label}\" ${mark(ok)}", abort = true,
+                    "open_app \"${app.label}\" ${mark(ok)}", abort = !ok,
                     macro = if (ok) MacroStep("open_app", text = app.pkg, label = app.label) else null,
                 )
+            }
+
+            ActionType.OPEN_SETTINGS -> {
+                val key = a.text.orEmpty()
+                val (ok, label) = router.openSettings(key)
+                if (ok) svc.waitForIdle(600, 4000)
+                run.pending = null
+                Outcome(
+                    "open_settings $key ${mark(ok)}" + if (ok) "" else " (unknown key or app — use a key from the list)", abort = !ok,
+                    macro = if (ok) MacroStep("open_settings", text = key, label = label) else null,
+                )
+            }
+
+            ActionType.OPEN_URL -> {
+                val url = LocalRouter.normalizeUrl(a.text.orEmpty())
+                    ?: return Outcome("open_url ✗ this link type is not allowed", abort = true)
+                val ok = router.openUrl(url)
+                if (ok) svc.waitForIdle(800, 5000)
+                run.pending = null
+                Outcome("open_url ${url.take(90)} ${mark(ok)}", abort = !ok, macro = if (ok) MacroStep("open_url", text = url) else null)
             }
 
             ActionType.WAIT -> {
@@ -536,27 +727,33 @@ class AgentEngine(
         }
     }
 
-    // ------------------------------------------------------------------ replay
+    // ------------------------------------------------------------------ replay of learned skills
 
-    private suspend fun replay(svc: AgentAccessibilityService, run: Run, skill: Skill, params: Map<String, String>, trail: MutableList<String>): Int {
+    private suspend fun replay(
+        svc: AgentAccessibilityService, run: Run, skill: Skill, params: Map<String, String>, trail: MutableList<String>, router: LocalRouter,
+    ): Int {
         val vars = if (params.isEmpty()) "" else " (" + params.values.joinToString("، ") { "«$it»" } + ")"
         log(run, LogKind.LOCAL, "مهارة متعلَّمة: «${skill.title}»$vars — تنفيذ محلي دون استهلاك API")
         for ((i, s) in skill.steps.withIndex()) {
             currentCoroutineContext().ensureActive()
             run.step = i + 1
             svc.waitForIdle()
+            val here = observe(svc, run)
+            val pol = Safety.policy(here.pkg, settings, apps)
             val text = Templates.fill(s.text, params)
             val label = Templates.fill(s.label, params)
             var filled = s.copy(text = text, label = label)
-            val ok: Boolean = when (s.type) {
+            val ok: Boolean = if (pol == Policy.BLOCKED) false else when (s.type) {
                 "tap", "long_press" -> {
                     val n = waitFor(svc, s, params)
-                    if (n == null) false
+                    if (n == null || (pol == Policy.READ_ONLY && Safety.isTradeLabel(n.label))) false
                     else if (!confirm(run, s.confirm || Safety.isSensitiveLabel(n.label), "الضغط على «${n.label.take(40)}»")) {
                         trail += "(owner denied a saved step)"; return i
                     } else {
                         filled = filled.copy(sig = n.signature, label = n.label.take(40))
-                        if (s.type == "tap") click(svc, n) else longClick(svc, n)
+                        val done = if (s.type == "tap") click(svc, n) else longClick(svc, n)
+                        if (done && n.label.isNotBlank()) run.pending = Pending(here.pkg, run.lastKey, n.label)
+                        done
                     }
                 }
                 "type" -> {
@@ -567,10 +764,7 @@ class AgentEngine(
                     if (!confirm(run, s.confirm, "إرسال/تأكيد النص المكتوب")) { trail += "(owner denied a saved step)"; return i }
                     pressEnter(svc, svc.readScreen(), null)
                 }
-                "scroll" -> {
-                    val scr = svc.readScreen()
-                    scroll(svc, scr, s.sig?.let { scr.find(it) }, s.dir ?: "down")
-                }
+                "scroll" -> scroll(svc, s.sig?.let { here.find(it) }, s.dir ?: "down")
                 "back" -> svc.global(AccessibilityService.GLOBAL_ACTION_BACK)
                 "home" -> svc.global(AccessibilityService.GLOBAL_ACTION_HOME)
                 "recents" -> svc.global(AccessibilityService.GLOBAL_ACTION_RECENTS)
@@ -578,6 +772,13 @@ class AgentEngine(
                 "open_app" -> s.text?.let { pkg ->
                     Safety.blockReason(pkg, settings, apps) == null && apps.launch(pkg).also { if (it) svc.waitForIdle(600, 4000) }
                 } ?: false
+                "open_settings" -> router.openSettings(s.text.orEmpty()).first.also { if (it) svc.waitForIdle(600, 4000) }
+                "open_url" -> {
+                    // Values inside a link are percent-encoded
+                    val url = Templates.fill(s.text, params.mapValues { Commands.enc(it.value) }).orEmpty()
+                    filled = filled.copy(text = url)
+                    router.openUrl(url).also { if (it) svc.waitForIdle(800, 5000) }
+                }
                 "wait" -> { delay(2000); true }
                 else -> false
             }
@@ -603,6 +804,8 @@ class AgentEngine(
         "enter" -> "إرسال"
         "scroll" -> "تمرير"
         "open_app" -> "فتح"
+        "open_settings" -> "إعدادات"
+        "open_url" -> "رابط"
         "back" -> "رجوع"
         "home" -> "الرئيسية"
         "wait" -> "انتظار"
@@ -616,6 +819,72 @@ class AgentEngine(
             delay(400)
         }
         return null
+    }
+
+    // ------------------------------------------------------------------ safe exploration (no API)
+
+    private fun navItems(s: Screen): List<UiNode> {
+        val h = s.height
+        val w = s.width
+        if (h <= 0) return emptyList()
+        val cands = s.nodes.filter {
+            it.clickable && !it.inList && !it.editable && it.bounds.centerY() > h * 0.86f &&
+                it.bounds.height() < h * 0.14f && it.bounds.width() < w * 0.45f
+        }
+        val row = cands.groupBy { it.bounds.centerY() / maxOf(1, h / 40) }.values.filter { it.size in 3..6 }.maxByOrNull { it.size }
+        return row?.sortedBy { it.bounds.left } ?: emptyList()
+    }
+
+    private suspend fun exploreApp(run: Run, pkg: String, label: String) {
+        val svc = AgentAccessibilityService.instance
+            ?: throw Stop(TaskStatus.FAILED, "خدمة إمكانية الوصول غير مفعّلة.")
+        if (Safety.policy(pkg, settings, apps) == Policy.BLOCKED) throw Stop(TaskStatus.FAILED, "هذا التطبيق محجوب عن الوكيل، فلا يمكن استكشافه.")
+        log(run, LogKind.LOCAL, "استكشاف آمن: يزور التبويبات السفلية فقط، دون كتابة أو إرسال، ودون استهلاك API")
+        if (!apps.launch(pkg)) throw Stop(TaskStatus.FAILED, "تعذّر فتح «$label».")
+        svc.waitForIdle(900, 6000)
+        delay(700)
+        var home = svc.readScreen()
+        if (home.pkg != pkg) { delay(1800); home = svc.readScreen() }
+        if (home.pkg != pkg) throw Stop(TaskStatus.FAILED, "لم يظهر «$label» في المقدمة (ربما يطلب تسجيل دخول أو إذناً).")
+        maps.observe(home)
+        var learned = 1
+        val bar = navItems(home)
+        if (bar.isEmpty()) log(run, LogKind.INFO, "لا يوجد شريط تبويبات سفلي واضح؛ حُفظت الصفحة الرئيسية فقط")
+        for (item in bar.take(6)) {
+            currentCoroutineContext().ensureActive()
+            run.step++
+            val scr = svc.readScreen()
+            if (scr.pkg != pkg) {
+                apps.launch(pkg); svc.waitForIdle(800, 5000); continue
+            }
+            val node = scr.find(item.signature, item.bounds) ?: continue
+            if (Safety.isSensitiveLabel(node.label) || Safety.isTradeLabel(node.label)) continue
+            log(run, LogKind.ACTION, "تبويب «${node.label.take(24).ifBlank { "بدون اسم" }}»")
+            val fromKey = AppMapStore.keyOf(scr)
+            click(svc, node)
+            svc.waitForIdle(700, 4000)
+            val next = svc.readScreen()
+            if (next.pkg != pkg) {
+                svc.global(AccessibilityService.GLOBAL_ACTION_BACK); svc.waitForIdle()
+                if (svc.readScreen().pkg != pkg) { apps.launch(pkg); svc.waitForIdle(800, 5000) }
+                continue
+            }
+            val key = maps.observe(next)
+            if (key != null) {
+                maps.edge(pkg, fromKey, node.label, key)
+                learned++
+            }
+            run.localSteps++
+            run.steps++
+            pushStats(run)
+            // A full-screen flow without the bar (camera, composer): step back out
+            if (navItems(next).none { it.signature == item.signature }) {
+                svc.global(AccessibilityService.GLOBAL_ACTION_BACK); svc.waitForIdle(600, 3000)
+            }
+        }
+        maps.flush()
+        svc.global(AccessibilityService.GLOBAL_ACTION_HOME)
+        throw Stop(TaskStatus.DONE, "تعرّفتُ على $learned صفحة في «$label» دون أي استهلاك. سأستخدم هذه الخريطة لأخطّط المهام في هذا التطبيق بطلب واحد.")
     }
 
     // ------------------------------------------------------------------ gates
@@ -660,7 +929,7 @@ class AgentEngine(
 
     private fun global(svc: AgentAccessibilityService, action: Int, name: String): Outcome {
         val ok = svc.global(action)
-        return Outcome("$name ${mark(ok)}", abort = true, macro = if (ok) MacroStep(name) else null)
+        return Outcome("$name ${mark(ok)}", abort = !ok, macro = if (ok) MacroStep(name) else null)
     }
 
     private fun clickableAncestor(n: AccessibilityNodeInfo): AccessibilityNodeInfo? {
@@ -743,7 +1012,7 @@ class AgentEngine(
         return node.performAction(AccessibilityAction.ACTION_IME_ENTER.id)
     }
 
-    private suspend fun scroll(svc: AgentAccessibilityService, s: Screen, n: UiNode?, dir: String): Boolean {
+    private suspend fun scroll(svc: AgentAccessibilityService, n: UiNode?, dir: String): Boolean {
         if (n != null && n.info.refresh()) {
             val act = if (dir == "down" || dir == "right") AccessibilityNodeInfo.ACTION_SCROLL_FORWARD else AccessibilityNodeInfo.ACTION_SCROLL_BACKWARD
             if (n.info.performAction(act)) return true
@@ -772,6 +1041,8 @@ class AgentEngine(
         ActionType.RECENTS -> "التطبيقات الأخيرة"
         ActionType.NOTIFICATIONS -> "فتح الإشعارات"
         ActionType.OPEN_APP -> "فتح تطبيق «${a.text.orEmpty()}»"
+        ActionType.OPEN_SETTINGS -> "فتح إعدادات «${a.text.orEmpty()}» مباشرة"
+        ActionType.OPEN_URL -> "فتح رابط مباشر"
         ActionType.WAIT -> "انتظار"
         ActionType.SCREENSHOT -> "طلب لقطة شاشة"
         ActionType.ASK_USER -> "سؤال لك"

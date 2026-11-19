@@ -10,7 +10,10 @@ import org.json.JSONObject
 /** Any OpenAI-compatible Chat Completions endpoint (OpenAI, Gemini, OpenRouter, local servers). */
 class OpenAiClient(private val key: String, private val base: String) : LlmClient {
 
-    override suspend fun callTool(model: String, system: String, user: String, shot: Shot?, tool: ToolSpec, maxTokens: Int): ToolResult {
+    override suspend fun callTool(
+        model: String, system: String, user: String, shot: Shot?, tool: ToolSpec, maxTokens: Int, extraSystem: String?,
+    ): ToolResult {
+        val sys = if (extraSystem.isNullOrBlank()) system else system + "\n\n" + extraSystem
         val userContent = JSONArray().put(JSONObject().put("type", "text").put("text", user))
         if (shot != null) {
             userContent.put(
@@ -22,7 +25,7 @@ class OpenAiClient(private val key: String, private val base: String) : LlmClien
             .put("model", model)
             .put(
                 "messages", JSONArray()
-                    .put(JSONObject().put("role", "system").put("content", system))
+                    .put(JSONObject().put("role", "system").put("content", sys))
                     .put(JSONObject().put("role", "user").put("content", userContent))
             )
             .put(

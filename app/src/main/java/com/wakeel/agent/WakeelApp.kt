@@ -3,8 +3,9 @@ package com.wakeel.agent
 import android.app.Application
 import com.wakeel.agent.agent.AgentEngine
 import com.wakeel.agent.agent.AppIndex
-import com.wakeel.agent.agent.HistoryStore
+import com.wakeel.agent.agent.AppMapStore
 import com.wakeel.agent.agent.AppNotes
+import com.wakeel.agent.agent.HistoryStore
 import com.wakeel.agent.agent.SkillStore
 import com.wakeel.agent.core.Settings
 
@@ -25,6 +26,8 @@ object Hub {
         private set
     lateinit var notes: AppNotes
         private set
+    lateinit var maps: AppMapStore
+        private set
     lateinit var apps: AppIndex
         private set
     lateinit var engine: AgentEngine
@@ -35,7 +38,8 @@ object Hub {
         history = HistoryStore(app)
         skills = SkillStore(app)
         notes = AppNotes(app)
+        maps = AppMapStore(app)
         apps = AppIndex(app)
-        engine = AgentEngine(app, settings, history, skills, notes, apps)
+        engine = AgentEngine(app, settings, history, skills, notes, apps, maps)
     }
 }

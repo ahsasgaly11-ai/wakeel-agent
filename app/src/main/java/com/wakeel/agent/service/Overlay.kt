@@ -16,7 +16,9 @@ import android.view.WindowManager
 import android.view.animation.LinearInterpolator
 import android.widget.LinearLayout
 import android.widget.TextView
+import androidx.core.content.res.ResourcesCompat
 import com.wakeel.agent.Hub
+import com.wakeel.agent.R
 import com.wakeel.agent.agent.EngineState
 import com.wakeel.agent.ui.CommandActivity
 import kotlinx.coroutines.CoroutineScope
@@ -49,9 +51,11 @@ class Overlay(private val svc: AgentAccessibilityService) {
     private var lastState: EngineState = EngineState.Idle
 
     // ---------- Colors ----------
-    private val indigo = intArrayOf(0xFF6366F1.toInt(), 0xFF4338CA.toInt())
-    private val teal = intArrayOf(0xFF2DD4BF.toInt(), 0xFF0F766E.toInt())
-    private val amber = intArrayOf(0xFFFBBF24.toInt(), 0xFFD97706.toInt())
+    private val indigo = intArrayOf(0xFF2FCF9A.toInt(), 0xFF0B6B55.toInt())   // idle: emerald
+    private val teal = intArrayOf(0xFF6FA8FF.toInt(), 0xFF2F5FB3.toInt())     // working: sapphire
+    private val amber = intArrayOf(0xFFE8C36A.toInt(), 0xFFB8862B.toInt())    // needs you: gold
+    private val bold: Typeface = runCatching { ResourcesCompat.getFont(svc, R.font.tajawal_bold) }.getOrNull() ?: Typeface.DEFAULT_BOLD
+    private val regular: Typeface = runCatching { ResourcesCompat.getFont(svc, R.font.tajawal_medium) }.getOrNull() ?: Typeface.DEFAULT
 
     fun show() {
         if (bubble != null) return
@@ -158,8 +162,8 @@ class Overlay(private val svc: AgentAccessibilityService) {
             setPadding(dp(18), dp(16), dp(18), dp(16))
             background = GradientDrawable().apply {
                 cornerRadius = dp(24).toFloat()
-                setColor(0xF5111827.toInt())
-                setStroke(dp(1), 0x33FFFFFF)
+                setColor(0xF50A1512.toInt())
+                setStroke(dp(1), 0x553DD9A4)
             }
             elevation = dp(12).toFloat()
         }
@@ -171,7 +175,7 @@ class Overlay(private val svc: AgentAccessibilityService) {
         header.addView(TextView(svc).apply {
             text = "✦  وكيل"
             textSize = 18f
-            setTypeface(typeface, Typeface.BOLD)
+            typeface = bold
             setTextColor(Color.WHITE)
         }, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
         header.addView(TextView(svc).apply {
@@ -190,6 +194,7 @@ class Overlay(private val svc: AgentAccessibilityService) {
                 }
             }
             textSize = 13f
+            typeface = regular
             setTextColor(0xCCFFFFFF.toInt())
             maxLines = 4
             ellipsize = TextUtils.TruncateAt.END
@@ -200,7 +205,7 @@ class Overlay(private val svc: AgentAccessibilityService) {
         questionTv = TextView(svc).apply {
             textSize = 15f
             setTextColor(0xFFFDE68A.toInt())
-            setTypeface(typeface, Typeface.BOLD)
+            typeface = bold
             visibility = View.GONE
             setPadding(0, 0, 0, dp(10))
         }
@@ -210,8 +215,8 @@ class Overlay(private val svc: AgentAccessibilityService) {
             orientation = LinearLayout.HORIZONTAL
             visibility = View.GONE
             setPadding(0, dp(12), 0, 0)
-            addView(pill("سماح", 0xFF10B981.toInt()) { Hub.engine.answerConfirm(true) }, weightLp(end = dp(8)))
-            addView(pill("رفض", 0xFFEF4444.toInt()) { Hub.engine.answerConfirm(false) }, weightLp())
+            addView(pill("سماح", 0xFF1FA97C.toInt()) { Hub.engine.answerConfirm(true) }, weightLp(end = dp(8)))
+            addView(pill("رفض", 0xFFE5484D.toInt()) { Hub.engine.answerConfirm(false) }, weightLp())
         }
         p.addView(confirmRow)
 
@@ -219,8 +224,8 @@ class Overlay(private val svc: AgentAccessibilityService) {
             orientation = LinearLayout.HORIZONTAL
             setPadding(0, dp(12), 0, 0)
         }
-        mainBtn = pill("مهمة جديدة", 0xFF6366F1.toInt()) { onMain() }
-        stopBtn = pill("إيقاف", 0xFFEF4444.toInt()) { Hub.engine.stop() }
+        mainBtn = pill("مهمة جديدة", 0xFF0E8A6A.toInt()) { onMain() }
+        stopBtn = pill("إيقاف", 0xFFE5484D.toInt()) { Hub.engine.stop() }
         actions.addView(mainBtn, weightLp(end = dp(8)))
         actions.addView(stopBtn, weightLp())
         p.addView(actions)
@@ -331,7 +336,7 @@ class Overlay(private val svc: AgentAccessibilityService) {
         text = label
         textSize = 15f
         gravity = Gravity.CENTER
-        setTypeface(typeface, Typeface.BOLD)
+        typeface = bold
         setTextColor(Color.WHITE)
         setPadding(dp(12), dp(11), dp(12), dp(11))
         background = GradientDrawable().apply { cornerRadius = dp(14).toFloat(); setColor(color) }

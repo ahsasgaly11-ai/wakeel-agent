@@ -28,10 +28,14 @@ class LlmException(message: String) : Exception(message)
 
 interface LlmClient {
     /** One forced tool call. Every request the app makes goes through here. */
-    suspend fun callTool(model: String, system: String, user: String, shot: Shot?, tool: ToolSpec, maxTokens: Int = 1500): ToolResult
+    /** [extraSystem] is a second cached system block (app knowledge) that stays identical across a task's calls. */
+    suspend fun callTool(
+        model: String, system: String, user: String, shot: Shot?, tool: ToolSpec,
+        maxTokens: Int = 1800, extraSystem: String? = null,
+    ): ToolResult
 
-    suspend fun decide(model: String, user: String, shot: Shot?): LlmResult {
-        val r = callTool(model, Prompt.SYSTEM, user, shot, Prompt.actTool())
+    suspend fun decide(model: String, user: String, shot: Shot?, knowledge: String? = null): LlmResult {
+        val r = callTool(model, Prompt.SYSTEM, user, shot, Prompt.actTool(), extraSystem = knowledge)
         return LlmResult(r.input?.let { AgentDecision.parse(it) } ?: AgentDecision("", emptyList(), false), r.usage)
     }
 

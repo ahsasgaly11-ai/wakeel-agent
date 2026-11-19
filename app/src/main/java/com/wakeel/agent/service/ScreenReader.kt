@@ -3,6 +3,7 @@ package com.wakeel.agent.service
 import android.accessibilityservice.AccessibilityService
 import android.graphics.Rect
 import android.view.accessibility.AccessibilityNodeInfo
+import com.wakeel.agent.core.Text
 import kotlin.math.abs
 
 class UiNode(
@@ -18,15 +19,20 @@ class UiNode(
     val scrollable: Boolean,
     val password: Boolean,
     val checked: Boolean,
+    val selected: Boolean,
+    /** Inside a dynamic list (RecyclerView/ListView…): content, not app structure. */
+    val inList: Boolean,
     val info: AccessibilityNodeInfo,
 ) {
     /** Stable identity across screen reads (used for batching and saved routes). */
     val signature: String get() = "$cls|$viewId|${label.take(60)}"
 }
 
-class Screen(val pkg: String, val nodes: List<UiNode>, val width: Int, val height: Int) {
+class Screen(val pkg: String, val activity: String, val nodes: List<UiNode>, val width: Int, val height: Int) {
     val hasPassword = nodes.any { it.password }
-    val hash: Int = (pkg + "\n" + nodes.joinToString("\n") { it.signature + "@" + it.bounds.flattenToString() }).hashCode()
+    val hash: Int = (pkg + "\n" + nodes.joinToString("\n") {
+        it.signature + "@" + it.bounds.flattenToString() + (if (it.checked) "x" else "") + (if (it.selected) "*" else "")
+    }).hashCode()
 
     fun byId(id: Int): UiNode? = nodes.getOrNull(id)
 
@@ -36,6 +42,34 @@ class Screen(val pkg: String, val nodes: List<UiNode>, val width: Int, val heigh
         if (near == null) return c.first()
         return c.minBy { abs(it.bounds.centerX() - near.centerX()) + abs(it.bounds.centerY() - near.centerY()) }
     }
+
+    /** Finds an element by its visible label (or view id) — used for steps planned before the screen was seen. */
+    fun match(query: String, wantEditable: Boolean = false): UiNode? {
+        val raw = query.trim().trimStart('#')
+        val q = Text.norm(raw)
+        if (q.isEmpty()) return null
+        val pool = if (wantEditable) nodes.filter { it.editable } else nodes
+        if (pool.isEmpty()) return null
+        fun best(c: List<UiNode>): UiNode? =
+            c.sortedWith(compareBy<UiNode> { if (it.clickable || it.editable) 0 else 1 }.thenBy { it.label.length }).firstOrNull()
+
+        val labels = pool.map { it to Text.norm(it.label) }
+        best(labels.filter { it.second == q }.map { it.first })?.let { return it }
+        best(pool.filter { it.viewId.isNotEmpty() && it.viewId.equals(raw, ignoreCase = true) })?.let { return it }
+        best(labels.filter { it.second.startsWith(q) }.map { it.first })?.let { return it }
+        if (q.length >= 2) best(labels.filter { it.second.contains(q) }.map { it.first })?.let { return it }
+        best(labels.filter { it.second.length >= 4 && q.contains(it.second) }.map { it.first })?.let { return it }
+        if (q.length >= 4) best(pool.filter { it.viewId.isNotEmpty() && Text.norm(it.viewId.replace('_', ' ')).contains(q) })?.let { return it }
+        return null
+    }
+
+    /** Smallest labelled element under a screen point (for checking coordinate taps). */
+    fun at(x: Float, y: Float): UiNode? = nodes
+        .filter { it.label.isNotBlank() && it.bounds.contains(x.toInt(), y.toInt()) }
+        .minByOrNull { it.bounds.width().toLong() * it.bounds.height() }
+
+    /** Elements that describe the app's structure (toolbars, tabs, buttons, fields) rather than its content. */
+    fun structural(): List<UiNode> = nodes.filter { (it.clickable || it.editable) && !it.inList && !it.password && it.label.isNotBlank() }
 
     /** Token-lean representation: `id|role|label|flags|@xNyM`. */
     fun compact(): String = buildString {
@@ -51,6 +85,7 @@ class Screen(val pkg: String, val nodes: List<UiNode>, val width: Int, val heigh
             if (n.editable) append('e')
             if (n.scrollable) append('s')
             if (n.checked) append('x')
+            if (n.selected) append('*')
             if (n.password) append('p')
             val gx = if (width > 0) (n.bounds.exactCenterX() * 10 / width).toInt().coerceIn(0, 9) else 0
             val gy = if (height > 0) (n.bounds.exactCenterY() * 10 / height).toInt().coerceIn(0, 9) else 0
@@ -63,12 +98,12 @@ object ScreenReader {
     private const val MAX_NODES = 160
     private const val MAX_LABEL = 50
 
-    fun read(svc: AccessibilityService, w: Int, h: Int): Screen {
-        val root = svc.rootInActiveWindow ?: return Screen("", emptyList(), w, h)
+    fun read(svc: AccessibilityService, w: Int, h: Int, activityFor: (String) -> String): Screen {
+        val root = svc.rootInActiveWindow ?: return Screen("", "", emptyList(), w, h)
         val pkg = root.packageName?.toString() ?: ""
         val out = ArrayList<UiNode>()
-        walk(root, out, w, h, false, 0)
-        return Screen(pkg, out, w, h)
+        walk(root, out, w, h, false, false, 0)
+        return Screen(pkg, activityFor(pkg), out, w, h)
     }
 
     private fun ownText(n: AccessibilityNodeInfo): String {
@@ -80,7 +115,17 @@ object ScreenReader {
         return n.hintText?.toString()?.trim().orEmpty()
     }
 
-    private fun walk(n: AccessibilityNodeInfo, out: MutableList<UiNode>, w: Int, h: Int, underLabeled: Boolean, depth: Int) {
+    private fun isDynamicList(n: AccessibilityNodeInfo): Boolean {
+        if (!n.isScrollable) return false
+        val c = n.className?.toString().orEmpty()
+        // Plain scroll containers and pagers hold static structure; adapter-backed lists hold content.
+        return !(c.endsWith("ScrollView") || c.contains("Pager"))
+    }
+
+    private fun walk(
+        n: AccessibilityNodeInfo, out: MutableList<UiNode>, w: Int, h: Int,
+        underLabeled: Boolean, inList: Boolean, depth: Int,
+    ) {
         if (out.size >= MAX_NODES || depth > 45) return
         if (!n.isVisibleToUser) return
         val b = Rect()
@@ -109,13 +154,16 @@ object ScreenReader {
                 scrollable = n.isScrollable,
                 password = n.isPassword,
                 checked = n.isChecked,
+                selected = n.isSelected,
+                inList = inList,
                 info = n,
             )
         }
         val childUnder = underLabeled || merged || (interactive && own.isNotEmpty() && !n.isScrollable)
+        val childInList = inList || isDynamicList(n)
         for (i in 0 until n.childCount) {
             val c = n.getChild(i) ?: continue
-            walk(c, out, w, h, childUnder, depth + 1)
+            walk(c, out, w, h, childUnder, childInList, depth + 1)
         }
     }
 

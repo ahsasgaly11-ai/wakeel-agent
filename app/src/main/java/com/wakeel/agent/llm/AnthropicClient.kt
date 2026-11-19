@@ -27,20 +27,22 @@ class AnthropicClient(private val key: String, private val base: String) : LlmCl
         }
     }
 
-    override suspend fun callTool(model: String, system: String, user: String, shot: Shot?, tool: ToolSpec, maxTokens: Int): ToolResult {
+    override suspend fun callTool(
+        model: String, system: String, user: String, shot: Shot?, tool: ToolSpec, maxTokens: Int, extraSystem: String?,
+    ): ToolResult {
         val auto = knownNoForced(model) || model in noForcedTools
         return try {
-            send(model, system, user, shot, tool, maxTokens, auto)
+            send(model, system, user, shot, tool, maxTokens, auto, extraSystem)
         } catch (e: LlmException) {
             val msg = e.message.orEmpty()
             when {
                 !auto && msg.contains("tool_choice") -> {
                     noForcedTools += model
-                    send(model, system, user, shot, tool, maxTokens, true)
+                    send(model, system, user, shot, tool, maxTokens, true, extraSystem)
                 }
                 auto && msg.contains("thinking") && model !in noBetweenTools -> {
                     noBetweenTools += model
-                    send(model, system, user, shot, tool, maxTokens, true)
+                    send(model, system, user, shot, tool, maxTokens, true, extraSystem)
                 }
                 else -> throw e
             }
@@ -48,7 +50,7 @@ class AnthropicClient(private val key: String, private val base: String) : LlmCl
     }
 
     private suspend fun send(
-        model: String, system: String, user: String, shot: Shot?, tool: ToolSpec, maxTokens: Int, auto: Boolean,
+        model: String, system: String, user: String, shot: Shot?, tool: ToolSpec, maxTokens: Int, auto: Boolean, extra: String?,
     ): ToolResult {
         val content = JSONArray()
         if (shot != null) {
@@ -63,15 +65,15 @@ class AnthropicClient(private val key: String, private val base: String) : LlmCl
 
         val sys = if (auto) "$system\n\nIMPORTANT: Always respond by calling the `${tool.name}` tool exactly once. Never answer with plain text." else system
 
+        val ephemeral = JSONObject().put("type", "ephemeral")
+        val sysBlocks = JSONArray().put(JSONObject().put("type", "text").put("text", sys).put("cache_control", ephemeral))
+        if (!extra.isNullOrBlank()) sysBlocks.put(JSONObject().put("type", "text").put("text", extra).put("cache_control", ephemeral))
+
         val body = JSONObject()
             .put("model", model)
             .put("max_tokens", if (auto) maxOf(maxTokens, 6000) else maxTokens)
             .put("tools", JSONArray().put(JSONObject().put("name", tool.name).put("description", tool.description).put("input_schema", tool.schema)))
-            .put(
-                "system", JSONArray().put(
-                    JSONObject().put("type", "text").put("text", sys).put("cache_control", JSONObject().put("type", "ephemeral"))
-                )
-            )
+            .put("system", sysBlocks)
             .put("messages", JSONArray().put(JSONObject().put("role", "user").put("content", content)))
 
         if (auto) {

@@ -34,7 +34,8 @@ import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.ContentCopy
 import androidx.compose.material.icons.rounded.ErrorOutline
 import androidx.compose.material.icons.rounded.Share
-import androidx.compose.material3.FilledTonalButton
+import androidx.compose.material3.Button
+import androidx.compose.material3.FilledTonalIconButton
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -149,20 +150,16 @@ private fun ResultSheet(r: TaskRecord, onClose: () -> Unit, onNew: () -> Unit) {
                 }
 
                 // Actions
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    OutlinedButton(onClick = {
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                    FilledTonalIconButton(onClick = {
                         ctx.getSystemService(ClipboardManager::class.java)?.setPrimaryClip(ClipData.newPlainText("result", r.result))
                         Toast.makeText(ctx, "نُسخت النتيجة", Toast.LENGTH_SHORT).show()
-                    }, modifier = Modifier.weight(1f)) {
-                        Icon(Icons.Rounded.ContentCopy, null, Modifier.size(18.dp)); Spacer(Modifier.width(6.dp)); Text("نسخ")
-                    }
-                    OutlinedButton(onClick = {
+                    }) { Icon(Icons.Rounded.ContentCopy, "نسخ") }
+                    FilledTonalIconButton(onClick = {
                         val send = Intent(Intent.ACTION_SEND).setType("text/plain").putExtra(Intent.EXTRA_TEXT, r.result)
                         runCatching { ctx.startActivity(Intent.createChooser(send, "مشاركة النتيجة").addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }
-                    }, modifier = Modifier.weight(1f)) {
-                        Icon(Icons.Rounded.Share, null, Modifier.size(18.dp)); Spacer(Modifier.width(6.dp)); Text("مشاركة")
-                    }
-                    FilledTonalButton(onClick = onNew, modifier = Modifier.weight(1f)) { Text("مهمة جديدة") }
+                    }) { Icon(Icons.Rounded.Share, "مشاركة") }
+                    Button(onClick = onNew, modifier = Modifier.weight(1f)) { Text("مهمة جديدة", maxLines = 1) }
                 }
             }
         }

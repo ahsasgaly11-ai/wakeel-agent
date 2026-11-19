@@ -112,10 +112,10 @@ class CommandActivity : ComponentActivity() {
 }
 
 private val quick = listOf(
-    "لخّص لي آخر الإشعارات",
-    "افتح الكاميرا",
-    "ابحث في جوجل عن الطقس اليوم",
     "اقرأ لي ما على الشاشة باختصار",
+    "لخّص لي آخر الإشعارات",
+    "شخّص الهاتف",
+    "كم البطارية؟",
 )
 
 @OptIn(ExperimentalLayoutApi::class)

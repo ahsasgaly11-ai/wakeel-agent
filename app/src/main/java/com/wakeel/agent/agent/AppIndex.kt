@@ -63,6 +63,36 @@ class AppIndex(private val ctx: Context) {
 
     fun byPackage(pkg: String): App? = all().firstOrNull { it.pkg == pkg }
 
+    /** Apps the task talks about (by name or Arabic alias) — their knowledge is given to the model up front. */
+    fun mentioned(task: String): List<App> {
+        val n = " " + Text.norm(task) + " "
+        val out = LinkedHashSet<App>()
+        for ((alias, keys) in ALIASES) {
+            if (alias in MENTION_IGNORE) continue
+            val hit = if (alias.length >= 4) n.contains(alias) else n.contains(" $alias ")
+            if (hit) matchKeys(keys)?.let { out += it }
+        }
+        for (a in all()) if (a.norm.length >= 3 && n.contains(" ${a.norm} ")) out += a
+        return out.take(2)
+    }
+
+    /** Arabic category for display: built-in knowledge first, then what the app declares to Android. */
+    fun categoryOf(pkg: String): String {
+        KnowledgeBase.guideFor(pkg)?.let { return it.category }
+        val c = runCatching { ctx.packageManager.getApplicationInfo(pkg, 0).category }.getOrDefault(-1)
+        return when (c) {
+            android.content.pm.ApplicationInfo.CATEGORY_GAME -> "ألعاب"
+            android.content.pm.ApplicationInfo.CATEGORY_AUDIO -> "صوت وموسيقى"
+            android.content.pm.ApplicationInfo.CATEGORY_VIDEO -> "فيديو وترفيه"
+            android.content.pm.ApplicationInfo.CATEGORY_IMAGE -> "صور"
+            android.content.pm.ApplicationInfo.CATEGORY_SOCIAL -> "تواصل اجتماعي"
+            android.content.pm.ApplicationInfo.CATEGORY_NEWS -> "أخبار"
+            android.content.pm.ApplicationInfo.CATEGORY_MAPS -> "خرائط وتنقل"
+            android.content.pm.ApplicationInfo.CATEGORY_PRODUCTIVITY -> "إنتاجية"
+            else -> "أخرى"
+        }
+    }
+
     fun launch(pkg: String): Boolean {
         val i = ctx.packageManager.getLaunchIntentForPackage(pkg) ?: return false
         i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_RESET_TASK_IF_NEEDED)
@@ -111,6 +141,8 @@ class AppIndex(private val ctx: Context) {
             listOf("المسجل", "مسجل الصوت") to listOf("recorder"),
             listOf("الملاحظات", "ملاحظات") to listOf("keep", "notes", "memo"),
         )
+
+        private val MENTION_IGNORE = setOf("الهاتف", "الاتصال", "المتجر", "الساعه", "جوجل", "قوقل").map { Text.norm(it) }.toSet()
 
         val ALIASES: Map<String, List<String>> = buildMap {
             RAW.forEach { (names, keys) -> names.forEach { put(Text.norm(it), keys) } }

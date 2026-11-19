@@ -33,6 +33,8 @@ data class Skill(
     val uses: Int = 0,
     val createdAt: Long = System.currentTimeMillis(),
     val lastUsed: Long = 0,
+    /** The app this skill mainly works in. */
+    val pkg: String = "",
 ) {
     /** Trusted skills finish with zero API calls (no verification step). */
     val trusted: Boolean get() = successes >= 2 && fails * 3 <= successes
@@ -43,7 +45,7 @@ data class Skill(
         .put("steps", JSONArray().also { a -> steps.forEach { a.put(it.toJson()) } })
         .put("done", doneTpl).put("readout", readout)
         .put("ok", successes).put("fail", fails).put("uses", uses)
-        .put("created", createdAt).put("last", lastUsed)
+        .put("created", createdAt).put("last", lastUsed).put("pkg", pkg)
 
     companion object {
         fun fromJson(o: JSONObject): Skill {
@@ -54,7 +56,7 @@ data class Skill(
                 (0 until pa.length()).map { pa.optString(it) }, o.optString("example"),
                 (0 until sa.length()).mapNotNull { sa.optJSONObject(it)?.let(MacroStep::fromJson) },
                 o.optString("done"), o.optBoolean("readout"),
-                o.optInt("ok"), o.optInt("fail"), o.optInt("uses"), o.optLong("created"), o.optLong("last"),
+                o.optInt("ok"), o.optInt("fail"), o.optInt("uses"), o.optLong("created"), o.optLong("last"), o.optString("pkg"),
             )
         }
     }
@@ -84,9 +86,18 @@ object Templates {
         for ((k, v) in params.entries.sortedByDescending { it.value.length }) {
             if (v.length < 2) continue
             out = out.replace(v, "{$k}", ignoreCase = true)
+            // The same value inside a link is percent-encoded
+            val enc = runCatching { java.net.URLEncoder.encode(v, "UTF-8") }.getOrNull() ?: continue
+            if (enc != v) {
+                out = out.replace(enc, "{$k}", ignoreCase = true)
+                out = out.replace(enc.replace("+", "%20"), "{$k}", ignoreCase = true)
+            }
         }
         return out
     }
+
+    fun uses(step: MacroStep, slot: String): Boolean =
+        step.text?.contains("{$slot}") == true || step.label?.contains("{$slot}") == true
 
     // ---- Pattern → tolerant regex (Arabic letter variants, diacritics, spacing) ----
     private fun fuzzy(literal: String): String {
@@ -199,6 +210,7 @@ class SkillStore(ctx: Context) {
         persist(list)
     }
 
+    fun forPackage(pkg: String): List<Skill> = _skills.value.filter { it.pkg == pkg }
     fun remove(id: String) = persist(_skills.value.filter { it.id != id })
     fun clear() = persist(emptyList())
 }
@@ -232,6 +244,12 @@ class AppNotes(ctx: Context) {
     @Synchronized
     fun clear() {
         data.keys().asSequence().toList().forEach { data.remove(it) }
+        save()
+    }
+
+    @Synchronized
+    fun clear(pkg: String) {
+        data.remove(pkg)
         save()
     }
 
@@ -355,23 +373,32 @@ Return skill_id null if none fits exactly. Extract each slot value verbatim from
         return Triple(skill, params, r.usage)
     }
 
-    fun newSkill(task: String, learned: Learned?, route: List<MacroStep>, result: String): Skill {
-        val params = learned?.params ?: emptyMap()
+    fun newSkill(task: String, learned: Learned?, route: List<MacroStep>, result: String, pkg: String = ""): Skill {
+        var params = learned?.params ?: emptyMap()
+        var pattern = learned?.pattern ?: task
         val clean = route.filterIndexed { i, st ->
             !(i > 0 && st.type == "open_app" && route[i - 1].type == "open_app" && route[i - 1].text == st.text)
         }
-        val steps = if (params.isEmpty()) clean else clean.map {
-            it.copy(text = Templates.templatize(it.text, params), label = Templates.templatize(it.label, params))
+        var steps = if (params.isEmpty()) clean else clean.map {
+            if (it.type == "open_app" || it.type == "open_settings") it
+            else it.copy(text = Templates.templatize(it.text, params), label = Templates.templatize(it.label, params))
+        }
+        // Every slot must drive at least one step; otherwise a replay would silently reuse the old value.
+        if (params.isNotEmpty() && !params.keys.all { k -> steps.any { Templates.uses(it, k) } }) {
+            params = emptyMap()
+            pattern = task
+            steps = clean
         }
         return Skill(
             id = UUID.randomUUID().toString().take(8),
             title = learned?.title ?: task.take(40),
-            pattern = learned?.pattern ?: task,
+            pattern = pattern,
             params = params.keys.toList(),
             example = task,
             steps = steps,
             doneTpl = Templates.templatize(result, params) ?: result,
             readout = learned?.readout ?: false,
+            pkg = pkg,
         )
     }
 
