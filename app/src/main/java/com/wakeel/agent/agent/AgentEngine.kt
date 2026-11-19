@@ -334,6 +334,12 @@ class AgentEngine(
                     "NOTE: A saved routine for this task was just replayed locally. Read the requested information from the screen and call done with it."
                 else
                     "NOTE: A saved routine for this task was just replayed locally. If the task is now complete call done; otherwise continue."
+            } else if (sk.taught && sk.uses == 0) {
+                // Taught by hand and it could not be completed even once: it was recorded unfinished. Drop it.
+                skills.remove(sk.id)
+                val why = "المهارة «${sk.title.take(40)}» التي علّمتَني إياها ناقصة (توقّفت عند الخطوة ${done + 1} من ${sk.steps.size})، فحذفتُها."
+                log(run, LogKind.WARN, why)
+                if (settings.apiKey.isBlank()) throw Stop(TaskStatus.FAILED, "$why علّمني إياها من جديد.")
             } else {
                 skills.record(sk.id, false)
             }

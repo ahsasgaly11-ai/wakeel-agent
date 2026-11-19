@@ -108,7 +108,9 @@ class CommandActivity : ComponentActivity() {
                         onTeach = { phrase ->
                             val msg = when {
                                 Hub.engine.isRunning -> "هناك مهمة قيد التنفيذ. أوقفها أولاً."
-                                Hub.recorder.start(phrase) -> "بدأ التسجيل: نفّذ المهمة بيدك، ثم اضغط الفقاعة الحمراء واختر «حفظ المهارة»."
+                                Hub.recorder.start(phrase) ->
+                                    if (Hub.settings.autoSaveTaught) "بدأ التسجيل: نفّذ المهمة بيدك ثم عُد إلى الشاشة الرئيسية، وسأحفظها وحدي."
+                                    else "بدأ التسجيل: نفّذ المهمة بيدك، ثم اضغط الفقاعة الحمراء واختر «حفظ المهارة»."
                                 else -> "فعّل خدمة إمكانية الوصول من الصفحة الرئيسية أولاً."
                             }
                             Toast.makeText(this@CommandActivity, msg, Toast.LENGTH_LONG).show()
@@ -189,7 +191,7 @@ private fun CommandSheet(
                 when {
                     askQuestion != null -> Text(askQuestion, style = MaterialTheme.typography.bodyLarge, color = Brand.Amber)
                     teach -> Text(
-                        "اكتب الجملة التي ستقولها لاحقاً لطلب هذه المهمة، ثم نفّذها بيدك مرة واحدة وأنا أسجّل خطواتك. " +
+                        "اكتب الجملة التي ستقولها لاحقاً لطلب هذه المهمة، ثم نفّذها بيدك مرة واحدة وأنا أسجّل خطواتك، وعُد بعدها إلى الشاشة الرئيسية لأحفظها. " +
                             "بعدها أنفّذها وحدي دون أي استهلاك. وما تكتبه أو تختاره من قائمة ويَرِد في جملتك (اسم جهة اتصال، نص رسالة) يصبح قابلاً للتغيير.",
                         style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )

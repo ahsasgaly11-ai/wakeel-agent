@@ -68,6 +68,7 @@ class Overlay(private val svc: AgentAccessibilityService) {
     init {
         // The bubble is the only way to end a recording, so it follows the recorder even when the owner hid it
         scope.launch { Hub.recorder.state.collect { onRecording(it) } }
+        scope.launch { Hub.recorder.outcome.collect { showOutcome(it) } }
     }
 
     fun show() {
@@ -351,7 +352,8 @@ class Overlay(private val svc: AgentAccessibilityService) {
         }
         p.addView(recStatusTv)
         p.addView(TextView(svc).apply {
-            text = "نفّذ المهمة كاملة بيدك، ثم اضغط «حفظ المهارة». أغلق هذه النافذة لتكمل."
+            text = if (Hub.settings.autoSaveTaught) "نفّذ المهمة كاملة بيدك ثم عُد إلى الشاشة الرئيسية، فأحفظها وحدي. أغلق هذه النافذة لتكمل."
+            else "نفّذ المهمة كاملة بيدك، ثم اضغط «حفظ المهارة». أغلق هذه النافذة لتكمل."
             textSize = 12f
             typeface = regular
             setTextColor(0x99FFFFFF.toInt())
@@ -364,6 +366,63 @@ class Overlay(private val svc: AgentAccessibilityService) {
         actions.addView(pill("إلغاء", 0xFFE5484D.toInt()) { finishRecording(false) }, weightLp())
         p.addView(actions)
         attach(p)
+    }
+
+    /** A recording ended by itself: say what was saved (with a way to take it back) or why nothing was. */
+    private fun showOutcome(o: DemoRecorder.Outcome) {
+        closePanel()
+        val skill = o.skill
+        val p = LinearLayout(svc).apply {
+            orientation = LinearLayout.VERTICAL
+            layoutDirection = View.LAYOUT_DIRECTION_RTL
+            setPadding(dp(18), dp(16), dp(18), dp(16))
+            background = GradientDrawable().apply {
+                cornerRadius = dp(24).toFloat()
+                setColor(0xF50A1512.toInt())
+                setStroke(dp(1), if (skill != null) 0x553DD9A4 else 0x66E8C36A)
+            }
+            elevation = dp(12).toFloat()
+        }
+        p.addView(TextView(svc).apply {
+            text = if (skill != null) "✓  حُفظت المهارة تلقائياً" else "لم تُحفظ المهارة"
+            textSize = 17f
+            typeface = bold
+            setTextColor(if (skill != null) 0xFF6EE7B7.toInt() else 0xFFFDE68A.toInt())
+        })
+        p.addView(TextView(svc).apply {
+            text = if (skill != null) {
+                "«${skill.pattern.take(90)}»\n${skill.steps.size} خطوة. قلها وأنفّذها دون استهلاك" +
+                    if (skill.params.isEmpty()) "." else "، وغيّر ما بين القوسين كما تشاء."
+            } else {
+                "تبدو ناقصة: ${o.reason.orEmpty()}.\nعلّمني إياها من جديد وأكملها حتى آخر خطوة."
+            }
+            textSize = 14f
+            typeface = regular
+            setTextColor(0xE6FFFFFF.toInt())
+            maxLines = 5
+            ellipsize = TextUtils.TruncateAt.END
+            setPadding(0, dp(8), 0, 0)
+        })
+        val actions = LinearLayout(svc).apply {
+            orientation = LinearLayout.HORIZONTAL
+            setPadding(0, dp(14), 0, 0)
+        }
+        if (skill != null) {
+            actions.addView(pill("تم", 0xFF1FA97C.toInt()) { closePanel() }, weightLp(end = dp(8)))
+            actions.addView(pill("تراجع (احذفها)", 0xFFE5484D.toInt()) {
+                Hub.skills.remove(skill.id)
+                closePanel()
+                Toast.makeText(svc, "حُذفت المهارة.", Toast.LENGTH_SHORT).show()
+            }, weightLp())
+        } else {
+            actions.addView(pill("حسناً", 0xFF0E8A6A.toInt()) { closePanel() }, weightLp())
+        }
+        p.addView(actions)
+        if (!attach(p)) {
+            Toast.makeText(svc, if (skill != null) "حُفظت المهارة تلقائياً." else "لم تُحفظ المهارة: ${o.reason.orEmpty()}", Toast.LENGTH_LONG).show()
+            return
+        }
+        p.postDelayed({ if (panel === p) closePanel() }, 12_000)
     }
 
     private fun finishRecording(save: Boolean) {

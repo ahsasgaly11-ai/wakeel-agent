@@ -161,6 +161,11 @@ class Settings(ctx: Context) {
         get() = bool("passive_learn", false)
         set(v) = putBool("passive_learn", v)
 
+    /** "Teach me by hand": save the skill by itself once the owner is back on the home screen. */
+    var autoSaveTaught: Boolean
+        get() = bool("auto_save_taught", true)
+        set(v) = putBool("auto_save_taught", v)
+
     var showBubble: Boolean
         get() = bool("bubble", true)
         set(v) = putBool("bubble", v)

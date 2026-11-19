@@ -35,6 +35,8 @@ data class Skill(
     val lastUsed: Long = 0,
     /** The app this skill mainly works in. */
     val pkg: String = "",
+    /** Recorded from the owner's own hands (not from a run the agent completed itself). */
+    val taught: Boolean = false,
 ) {
     /** Trusted skills finish with zero API calls (no verification step). */
     val trusted: Boolean get() = successes >= 2 && fails * 3 <= successes
@@ -45,7 +47,7 @@ data class Skill(
         .put("steps", JSONArray().also { a -> steps.forEach { a.put(it.toJson()) } })
         .put("done", doneTpl).put("readout", readout)
         .put("ok", successes).put("fail", fails).put("uses", uses)
-        .put("created", createdAt).put("last", lastUsed).put("pkg", pkg)
+        .put("created", createdAt).put("last", lastUsed).put("pkg", pkg).put("taught", taught)
 
     companion object {
         fun fromJson(o: JSONObject): Skill {
@@ -57,6 +59,7 @@ data class Skill(
                 (0 until sa.length()).mapNotNull { sa.optJSONObject(it)?.let(MacroStep::fromJson) },
                 o.optString("done"), o.optBoolean("readout"),
                 o.optInt("ok"), o.optInt("fail"), o.optInt("uses"), o.optLong("created"), o.optLong("last"), o.optString("pkg"),
+                o.optBoolean("taught", false),
             )
         }
     }

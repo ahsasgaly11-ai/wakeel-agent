@@ -69,6 +69,23 @@ class LogicTest {
     }
 
     @Test
+    fun unfinishedDemonstrationsAreRecognised() {
+        val open = MacroStep("open_app", text = "com.whatsapp", label = "WhatsApp")
+        val pick = MacroStep("tap", "LinearLayout||أحمد", label = "أحمد")
+        val type = MacroStep("type", "EditText|entry|", text = "مرحبا")
+        val send = MacroStep("tap", "ImageButton|send|إرسال", label = "إرسال")
+        val task = "أرسل واتساب إلى أحمد: مرحبا"
+        assertNull(Demo.incomplete(task, listOf(open, pick, type, send)))
+        assertNotNull(Demo.incomplete(task, listOf(open)))               // only opened the app
+        assertNotNull(Demo.incomplete(task, listOf(open, pick, type)))   // typed, never sent
+        assertNotNull(Demo.incomplete(task, listOf(open, pick)))         // the text the phrase promises was never typed
+        assertNull(Demo.incomplete("افتح محادثة أحمد", listOf(open, pick)))   // nothing more was promised
+        assertNull(Demo.incomplete("منبه الساعة 6:30", listOf(open, pick)))   // a colon inside a time promises nothing
+        // A search is submitted from the keyboard; the recorder adds that step itself
+        assertNull(Demo.incomplete("ابحث عن قطط", listOf(open, MacroStep("type", "EditText|search|", text = "قطط"), MacroStep("enter"))))
+    }
+
+    @Test
     fun mapFindsTheWayToAPage() {
         fun scr(key: String, tab: String = "", title: String = "") = MapScreen(key, "MainActivity", tab, title, 0, 0, LinkedHashMap(), 1, 0L)
         val m = AppMap("com.example")

@@ -122,6 +122,12 @@ fun SettingsScreen() {
                     "يتعرّف على صفحات التطبيقات وأنت تستخدم هاتفك عادةً. يحفظ بنية الصفحات فقط (أسماء الأزرار والتبويبات) على جهازك، ولا يحفظ محتوى القوائم والمحادثات، ولا يعمل في التطبيقات المحجوبة.",
                     passive,
                 ) { passive = it; s.passiveLearn = it }
+                var autoSave by remember { mutableStateOf(s.autoSaveTaught) }
+                SwitchRow(
+                    "حفظ ما تعلّمني إياه تلقائياً",
+                    "في «علّمني مهمة بيدك»: تُحفظ المهارة وحدها حين تعود إلى الشاشة الرئيسية. المهارة الناقصة لا تُحفظ، والتي لا تكتمل عند أول استعمال تُحذف.",
+                    autoSave,
+                ) { autoSave = it; s.autoSaveTaught = it }
                 val skillList by Hub.skills.skills.collectAsStateWithLifecycle()
                 val noteCount by Hub.notes.count.collectAsStateWithLifecycle()
                 Text(

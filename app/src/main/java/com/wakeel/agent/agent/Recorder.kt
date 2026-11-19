@@ -14,8 +14,11 @@ import com.wakeel.agent.core.Text
 import com.wakeel.agent.core.Usage
 import com.wakeel.agent.service.AgentAccessibilityService
 import com.wakeel.agent.service.ScreenReader
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 
 /** Pure logic of learning by demonstration (unit-tested on CI). */
@@ -67,6 +70,26 @@ object Demo {
         sb.append(task, pos, task.length)
         return Learner.Learned(task.take(40), sb.toString(), params, false, true, emptyList(), Usage())
     }
+
+    /**
+     * Why a demonstration looks unfinished, or null if nothing says so. Used when a skill is saved by itself:
+     * an unfinished one is dropped instead of kept. It can only judge what is visible in the steps — a task
+     * the owner stopped one tap early looks finished here.
+     */
+    fun incomplete(task: String, steps: List<MacroStep>): String? {
+        val acts = steps.filter { it.type != "open_app" }
+        if (acts.isEmpty()) return "لم تنفّذ أي خطوة داخل التطبيق"
+        // Text left in a field with nothing pressed after it: a message that was never sent, a form never saved
+        if (acts.last().type == "type") return "كتبتَ نصاً ولم ترسله أو تحفظه"
+        // "…: النص" in the phrase promises a text; if nothing like it was typed, the task stopped before that
+        val promised = Regex("[:：]\\s+(\\S.*)$").find(task.trim())?.groupValues?.get(1)?.trim { it in EDGE }.orEmpty()
+        if (promised.length >= 2 && promised.any { it.isLetter() }) {
+            val want = Text.norm(promised)
+            val typed = steps.filter { it.type == "type" }.map { Text.norm(it.text.orEmpty()) }.filter { it.isNotEmpty() }
+            if (typed.none { it.contains(want) || want.contains(it) }) return "النص الذي في جملتك («${promised.take(30)}») لم يُكتب"
+        }
+        return null
+    }
 }
 
 /**
@@ -82,9 +105,23 @@ class DemoRecorder(
 ) {
     data class State(val active: Boolean = false, val task: String = "", val steps: Int = 0, val last: String = "")
 
+    /** How a recording that ended by itself turned out: the saved skill, or why nothing was saved. */
+    data class Outcome(val skill: Skill?, val reason: String?)
+
     private val _state = MutableStateFlow(State())
     val state: StateFlow<State> = _state.asStateFlow()
     val active: Boolean get() = _state.value.active
+
+    private val _outcome = MutableSharedFlow<Outcome>(extraBufferCapacity = 4)
+    val outcome: SharedFlow<Outcome> = _outcome.asSharedFlow()
+
+    @Volatile
+    var lastOutcome: Outcome? = null
+        private set
+
+    // Saving by itself: once the owner is back on the home screen and it has been still for a moment
+    private val main = Handler(Looper.getMainLooper())
+    private val autoSave = Runnable { finishByItself() }
 
     private val steps = ArrayList<MacroStep>()
     private val picked = LinkedHashSet<String>()
@@ -184,19 +221,31 @@ class DemoRecorder(
         val launcher = pkg in apps.launcherPackages()
         if (!launcher && Safety.policy(pkg, settings, apps) == Policy.BLOCKED) return
 
-        if (e.eventType == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED) {
-            if (launcher) {
+        if (launcher) {
+            // Back on the home screen. If something was done already, the task is probably over: save after a
+            // still moment. Browsing the home screen (looking for another app) keeps postponing that.
+            val moved = e.eventType == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED || e.eventType == AccessibilityEvent.TYPE_VIEW_SCROLLED ||
+                e.eventType == AccessibilityEvent.TYPE_VIEW_CLICKED
+            if (e.eventType == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED) {
                 flushText()
                 lastPkg = ""
-            } else {
-                enterApp(pkg, restart = true)
+            }
+            if (moved && settings.autoSaveTaught && steps.any { it.type != "open_app" }) {
+                main.removeCallbacks(autoSave)
+                main.postDelayed(autoSave, AUTO_SAVE_MS)
+                publish("عدتَ إلى الشاشة الرئيسية: سأحفظ المهارة بعد لحظات")
             }
             return
         }
-        if (launcher) return
+        if (e.eventType == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED) {
+            main.removeCallbacks(autoSave)   // still working: another app came up
+            enterApp(pkg, restart = true)
+            return
+        }
         val isClick = e.eventType == AccessibilityEvent.TYPE_VIEW_CLICKED || e.eventType == AccessibilityEvent.TYPE_VIEW_LONG_CLICKED
         val isText = e.eventType == AccessibilityEvent.TYPE_VIEW_TEXT_CHANGED
         if (!isClick && !isText) return
+        main.removeCallbacks(autoSave)
 
         val src: AccessibilityNodeInfo? = runCatching { e.source }.getOrNull()
         if (runCatching { src?.window?.type }.getOrNull() == AccessibilityWindowInfo.TYPE_INPUT_METHOD) return
@@ -250,22 +299,45 @@ class DemoRecorder(
         publish("${if (type == "tap") "ضغط" else "ضغط مطوّل"} على «${label.ifBlank { viewId }.take(24)}»")
     }
 
+    /** The steps as they will be saved. */
+    private fun finalRoute(): MutableList<MacroStep> {
+        flushText()
+        val route = steps.toMutableList()
+        // A search typed last was submitted from the keyboard, which cannot be observed: press enter on replay
+        if (route.isNotEmpty() && route.last().type == "type" && lastTypeWasSearch) route += MacroStep("enter")
+        return route
+    }
+
     /** Ends the recording. Returns the saved skill, or null if it was cancelled or nothing was recorded. */
     @Synchronized
     fun stop(save: Boolean): Skill? {
         if (!active) return null
-        flushText()
+        main.removeCallbacks(autoSave)
+        val route = finalRoute()
         _state.value = State()
         AgentAccessibilityService.instance?.setFastEvents(false)
-        val route = steps.toMutableList()
-        if (!save || route.isEmpty()) return null
-        // A search typed last was submitted from the keyboard, which cannot be observed: press enter on replay
-        if (route.last().type == "type" && lastTypeWasSearch) route += MacroStep("enter")
+        // Opening an app and doing nothing in it is not a skill ("افتح …" already does that for free)
+        if (!save || route.none { it.type != "open_app" }) return null
         val pkg = route.lastOrNull { it.type == "open_app" }?.text.orEmpty()
         val learned = Demo.generalize(task, route, picked)
         val skill = Learner.newSkill(task, learned, route, "تمّت «${task.take(40)}» بالمهارة التي علّمتَني إياها.", pkg)
-            .copy(successes = 2)   // taught by the owner: trusted from its first run
+            .copy(successes = 2, taught = true)   // taught by the owner: trusted from its first run
         skills.put(skill)
         return skill
+    }
+
+    /** The owner went back to the home screen and stayed there: save the skill — unless it looks unfinished. */
+    @Synchronized
+    private fun finishByItself() {
+        if (!active) return
+        val reason = Demo.incomplete(task, finalRoute())
+        val skill = stop(save = reason == null)
+        val outcome = Outcome(skill, if (skill != null) null else reason ?: "لم تُسجَّل أي خطوة")
+        lastOutcome = outcome
+        _outcome.tryEmit(outcome)
+    }
+
+    private companion object {
+        const val AUTO_SAVE_MS = 4000L
     }
 }

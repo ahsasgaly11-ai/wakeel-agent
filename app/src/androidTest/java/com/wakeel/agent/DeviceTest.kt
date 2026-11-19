@@ -10,6 +10,8 @@ import android.util.Log
 import android.view.accessibility.AccessibilityNodeInfo
 import androidx.test.platform.app.InstrumentationRegistry
 import com.wakeel.agent.agent.EngineState
+import com.wakeel.agent.agent.MacroStep
+import com.wakeel.agent.agent.Skill
 import com.wakeel.agent.core.Policy
 import com.wakeel.agent.core.Shot
 import com.wakeel.agent.core.TaskRecord
@@ -29,6 +31,7 @@ import org.junit.AfterClass
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.BeforeClass
@@ -483,9 +486,15 @@ class DeviceTest {
         Thread.sleep(600)
         note("recorder saw: ${Hub.recorder.state.value}")
         Hub.recorder.trace.forEach { note("     · $it") }
-        val skill = Hub.recorder.stop(save = true)
-        assertNotNull("nothing was recorded", skill)
-        note("taught: ${skill!!.pattern} · ${skill.steps.joinToString(" → ") { it.type + ":" + (it.label ?: it.text.orEmpty()) }}")
+        // Back on the home screen: after a still moment the skill saves itself, nothing to press
+        svc().global(AccessibilityService.GLOBAL_ACTION_HOME)
+        assertTrue("the recording did not end by itself", waitUntil(15_000) { !Hub.recorder.active })
+        val outcome = Hub.recorder.lastOutcome
+        note("ended by itself: saved=${outcome?.skill != null} reason=${outcome?.reason}")
+        val skill = outcome?.skill
+        assertNotNull("the finished demonstration was not saved: ${outcome?.reason}", skill)
+        assertEquals(skill!!.id, Hub.skills.skills.value.single().id)
+        note("taught: ${skill.pattern} · ${skill.steps.joinToString(" → ") { it.type + ":" + (it.label ?: it.text.orEmpty()) }}")
         assertEquals("راسل {p1} وقل له {p2}", skill.pattern)
         assertTrue("a taught skill is trusted from the start", skill.trusted)
 
@@ -495,6 +504,53 @@ class DeviceTest {
         assertEquals(TaskStatus.DONE, r.status)
         assertEquals("a taught skill must not call the model", 0, r.calls)
         assertEquals("sent: salam to Sara", status())
+    }
+
+    @Test
+    fun t16_unfinishedDemonstrationIsNotSaved() {
+        val before = Hub.skills.skills.value.map { it.id }
+        assertTrue("recording did not start", Hub.recorder.start("اكتب إلى Sara ملاحظة draft"))
+        Thread.sleep(2000)
+        assertTrue(Hub.apps.launch(SANDBOX))
+        assertTrue(waitUntil(15_000) { screen().pkg == SANDBOX })
+        assertNotNull(byId("search_box", 10_000))
+        Thread.sleep(800)
+        touch(find("Contacts")!!)
+        touch(find("Sara")!!)
+        val field = byId("message")
+        assertNotNull("the chat did not open", field)
+        touch(field!!)
+        Thread.sleep(800)
+        shell("input text draft")
+        assertTrue("typing did not reach the field", waitUntil(8000) { screen().nodes.any { it.viewId == "message" && it.label == "draft" } })
+        // The owner leaves without sending: text was typed and nothing was pressed after it
+        svc().global(AccessibilityService.GLOBAL_ACTION_HOME)
+        assertTrue("the recording did not end by itself", waitUntil(15_000) { !Hub.recorder.active })
+        val outcome = Hub.recorder.lastOutcome
+        note("unfinished demonstration: saved=${outcome?.skill != null} reason=${outcome?.reason}")
+        assertNull("an unfinished demonstration must not become a skill", outcome?.skill)
+        assertNotNull(outcome?.reason)
+        assertEquals(before, Hub.skills.skills.value.map { it.id })
+    }
+
+    @Test
+    fun t17_taughtSkillThatCannotCompleteIsDeleted() {
+        // A hand-taught skill whose steps do not exist on screen (it was recorded unfinished or wrongly)
+        val task = "افتح الصفحة المفقودة في العرض"
+        Hub.skills.put(
+            Skill(
+                id = "broken1", title = "صفحة مفقودة", pattern = task, params = emptyList(), example = task,
+                steps = listOf(
+                    MacroStep("open_app", text = SANDBOX, label = "Sandbox"),
+                    MacroStep("tap", "Button|nope|No such button", label = "No such button"),
+                ),
+                doneTpl = "تم", readout = false, successes = 2, pkg = SANDBOX, taught = true,
+            )
+        )
+        FakeModel.plans += plan("""[{"type":"done","text":"الزر غير موجود."}]""")
+        val r = run(task)
+        assertTrue("the owner was not told why", r.logs.any { it.text.contains("ناقصة") })
+        assertNull("the unfinished skill is still stored", Hub.skills.byId("broken1"))
     }
 
     // ------------------------------------------------------------------ the phone's own Settings app
