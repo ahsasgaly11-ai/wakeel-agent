@@ -38,13 +38,16 @@ Rules:
    - no filler, max ~1200 characters. For simple actions (opened, sent, saved) one short sentence is enough.
 10. If the task is impossible or blocked, call fail with a short reason in the owner's language.
 11. Never repeat an action that already failed (✗); try another way.
-12. Keep thought under 15 words.
+12. Keep thought under 15 words, written in the owner's language (Arabic if the task is Arabic).
 13. Complex apps (Instagram, TikTok, editors): profile edits are usually under the Profile tab → "Edit profile". For reels/video editing, open the editor, then rely on screenshots + tap_xy/drag for canvas controls (trim, text, stickers, music), and type captions with type. Publishing/sharing is sensitive.
    Instagram — change the cover of an already-published reel: open the reel → "More"/⋯ (or ≡) menu → Edit → "Edit cover" → in the cover editor take an "hd" screenshot, compare the frames in the thumbnail strip (sharp, well-lit, faces/subject clearly visible, no motion blur), drag the frame selector onto the best one (or tap it), optionally check the large preview with another screenshot, then Done → Save. Don't press back while inside the editor unless you intend to cancel.
    Visual judgment: when asked for the "best" frame/photo, decide yourself from the screenshot — never ask the owner.
 14. APP NOTES, when present, are tips learned from earlier successful runs in this app — prefer them.
 15. Text fields: `type` REPLACES the whole field. To edit or rearrange existing text, type the complete new text. The field's current full text is shown in SCREEN with line breaks as \n; use real line breaks (\n) in your text where needed. Respect length counters (e.g. 105/150). After typing, check the LOG line "field now:" and then press the app's save/✓/Done button.
 16. If the same action fails twice, change approach (other element, screenshot, long_press → paste) instead of repeating it.
+17. If a requested option does not exist in the app (e.g. a 10-minute timeframe when only 5m/15m exist), stop looking after at most 2 attempts: use the nearest available option(s) and say so in done. Never burn steps searching.
+18. Information / analysis tasks: collect what you need in few steps (≈6), then call done with the analysis. Use memo to keep every number/fact you read (price, % change, indicator readings, counts) — earlier screens are NOT shown to you again. Partial data with clear caveats beats no answer.
+19. When a "FINAL STEP" note appears you must call done (best answer from MEMO and what you see, stating limits) or fail — no other actions.
 """.trim()
 
     const val TOOL_NAME = "act"
@@ -74,7 +77,8 @@ Rules:
         "required": ["type"]
       }
     },
-    "sensitive": {"type": "boolean", "description": "true if any action sends, pays, buys, deletes, posts, calls or changes security settings."}
+    "sensitive": {"type": "boolean", "description": "true if any action sends, pays, buys, deletes, posts, calls or changes security settings."},
+    "memo": {"type": "string", "description": "Facts from THIS screen you will need later (numbers, names, readings). Short. Omit if nothing new."}
   },
   "required": ["thought", "actions", "sensitive"]
 }
@@ -84,7 +88,7 @@ Rules:
 
     fun actTool() = ToolSpec(TOOL_NAME, TOOL_DESC, schema())
 
-    fun user(task: String, trail: List<String>, screen: Screen, shot: Shot?, step: Int, max: Int, note: String?, appNotes: List<String> = emptyList()): String = buildString {
+    fun user(task: String, trail: List<String>, screen: Screen, shot: Shot?, step: Int, max: Int, note: String?, appNotes: List<String> = emptyList(), memo: List<String> = emptyList()): String = buildString {
         append("TASK: ").append(task).append('\n')
         note?.let { append(it).append('\n') }
         append("STEP ").append(step).append('/').append(max).append('\n')
@@ -93,6 +97,10 @@ Rules:
             val keep = 10
             if (trail.size > keep) append("- (").append(trail.size - keep).append(" earlier actions omitted)\n")
             trail.takeLast(keep).forEach { append("- ").append(it).append('\n') }
+        }
+        if (memo.isNotEmpty()) {
+            append("MEMO (facts you noted earlier):\n")
+            memo.forEach { append("- ").append(it).append('\n') }
         }
         append("APP: ").append(screen.pkg.ifEmpty { "unknown" }).append('\n')
         if (appNotes.isNotEmpty()) {

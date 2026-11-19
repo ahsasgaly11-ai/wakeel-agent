@@ -296,6 +296,7 @@ class AgentEngine(
         val recent = ArrayDeque<String>()
         var escalatedForLoop = false
         var blockedHits = 0
+        val memo = mutableListOf<String>()
         val max = settings.maxSteps
 
         for (step in 1..max) {
@@ -334,13 +335,20 @@ class AgentEngine(
             val useStrong = strong && settings.strongModel.isNotBlank()
             val model = if (useStrong) settings.strongModel else settings.fastModel
             running(run, if (useStrong) "يفكّر بالنموذج الأقوى…" else "يفكّر…")
-            val user = Prompt.user(run.task, trail, screen, shot, step, max, note.takeIf { step == 1 }, notes.get(screen.pkg))
+            val finalNote = if (step >= max - 1) "FINAL STEP: call done now with your best answer from MEMO and this screen (state any limits), or fail with the reason." else null
+            val stepNote = listOfNotNull(note.takeIf { step == 1 }, finalNote).joinToString("\n").ifEmpty { null }
+            val user = Prompt.user(run.task, trail, screen, shot, step, max, stepNote, notes.get(screen.pkg), memo)
             val res = client.decide(model, user, shot)
             account(run, model, res.usage)
             strong = false
 
             val d = res.decision
             if (d.thought.isNotBlank()) log(run, LogKind.THINK, d.thought)
+            if (d.memo.isNotBlank() && memo.none { it == d.memo }) {
+                memo += d.memo.take(240)
+                if (memo.size > 12) memo.removeAt(0)
+                log(run, LogKind.INFO, "📝 " + d.memo.take(140))
+            }
             if (d.actions.isEmpty()) {
                 trail += "(invalid reply — call the act tool with at least one action)"
                 stagnant++

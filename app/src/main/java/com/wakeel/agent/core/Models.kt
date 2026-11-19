@@ -32,7 +32,7 @@ data class AgentAction(
     }
 }
 
-data class AgentDecision(val thought: String, val actions: List<AgentAction>, val sensitive: Boolean) {
+data class AgentDecision(val thought: String, val actions: List<AgentAction>, val sensitive: Boolean, val memo: String = "") {
     companion object {
         fun parse(o: JSONObject): AgentDecision {
             val arr: JSONArray = o.optJSONArray("actions")
@@ -46,7 +46,7 @@ data class AgentDecision(val thought: String, val actions: List<AgentAction>, va
                 fun int(k: String) = if (a.has(k) && !a.isNull(k)) a.optDouble(k).takeIf { !it.isNaN() }?.toInt() else null
                 list += AgentAction(t, int("id"), str("text"), str("dir")?.lowercase(), int("x"), int("y"), int("x2"), int("y2"))
             }
-            return AgentDecision(o.optString("thought"), list.take(5), o.optBoolean("sensitive", false))
+            return AgentDecision(o.optString("thought"), list.take(5), o.optBoolean("sensitive", false), o.optString("memo").trim())
         }
     }
 }
