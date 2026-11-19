@@ -299,7 +299,7 @@ class Overlay(private val svc: AgentAccessibilityService) {
     }
 
     private fun recordingLine(s: DemoRecorder.State): String =
-        (if (s.steps == 0) "لم تُسجَّل خطوة بعد" else "سُجّلت ${s.steps} خطوة") + "\nآخر ما رأيته: ${s.last}"
+        if (s.steps == 0) "لم تُسجَّل خطوة بعد. ${s.last}" else "سُجّلت ${s.steps} خطوة\nآخر ما رأيته: ${s.last}"
 
     private fun openRecordingPanel() {
         if (panel != null) return

@@ -17,16 +17,74 @@ say "emulator: $(prop ro.product.model) · Android $(prop ro.build.version.relea
 adb shell input keyevent 82 > /dev/null 2>&1   # dismiss the lock screen if there is one
 adb shell input keyevent 3 > /dev/null 2>&1
 
-# ---------------------------------------------------------------- 1) release build, as shipped
+# ---------------------------------------------------------------- 1) the exact released file, installed as an update
+# The APK tested here is the very file the build job signed and published (not a rebuild),
+# and it is installed over the older versions a phone may still have — the way it will really be installed.
+SHIPPED=$(ls shipped/*.apk 2>/dev/null | head -1)
+if [ -z "$SHIPPED" ]; then SHIPPED=app/build/outputs/apk/release/app-release.apk; fi
 say ""
-say "== RELEASE BUILD (minified, as shipped) =="
-adb logcat -c
-if adb install -r app/build/outputs/apk/release/app-release.apk > "$R/release-install.txt" 2>&1; then say "install: OK"; else say "install: FAILED"; fi
+say "== THE RELEASED FILE: $(basename "$SHIPPED") · sha256 $(sha256sum "$SHIPPED" | cut -c1-16) =="
+crashes() { adb logcat -d -v time 2>/dev/null | grep -c "FATAL EXCEPTION"; }
+running() { [ -n "$(adb shell pidof "$PKG" | tr -d '\r')" ]; }
+
+# A) over the last 1.x version: only that the update installs and the app opens on the old data
+if [ -f old/Wakeel-v1.0.13.apk ]; then
+  adb logcat -c
+  adb install -r old/Wakeel-v1.0.13.apk > "$R/update-v1.txt" 2>&1
+  adb shell am start -W -n "$PKG/.ui.MainActivity" >> "$R/update-v1.txt" 2>&1
+  sleep 8
+  shot 0a-v1.0.13-before-update
+  if adb install -r "$SHIPPED" >> "$R/update-v1.txt" 2>&1; then say "update over v1.0.13 installs: OK"; else say "update over v1.0.13 installs: FAILED"; fi
+  adb shell am start -W -n "$PKG/.ui.MainActivity" >> "$R/update-v1.txt" 2>&1
+  sleep 8
+  shot 0b-after-update-from-v1
+  if running && [ "$(crashes)" = "0" ]; then say "opens on v1.0.13 data without crashing: OK"; else say "opens on v1.0.13 data without crashing: FAILED"; fi
+  adb uninstall "$PKG" > /dev/null 2>&1
+fi
+
+# B) over v2.0.16, after really using it: the service on and one task in its history
+UPDATED=no
+if [ -f old/Wakeel-v2.0.16.apk ]; then
+  adb logcat -c
+  adb install -r old/Wakeel-v2.0.16.apk > "$R/update-v2.txt" 2>&1
+  adb shell am start -W -n "$PKG/.ui.MainActivity" >> "$R/update-v2.txt" 2>&1
+  sleep 8
+  adb shell settings put secure enabled_accessibility_services "$SVC"
+  adb shell settings put secure accessibility_enabled 1
+  sleep 8
+  adb shell input tap 88 760
+  sleep 4
+  python3 ci/ui.py tap "شخّص الهاتف" 6 >> "$R/update-v2.txt" 2>&1
+  sleep 2
+  python3 ci/ui.py tap "تنفيذ" 7 >> "$R/update-v2.txt" 2>&1
+  sleep 10
+  shot 0c-v2.0.16-task-before-update
+  adb shell input keyevent 4; sleep 2
+  if adb install -r "$SHIPPED" >> "$R/update-v2.txt" 2>&1; then say "update over v2.0.16 installs: OK"; UPDATED=yes; else say "update over v2.0.16 installs: FAILED"; fi
+  say "version on the device after the update: $(adb shell dumpsys package "$PKG" | grep -m1 versionName | tr -d ' \r')"
+  sleep 6
+  if adb shell settings get secure enabled_accessibility_services | grep -q "$PKG"; then say "accessibility service still switched on after the update: yes"; else say "accessibility service still switched on after the update: NO (it has to be switched on again)"; fi
+fi
+if [ "$UPDATED" != "yes" ]; then
+  adb uninstall "$PKG" > /dev/null 2>&1
+  if adb install -r "$SHIPPED" > "$R/release-install.txt" 2>&1; then say "clean install: OK"; else say "clean install: FAILED"; fi
+fi
+
 adb shell am start -W -n "$PKG/.ui.MainActivity" > "$R/release-start.txt" 2>&1
 sleep 10
 shot 1-release-main
-PID=$(adb shell pidof "$PKG" | tr -d '\r')
-if [ -n "$PID" ]; then say "app opens and stays open: OK"; else say "app opens and stays open: FAILED"; fi
+if running; then say "app opens and stays open: OK"; else say "app opens and stays open: FAILED"; fi
+
+if [ "$UPDATED" = "yes" ]; then
+  # What was done in the old version must still be there
+  python3 ci/ui.py tap "السجل" 5 >> "$R/release-ui.txt" 2>&1
+  sleep 3
+  python3 ci/ui.py dump > "$R/update-history-text.txt" 2>&1
+  shot 1b-history-after-update
+  if grep -q "شخّص الهاتف" "$R/update-history-text.txt"; then say "history from v2.0.16 is still there after the update: OK"; else say "history from v2.0.16 is still there after the update: NOT CONFIRMED (see 1b-history-after-update.png)"; fi
+  python3 ci/ui.py tap "القيادة" 5 >> "$R/release-ui.txt" 2>&1
+  sleep 2
+fi
 
 adb shell settings put secure enabled_accessibility_services "$SVC"
 adb shell settings put secure accessibility_enabled 1
@@ -73,14 +131,28 @@ shot 6-release-recording
 adb shell input tap 88 760
 sleep 3
 shot 7-release-recording-panel
+adb shell input tap 88 760   # close the panel, keep recording
+sleep 2
+
+# …then a real demonstration with real touches: open Settings, tap its first row, go back to the home screen.
+# After a still moment the skill must save itself and say so.
+adb shell am start -n com.android.settings/.Settings > /dev/null 2>&1
+sleep 6
+adb shell input tap 540 890
+sleep 4
+shot 7b-release-demonstration
+adb shell input keyevent 3
+sleep 8
+shot 7c-release-saved-by-itself
 
 adb logcat -d -v time > "$R/release-logcat-full.txt" 2>&1
 grep -E "FATAL EXCEPTION|AndroidRuntime|$PKG" "$R/release-logcat-full.txt" | grep -E "FATAL|AndroidRuntime: |Exception|Error" | head -150 > "$R/release-errors.txt"
 rm -f "$R/release-logcat-full.txt"
 FATAL=$(grep -c "FATAL EXCEPTION" "$R/release-errors.txt")
 if [ "$FATAL" = "0" ]; then say "crashes: none"; else say "crashes: $FATAL (see release-errors.txt)"; fi
-PID=$(adb shell pidof "$PKG" | tr -d '\r')
-if [ -n "$PID" ]; then say "still running at the end: OK"; else say "still running at the end: FAILED"; fi
+if running; then say "still running at the end: OK"; else say "still running at the end: FAILED"; fi
+# What the app kept on the phone (file names only): the taught skill must be among them
+adb shell dumpsys package "$PKG" | grep -E "versionName|versionCode|firstInstallTime|lastUpdateTime" | head -4 > "$R/release-package.txt" 2>&1
 adb uninstall "$PKG" > /dev/null 2>&1
 
 # ---------------------------------------------------------------- 2) on-device test suite

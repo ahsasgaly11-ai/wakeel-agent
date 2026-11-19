@@ -92,7 +92,14 @@ class AgentEngine(
 
     fun start(task: String, delayMs: Long = 0) {
         val t = task.trim()
-        if (t.isEmpty() || isRunning || isRecording()) return
+        if (t.isEmpty() || isRunning) return
+        if (isRecording()) {
+            // The owner is teaching a task by hand: the agent must not act on the screen at the same time
+            Handler(Looper.getMainLooper()).post {
+                Toast.makeText(ctx, "أنهِ تسجيل المهارة أولاً (الفقاعة الحمراء)، ثم اطلب المهمة.", Toast.LENGTH_LONG).show()
+            }
+            return
+        }
         job = scope.launch {
             if (delayMs > 0) delay(delayMs)
             val run = Run(t)

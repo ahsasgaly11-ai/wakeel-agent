@@ -70,10 +70,26 @@ jobs:
   # Installs the app on an Android emulator and exercises it for real: the release build as shipped,
   # then the on-device tests (real accessibility service, taps and typing; only the AI model is scripted).
   device-test:
+    needs: build
     runs-on: ubuntu-latest
     timeout-minutes: 60
     steps:
       - uses: actions/checkout@v4
+
+      # The very file the build job signed and published — not a rebuild
+      - uses: actions/download-artifact@v4
+        with:
+          name: Wakeel-APK
+          path: shipped
+
+      - name: Fetch the older versions this release may be installed over
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p old
+          gh release download v2.0.16 -R "${{ github.repository }}" --pattern '*.apk' --dir old || true
+          gh release download v1.0.13 -R "${{ github.repository }}" --pattern '*.apk' --dir old || true
+          ls -la shipped old
 
       - uses: actions/setup-java@v4
         with:
@@ -90,10 +106,10 @@ jobs:
           sudo udevadm control --reload-rules
           sudo udevadm trigger --name-match=kvm
 
-      - name: Build the app, its on-device tests and the sandbox app
+      - name: Build the on-device tests and the sandbox app
         run: |
           set -o pipefail
-          gradle :app:assembleRelease :app:assembleDebug :app:assembleDebugAndroidTest :sandbox:assembleDebug --no-daemon --console=plain 2>&1 | tee device-build.log
+          gradle :app:assembleDebug :app:assembleDebugAndroidTest :sandbox:assembleDebug --no-daemon --console=plain 2>&1 | tee device-build.log
 
       - name: Run on an emulator
         uses: reactivecircus/android-emulator-runner@v2
