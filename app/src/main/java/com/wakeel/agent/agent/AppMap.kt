@@ -33,11 +33,75 @@ class MapScreen(
         elements.entries.filter { it.value * 2 >= visits }.sortedByDescending { it.value }.take(max).map { it.key }
 }
 
-class MapEdge(val from: String, val label: String, val to: String, var count: Int)
+/** A tap that leads from one screen to another. [id] is the tapped element's view id (the same in every phone language). */
+class MapEdge(val from: String, val label: String, val to: String, var count: Int, var id: String = "")
 
 class AppMap(val pkg: String) {
     val screens = LinkedHashMap<String, MapScreen>()
     val edges = ArrayList<MapEdge>()
+
+    /** Key of the screen the app shows right after a fresh start. */
+    var root: String = ""
+
+    /**
+     * The shortest known tap sequence from the app's first screen to the page called [query]: a tab,
+     * a screen title, or the label of the button that opens it. Empty = the first screen itself.
+     * Null when the map does not know such a page. Pure, so it is unit-tested on CI.
+     */
+    fun findPath(query: String): List<MapEdge>? {
+        val q = Text.norm(query)
+        if (q.length < 2 || root.isEmpty() || root !in screens) return null
+        if (Text.norm(screens[root]?.name.orEmpty()) == q) return emptyList()
+
+        fun score(e: MapEdge): Int {
+            val label = Text.norm(e.label)
+            val target = screens[e.to]
+            val name = Text.norm(target?.name.orEmpty())
+            return when {
+                label == q || name == q || Text.norm(target?.title.orEmpty()) == q -> 2
+                q.length >= 3 && label.contains(q) -> 1
+                else -> 0
+            }
+        }
+
+        val usable = edges.filter { it.label != AppMapStore.ITEM && it.from in screens && it.to in screens }.sortedByDescending { it.count }
+        val reachedBy = HashMap<String, MapEdge>()
+        val depth = hashMapOf(root to 0)
+        val queue = ArrayDeque(listOf(root))
+        var partial: MapEdge? = null
+
+        fun pathTo(e: MapEdge): List<MapEdge>? {
+            val out = ArrayList<MapEdge>()
+            out += e
+            var at = e.from
+            while (at != root) {
+                val p = reachedBy[at] ?: return null
+                out += p
+                at = p.from
+                if (out.size > 8) return null
+            }
+            return out.reversed()
+        }
+
+        while (queue.isNotEmpty()) {
+            val cur = queue.removeFirst()
+            val d = depth[cur] ?: 0
+            if (d >= 5) continue
+            for (e in usable) {
+                if (e.from != cur) continue
+                when (score(e)) {
+                    2 -> return pathTo(e)
+                    1 -> if (partial == null) partial = e
+                }
+                if (e.to !in depth) {
+                    depth[e.to] = d + 1
+                    reachedBy[e.to] = e
+                    queue += e.to
+                }
+            }
+        }
+        return partial?.let { pathTo(it) }
+    }
 }
 
 /**
@@ -50,12 +114,17 @@ class AppMapStore(ctx: Context) {
     private val dirty = HashSet<String>()
     private var lastFlush = 0L
 
+    // The next screen seen in this app is its first page (set right after a fresh launch).
+    private var rootPkg = ""
+    private var rootUntil = 0L
+
     private val _version = MutableStateFlow(0)
     val version: StateFlow<Int> = _version.asStateFlow()
 
     companion object {
         private const val MAX_SCREENS = 40
         private const val MAX_ELEMENTS = 30
+        private const val MAX_ICONS = 6
         private const val MAX_EDGES = 90
         const val ITEM = "(item)"
 
@@ -105,10 +174,18 @@ class AppMapStore(ctx: Context) {
             val ea = o.optJSONArray("e") ?: JSONArray()
             for (i in 0 until ea.length()) {
                 val e = ea.optJSONObject(i) ?: continue
-                m.edges += MapEdge(e.optString("f"), e.optString("l"), e.optString("t"), e.optInt("c", 1))
+                m.edges += MapEdge(e.optString("f"), e.optString("l"), e.optString("t"), e.optInt("c", 1), e.optString("i"))
             }
+            m.root = o.optString("r")
         }
         return m
+    }
+
+    /** Call right after starting [pkg] fresh: the next screen recorded for it is marked as its first page. */
+    @Synchronized
+    fun expectRoot(pkg: String) {
+        rootPkg = pkg
+        rootUntil = System.currentTimeMillis() + 20_000
     }
 
     /** Records the screen and returns its key, or null if there is nothing structural to learn. */
@@ -125,11 +202,24 @@ class AppMapStore(ctx: Context) {
         if (sc.visits > 1) {
             if (title == sc.title) sc.titleSame++ else { sc.title = title; sc.titleChanges++ }
         }
+        if (rootPkg == s.pkg) {
+            if (now <= rootUntil) m.root = key
+            rootPkg = ""
+        }
         for (n in s.structural()) {
             val l = clean(n.label)
             if (!okLabel(l)) continue
             val k = if (n.editable) "✎$l" else l
             sc.elements[k] = (sc.elements[k] ?: 0) + 1
+        }
+        // Icons without any text are remembered by their view id, so a plan can still name them (find:"#id")
+        var icons = 0
+        for (n in s.nodes) {
+            if (icons >= MAX_ICONS) break
+            if (!n.clickable || n.inList || n.password || n.editable || n.label.isNotBlank() || n.viewId.length !in 3..40) continue
+            val k = "#" + n.viewId
+            sc.elements[k] = (sc.elements[k] ?: 0) + 1
+            icons++
         }
         if (sc.elements.size > MAX_ELEMENTS) {
             val keep = sc.elements.entries.sortedByDescending { it.value }.take(MAX_ELEMENTS).map { it.key }.toSet()
@@ -144,17 +234,32 @@ class AppMapStore(ctx: Context) {
         return key
     }
 
-    /** Records that tapping [label] on screen [from] led to screen [to]. */
+    /** Records that tapping [label] (view id [viewId]) on screen [from] led to screen [to]. */
     @Synchronized
-    fun edge(pkg: String, from: String, label: String, to: String) {
+    fun edge(pkg: String, from: String, label: String, to: String, viewId: String = "") {
         if (from == to || pkg.isBlank()) return
-        val l = clean(label).let { if (okLabel(it)) it else ITEM }
+        val c = clean(label)
+        val l = when {
+            c.startsWith("#") && c.length in 4..41 -> c
+            okLabel(c) -> c
+            c.isBlank() && viewId.length in 3..40 -> "#$viewId"
+            else -> ITEM
+        }
         val m = map(pkg)
         val e = m.edges.firstOrNull { it.from == from && it.to == to && it.label == l }
-        if (e != null) e.count++ else m.edges += MapEdge(from, l, to, 1)
+        if (e != null) {
+            e.count++
+            if (viewId.isNotEmpty()) e.id = viewId
+        } else {
+            m.edges += MapEdge(from, l, to, 1, viewId)
+        }
         if (m.edges.size > MAX_EDGES) m.edges.sortedBy { it.count }.take(m.edges.size - MAX_EDGES).forEach { m.edges.remove(it) }
         dirty += pkg
     }
+
+    /** Taps that lead from the app's first page to the page called [query], or null if the map does not know it. */
+    @Synchronized
+    fun findPath(pkg: String, query: String): List<MapEdge>? = map(pkg).findPath(query)?.toList()
 
     /** Compact text for the model. Empty when nothing is known. */
     @Synchronized
@@ -244,8 +349,12 @@ class AppMapStore(ctx: Context) {
                 )
             }
             val ea = JSONArray()
-            for (e in m.edges) ea.put(JSONObject().put("f", e.from).put("l", e.label).put("t", e.to).put("c", e.count))
-            o.put("s", sa).put("e", ea)
+            for (e in m.edges) {
+                val eo = JSONObject().put("f", e.from).put("l", e.label).put("t", e.to).put("c", e.count)
+                if (e.id.isNotEmpty()) eo.put("i", e.id)
+                ea.put(eo)
+            }
+            o.put("s", sa).put("e", ea).put("r", m.root)
             runCatching { file(pkg).writeText(o.toString()) }
         }
         dirty.clear()

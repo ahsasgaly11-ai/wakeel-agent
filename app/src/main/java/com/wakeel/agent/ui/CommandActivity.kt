@@ -35,6 +35,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.AutoAwesome
 import androidx.compose.material.icons.rounded.Close
+import androidx.compose.material.icons.rounded.FiberManualRecord
 import androidx.compose.material.icons.rounded.Mic
 import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material3.Button
@@ -45,6 +46,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
@@ -70,11 +72,14 @@ class CommandActivity : ComponentActivity() {
 
     companion object {
         private const val EXTRA_ASK = "ask"
+        private const val EXTRA_TEACH = "teach"
 
-        fun open(ctx: Context, askQuestion: String? = null) {
+        /** [teach] opens the window ready to record a task the owner will perform by hand. */
+        fun open(ctx: Context, askQuestion: String? = null, teach: Boolean = false) {
             val i = Intent(ctx, CommandActivity::class.java)
                 .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_NO_ANIMATION)
             if (askQuestion != null) i.putExtra(EXTRA_ASK, askQuestion)
+            if (teach) i.putExtra(EXTRA_TEACH, true)
             runCatching { ctx.startActivity(i) }
         }
     }
@@ -83,11 +88,13 @@ class CommandActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         val ask = intent.getStringExtra(EXTRA_ASK)
+        val teachFirst = intent.getBooleanExtra(EXTRA_TEACH, false)
         setContent {
             WakeelTheme {
                 CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Rtl) {
                     CommandSheet(
                         askQuestion = ask,
+                        teachFirst = teachFirst && ask == null,
                         onDismiss = { finish() },
                         onSubmit = { text ->
                             if (ask != null) {
@@ -96,6 +103,15 @@ class CommandActivity : ComponentActivity() {
                                 // Let this window close so the agent starts on the app you were using
                                 Hub.engine.start(text, delayMs = 700)
                             }
+                            finish()
+                        },
+                        onTeach = { phrase ->
+                            val msg = when {
+                                Hub.engine.isRunning -> "هناك مهمة قيد التنفيذ. أوقفها أولاً."
+                                Hub.recorder.start(phrase) -> "بدأ التسجيل: نفّذ المهمة بيدك، ثم اضغط الفقاعة الحمراء واختر «حفظ المهارة»."
+                                else -> "فعّل خدمة إمكانية الوصول من الصفحة الرئيسية أولاً."
+                            }
+                            Toast.makeText(this@CommandActivity, msg, Toast.LENGTH_LONG).show()
                             finish()
                         },
                     )
@@ -120,8 +136,11 @@ private val quick = listOf(
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun CommandSheet(askQuestion: String?, onDismiss: () -> Unit, onSubmit: (String) -> Unit) {
+private fun CommandSheet(
+    askQuestion: String?, teachFirst: Boolean, onDismiss: () -> Unit, onSubmit: (String) -> Unit, onTeach: (String) -> Unit,
+) {
     var text by rememberSaveable { mutableStateOf("") }
+    var teach by rememberSaveable { mutableStateOf(teachFirst) }
     val focus = remember { FocusRequester() }
     val ctx = androidx.compose.ui.platform.LocalContext.current
     val running = Hub.engine.state.value !is EngineState.Idle && askQuestion == null
@@ -157,11 +176,23 @@ private fun CommandSheet(askQuestion: String?, onDismiss: () -> Unit, onSubmit: 
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Icon(Icons.Rounded.AutoAwesome, null, tint = MaterialTheme.colorScheme.primary)
                     Spacer(Modifier.width(8.dp))
-                    Text(if (askQuestion != null) "الوكيل يسألك" else "وكيل", style = MaterialTheme.typography.titleLarge, modifier = Modifier.weight(1f))
+                    Text(
+                        when {
+                            askQuestion != null -> "الوكيل يسألك"
+                            teach -> "علّمني مهمة بيدك"
+                            else -> "وكيل"
+                        },
+                        style = MaterialTheme.typography.titleLarge, modifier = Modifier.weight(1f),
+                    )
                     IconButton(onClick = onDismiss) { Icon(Icons.Rounded.Close, "إغلاق") }
                 }
                 when {
                     askQuestion != null -> Text(askQuestion, style = MaterialTheme.typography.bodyLarge, color = Brand.Amber)
+                    teach -> Text(
+                        "اكتب الجملة التي ستقولها لاحقاً لطلب هذه المهمة، ثم نفّذها بيدك مرة واحدة وأنا أسجّل خطواتك. " +
+                            "بعدها أنفّذها وحدي دون أي استهلاك. وما تكتبه أو تختاره من قائمة ويَرِد في جملتك (اسم جهة اتصال، نص رسالة) يصبح قابلاً للتغيير.",
+                        style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
                     running -> Text("هناك مهمة قيد التنفيذ الآن. أوقفها من الفقاعة أولاً.", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.error)
                     lastResult != null -> Surface(
                         onClick = { Hub.history.records.value.firstOrNull()?.let { ResultActivity.open(ctx, it.id) } },
@@ -179,14 +210,24 @@ private fun CommandSheet(askQuestion: String?, onDismiss: () -> Unit, onSubmit: 
                     value = text,
                     onValueChange = { text = it },
                     modifier = Modifier.fillMaxWidth().focusRequester(focus),
-                    placeholder = { Text(if (askQuestion != null) "اكتب ردّك…" else "ماذا تريد أن أفعل؟") },
+                    placeholder = {
+                        Text(
+                            when {
+                                askQuestion != null -> "اكتب ردّك…"
+                                teach -> "مثال: أرسل واتساب إلى أحمد: أنا في الطريق"
+                                else -> "ماذا تريد أن أفعل؟"
+                            }
+                        )
+                    },
                     minLines = 2,
                     maxLines = 5,
                     shape = MaterialTheme.shapes.medium,
                     keyboardOptions = KeyboardOptions(imeAction = ImeAction.Send),
-                    keyboardActions = KeyboardActions(onSend = { if (text.isNotBlank() && !running) onSubmit(text.trim()) }),
+                    keyboardActions = KeyboardActions(onSend = {
+                        if (text.isNotBlank() && !running) { if (teach) onTeach(text.trim()) else onSubmit(text.trim()) }
+                    }),
                 )
-                if (askQuestion == null && text.isBlank()) {
+                if (askQuestion == null && !teach && text.isBlank()) {
                     FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         quick.forEach { q ->
                             Surface(onClick = { text = q }, shape = RoundedCornerShape(50), color = MaterialTheme.colorScheme.surfaceContainerHigh) {
@@ -197,14 +238,20 @@ private fun CommandSheet(askQuestion: String?, onDismiss: () -> Unit, onSubmit: 
                 }
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Button(
-                        onClick = { onSubmit(text.trim()) },
+                        onClick = { if (teach) onTeach(text.trim()) else onSubmit(text.trim()) },
                         enabled = text.isNotBlank() && !running,
                         modifier = Modifier.weight(1f).height(52.dp),
                         shape = MaterialTheme.shapes.medium,
                     ) {
-                        Icon(Icons.Rounded.PlayArrow, null)
+                        Icon(if (teach) Icons.Rounded.FiberManualRecord else Icons.Rounded.PlayArrow, null)
                         Spacer(Modifier.width(8.dp))
-                        Text(if (askQuestion != null) "إرسال الرد" else "تنفيذ")
+                        Text(
+                            when {
+                                askQuestion != null -> "إرسال الرد"
+                                teach -> "ابدأ التسجيل"
+                                else -> "تنفيذ"
+                            }
+                        )
                     }
                     Spacer(Modifier.width(10.dp))
                     FilledTonalIconButton(
@@ -220,6 +267,11 @@ private fun CommandSheet(askQuestion: String?, onDismiss: () -> Unit, onSubmit: 
                         },
                         modifier = Modifier.size(52.dp),
                     ) { Icon(Icons.Rounded.Mic, "إدخال صوتي") }
+                }
+                if (askQuestion == null && !running) {
+                    TextButton(onClick = { teach = !teach }, modifier = Modifier.fillMaxWidth()) {
+                        Text(if (teach) "رجوع إلى الأوامر العادية" else "أو علّمني مهمة بيدك مرة واحدة — وأعيدها مجاناً")
+                    }
                 }
             }
         }

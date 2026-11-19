@@ -66,3 +66,57 @@ jobs:
           git add -f build.log errors.txt tests.txt
           git commit -m "build report for ${{ github.sha }}"
           git push -f origin build-logs
+
+  # Installs the app on an Android emulator and exercises it for real: the release build as shipped,
+  # then the on-device tests (real accessibility service, taps and typing; only the AI model is scripted).
+  device-test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.14.3'
+
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+
+      - name: Build the app, its on-device tests and the sandbox app
+        run: |
+          set -o pipefail
+          gradle :app:assembleRelease :app:assembleDebug :app:assembleDebugAndroidTest :sandbox:assembleDebug --no-daemon --console=plain 2>&1 | tee device-build.log
+
+      - name: Run on an emulator
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 34
+          target: default
+          arch: x86_64
+          profile: pixel_6
+          disable-animations: true
+          emulator-options: -no-snapshot-save -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
+          script: bash ci/device-test.sh
+
+      - name: Publish device report
+        if: always()
+        run: |
+          mkdir -p device-report
+          cp device-build.log device-report/ 2>/dev/null || true
+          grep -E "^e: |error:|FAILURE|What went wrong" -A6 device-build.log > device-report/build-errors.txt 2>/dev/null || true
+          rm -rf /tmp/dr && cp -r device-report /tmp/dr
+          git config user.name "wakeel-ci"
+          git config user.email "ci@users.noreply.github.com"
+          git checkout --orphan device-logs
+          git rm -rf . > /dev/null
+          for f in /tmp/dr/*; do cp "$f" . && git add -f "$(basename "$f")"; done
+          git commit -m "device report for ${{ github.sha }}"
+          git push -f origin device-logs

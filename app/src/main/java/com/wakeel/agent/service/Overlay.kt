@@ -16,9 +16,11 @@ import android.view.WindowManager
 import android.view.animation.LinearInterpolator
 import android.widget.LinearLayout
 import android.widget.TextView
+import android.widget.Toast
 import androidx.core.content.res.ResourcesCompat
 import com.wakeel.agent.Hub
 import com.wakeel.agent.R
+import com.wakeel.agent.agent.DemoRecorder
 import com.wakeel.agent.agent.EngineState
 import com.wakeel.agent.ui.CommandActivity
 import kotlinx.coroutines.CoroutineScope
@@ -50,12 +52,22 @@ class Overlay(private val svc: AgentAccessibilityService) {
 
     private var lastState: EngineState = EngineState.Idle
 
+    // Learning by demonstration
+    private var rec = DemoRecorder.State()
+    private var recStatusTv: TextView? = null
+
     // ---------- Colors ----------
     private val indigo = intArrayOf(0xFF2FCF9A.toInt(), 0xFF0B6B55.toInt())   // idle: emerald
     private val teal = intArrayOf(0xFF6FA8FF.toInt(), 0xFF2F5FB3.toInt())     // working: sapphire
     private val amber = intArrayOf(0xFFE8C36A.toInt(), 0xFFB8862B.toInt())    // needs you: gold
+    private val ruby = intArrayOf(0xFFFF6B6B.toInt(), 0xFFB3261E.toInt())     // recording your steps
     private val bold: Typeface = runCatching { ResourcesCompat.getFont(svc, R.font.tajawal_bold) }.getOrNull() ?: Typeface.DEFAULT_BOLD
     private val regular: Typeface = runCatching { ResourcesCompat.getFont(svc, R.font.tajawal_medium) }.getOrNull() ?: Typeface.DEFAULT
+
+    init {
+        // The bubble is the only way to end a recording, so it follows the recorder even when the owner hid it
+        scope.launch { Hub.recorder.state.collect { onRecording(it) } }
+    }
 
     fun show() {
         if (bubble != null) return
@@ -138,6 +150,7 @@ class Overlay(private val svc: AgentAccessibilityService) {
                         v.performClick()
                         when {
                             panel != null -> closePanel()
+                            rec.active -> openRecordingPanel()
                             lastState is EngineState.Idle -> CommandActivity.open(svc)
                             else -> openPanel()
                         }
@@ -230,6 +243,12 @@ class Overlay(private val svc: AgentAccessibilityService) {
         actions.addView(stopBtn, weightLp())
         p.addView(actions)
 
+        if (!attach(p)) return
+        render(lastState)
+    }
+
+    /** Places a panel next to the bubble. A touch outside closes it unless the agent is waiting for an answer. */
+    private fun attach(p: LinearLayout): Boolean {
         val (w, h) = svc.screenSize()
         val by = bubbleLp?.y ?: dp(240)
         val below = by < h / 2
@@ -253,15 +272,108 @@ class Overlay(private val svc: AgentAccessibilityService) {
                 closePanel(); true
             } else false
         }
-        runCatching { wm.addView(p, lp) }.onFailure { return }
+        if (runCatching { wm.addView(p, lp) }.isFailure) return false
         panel = p
-        render(lastState)
+        return true
     }
 
     private fun closePanel() {
         panel?.let { runCatching { wm.removeView(it) } }
         panel = null
         statusTv = null; questionTv = null; confirmRow = null; mainBtn = null; stopBtn = null
+        recStatusTv = null
+    }
+
+    // ---------- Learning by demonstration ----------
+    private fun onRecording(s: DemoRecorder.State) {
+        val was = rec.active
+        rec = s
+        if (s.active != was) closePanel()
+        if (s.active && bubble == null) show()
+        if (!s.active && was && !Hub.settings.showBubble) hide()
+        paintBubble()
+        recStatusTv?.text = recordingLine(s)
+    }
+
+    private fun recordingLine(s: DemoRecorder.State): String =
+        (if (s.steps == 0) "لم تُسجَّل خطوة بعد" else "سُجّلت ${s.steps} خطوة") + "\nآخر ما رأيته: ${s.last}"
+
+    private fun openRecordingPanel() {
+        if (panel != null) return
+        val p = LinearLayout(svc).apply {
+            orientation = LinearLayout.VERTICAL
+            layoutDirection = View.LAYOUT_DIRECTION_RTL
+            setPadding(dp(18), dp(16), dp(18), dp(16))
+            background = GradientDrawable().apply {
+                cornerRadius = dp(24).toFloat()
+                setColor(0xF50A1512.toInt())
+                setStroke(dp(1), 0x66FF6B6B)
+            }
+            elevation = dp(12).toFloat()
+        }
+        val header = LinearLayout(svc).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+        }
+        header.addView(TextView(svc).apply {
+            text = "●  أتعلّم من خطواتك"
+            textSize = 17f
+            typeface = bold
+            setTextColor(0xFFFF8A80.toInt())
+        }, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
+        header.addView(TextView(svc).apply {
+            text = "✕"
+            textSize = 18f
+            setTextColor(0xB3FFFFFF.toInt())
+            setPadding(dp(8), dp(4), dp(8), dp(4))
+            setOnClickListener { closePanel() }
+        })
+        p.addView(header)
+        p.addView(TextView(svc).apply {
+            text = "«${rec.task.take(90)}»"
+            textSize = 15f
+            typeface = bold
+            setTextColor(Color.WHITE)
+            maxLines = 3
+            ellipsize = TextUtils.TruncateAt.END
+            setPadding(0, dp(8), 0, dp(4))
+        })
+        recStatusTv = TextView(svc).apply {
+            text = recordingLine(rec)
+            textSize = 13f
+            typeface = regular
+            setTextColor(0xCCFFFFFF.toInt())
+            maxLines = 3
+            ellipsize = TextUtils.TruncateAt.END
+            setPadding(0, 0, 0, dp(4))
+        }
+        p.addView(recStatusTv)
+        p.addView(TextView(svc).apply {
+            text = "نفّذ المهمة كاملة بيدك، ثم اضغط «حفظ المهارة». أغلق هذه النافذة لتكمل."
+            textSize = 12f
+            typeface = regular
+            setTextColor(0x99FFFFFF.toInt())
+        })
+        val actions = LinearLayout(svc).apply {
+            orientation = LinearLayout.HORIZONTAL
+            setPadding(0, dp(12), 0, 0)
+        }
+        actions.addView(pill("حفظ المهارة", 0xFF1FA97C.toInt()) { finishRecording(true) }, weightLp(end = dp(8)))
+        actions.addView(pill("إلغاء", 0xFFE5484D.toInt()) { finishRecording(false) }, weightLp())
+        p.addView(actions)
+        attach(p)
+    }
+
+    private fun finishRecording(save: Boolean) {
+        val skill = Hub.recorder.stop(save)
+        closePanel()
+        val msg = when {
+            !save -> "أُلغي التسجيل، ولم يُحفظ شيء."
+            skill == null -> "لم أرَ أي خطوة، فلم تُحفظ مهارة."
+            skill.params.isEmpty() -> "حُفظت المهارة (${skill.steps.size} خطوة). قل: «${skill.example.take(50)}» وأنفّذها دون استهلاك."
+            else -> "حُفظت المهارة بمتغيّرات. قل مثلاً: «${skill.example.take(50)}» أو بقيم أخرى."
+        }
+        Toast.makeText(svc, msg, Toast.LENGTH_LONG).show()
     }
 
     private fun onMain() {
@@ -280,16 +392,9 @@ class Overlay(private val svc: AgentAccessibilityService) {
             closePanel()
             CommandActivity.open(svc, s.question)
         }
-        val b = bubble ?: return
-        when (s) {
-            is EngineState.Idle -> { b.background = oval(indigo); stopSpin() }
-            is EngineState.Running -> { b.background = oval(teal); startSpin() }
-            is EngineState.Confirm -> {
-                b.background = oval(amber); stopSpin()
-                if (panel == null) openPanel()
-            }
-            is EngineState.Ask -> { b.background = oval(amber); stopSpin() }
-        }
+        if (bubble == null) return
+        paintBubble()
+        if (s is EngineState.Confirm && panel == null) openPanel()
         if (panel == null) return
         val result = Hub.engine.lastResult.value
         statusTv?.text = when (s) {
@@ -307,6 +412,23 @@ class Overlay(private val svc: AgentAccessibilityService) {
         mainBtn?.visibility = if (s is EngineState.Idle || s is EngineState.Ask) View.VISIBLE else View.GONE
         mainBtn?.text = if (s is EngineState.Ask) "اكتب الرد" else "مهمة جديدة"
         stopBtn?.visibility = if (s is EngineState.Idle) View.GONE else View.VISIBLE
+    }
+
+    /** Emerald when idle, sapphire while working, gold when it needs you, ruby with a step count while you teach it. */
+    private fun paintBubble() {
+        val b = bubble ?: return
+        if (rec.active) {
+            b.text = if (rec.steps > 0) rec.steps.toString() else "●"
+            b.background = oval(ruby)
+            stopSpin()
+            return
+        }
+        b.text = "✦"
+        when (lastState) {
+            is EngineState.Idle -> { b.background = oval(indigo); stopSpin() }
+            is EngineState.Running -> { b.background = oval(teal); startSpin() }
+            is EngineState.Confirm, is EngineState.Ask -> { b.background = oval(amber); stopSpin() }
+        }
     }
 
     private fun startSpin() {

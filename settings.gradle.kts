@@ -14,3 +14,4 @@ dependencyResolutionManagement {
 }
 rootProject.name = "Wakeel"
 include(":app")
+include(":sandbox")

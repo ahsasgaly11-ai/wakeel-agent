@@ -40,9 +40,12 @@ interface LlmClient {
     }
 
     companion object {
-        fun create(s: Settings): LlmClient =
-            if (s.provider == "anthropic") AnthropicClient(s.apiKey, s.baseUrl)
-            else OpenAiClient(s.apiKey, s.baseUrl)
+        /** Test hook: the on-device tests replace the network with a scripted client. Never set in the app itself. */
+        @Volatile
+        var override: ((Settings) -> LlmClient)? = null
+
+        fun create(s: Settings): LlmClient = override?.invoke(s)
+            ?: if (s.provider == "anthropic") AnthropicClient(s.apiKey, s.baseUrl) else OpenAiClient(s.apiKey, s.baseUrl)
     }
 }
 

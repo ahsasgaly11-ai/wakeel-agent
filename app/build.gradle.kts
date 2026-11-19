@@ -18,6 +18,7 @@ android {
         targetSdk = 35
         versionCode = runNumber
         versionName = "2.0.$runNumber"
+        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
     signingConfigs {
@@ -71,6 +72,9 @@ dependencies {
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.10.2")
     testImplementation("junit:junit:4.13.2")
+    // On-device tests (run on an emulator in CI; not part of the released APK)
+    androidTestImplementation("androidx.test:runner:1.6.2")
+    androidTestImplementation("junit:junit:4.13.2")
 }
 
 tasks.withType<Test>().configureEach {

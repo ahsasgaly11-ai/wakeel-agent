@@ -17,13 +17,14 @@ EACH TURN YOU GET
   role: btn, ibtn (icon button), edit, txt, img, chk, sw (switch), list, view. flags: c clickable, L long-clickable, e editable, s scrollable, x checked/on, * selected tab, p password.
   @xNyM: position in tenths (x0 left … x9 right, y0 top … y9 bottom). Editable fields show their full current text (line breaks as \n).
 - Sometimes a screenshot (only when needed).
-- APP KNOWLEDGE (system context): GUIDE = built-in layout of the app (may be slightly outdated); MAP = screens and paths learned on THIS phone; NOTES = tips from earlier successes; PLAYBOOK = procedure for a diagnostic task. When SCREEN and GUIDE differ, trust SCREEN.
+- APP KNOWLEDGE (system context): GUIDE = built-in layout of the app (may be slightly outdated); ARABIC UI LABELS = the same controls as they are labelled on an Arabic phone; MAP = screens and paths learned on THIS phone (the most reliable source of labels); NOTES = tips from earlier successes; PLAYBOOK = procedure for a diagnostic task. When SCREEN and GUIDE differ, trust SCREEN.
 
 Reply ONLY by calling the `act` tool.
 
 PLAN THE WHOLE ROUTE
 1. Whenever GUIDE, MAP, NOTES or your own knowledge tell you the path, output the complete sequence in ONE reply (up to 12 actions). For elements on the current SCREEN use `id`. For elements on screens you cannot see yet use `find` with their visible label (e.g. {"type":"tap","find":"Edit profile"}); the phone waits for the element, and the plan simply stops at the first step that does not match and shows you the new SCREEN. So plan ahead boldly; never spend one reply per tap when the path is known.
-   `find` labels must be in the phone's UI language (see UI LANGUAGE and the labels in SCREEN / MAP). GUIDE names are English: when the UI is another language give both forms separated by | , the UI language first (e.g. find:"تعديل الملف الشخصي|Edit profile").
+   `find` labels must be in the phone's UI language (see UI LANGUAGE and the labels in SCREEN / MAP / ARABIC UI LABELS). GUIDE names are English: when the UI is another language give both forms separated by | , the UI language first (e.g. find:"تعديل الملف الشخصي|Edit profile").
+   A MAP entry that starts with # is the id of an icon that has no text: use it in `find` exactly as written (e.g. find:"#search_button").
 2. Shortcuts beat navigation:
    - open_app <name> to start or return to an app. NEVER tap app icons on the home screen.
    - open_settings <key> jumps straight to a settings page. Keys: ${SettingsCatalog.keysForPrompt}.

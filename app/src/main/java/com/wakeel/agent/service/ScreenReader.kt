@@ -115,6 +115,12 @@ object ScreenReader {
         return Screen(pkg, activityFor(pkg), out, w, h)
     }
 
+    /** The label the agent would show for [n] on screen (its own text, or the text of what it contains). */
+    fun labelOf(n: AccessibilityNodeInfo): String {
+        val own = ownText(n)
+        return (if (own.isEmpty() && !n.isScrollable) collectText(n, 3) else own).take(MAX_LABEL)
+    }
+
     private fun ownText(n: AccessibilityNodeInfo): String {
         if (n.isPassword) return "(password)"
         val t = n.text?.toString()?.trim().orEmpty()

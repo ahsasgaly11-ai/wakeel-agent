@@ -22,12 +22,14 @@ import java.util.Locale
  * Executes everyday commands directly with Android APIs — zero API calls.
  * Anything it cannot fully handle goes to the model (optionally after opening the right app or page first).
  */
-class LocalRouter(private val ctx: Context, private val apps: AppIndex) {
+class LocalRouter(private val ctx: Context, private val apps: AppIndex, private val maps: AppMapStore? = null) {
 
     sealed interface Result {
         data class Handled(val message: String) : Result
-        /** An app or page was opened locally; the model continues with [rest]. */
-        data class Opened(val app: String, val pkg: String, val rest: String, val step: MacroStep) : Result
+        /** An app or page was opened locally; the model continues with [rest]. [fresh] = the app was restarted on its first page. */
+        data class Opened(val app: String, val pkg: String, val rest: String, val step: MacroStep, val fresh: Boolean = false) : Result
+        /** A page the agent already knows how to reach in this app: [steps] are replayed with zero API calls. */
+        data class Path(val app: String, val pkg: String, val page: String, val steps: List<MacroStep>) : Result
         data object None : Result
     }
 
@@ -105,18 +107,42 @@ class LocalRouter(private val ctx: Context, private val apps: AppIndex) {
                 if (appInfo(app.pkg)) return Result.Handled("فُتحت صفحة معلومات «${app.label}»")
             }
         }
-        // Open an app (optionally followed by more instructions)
         val words = t.split(' ').filter { it.isNotBlank() }
+        // A page inside an app: "افتح الملف الشخصي في انستقرام". If the learned map knows the way, it is replayed for free.
+        pageInApp(words)?.let { (app, page) ->
+            val step = MacroStep("open_app", text = app.pkg, label = app.label)
+            val path = maps?.findPath(app.pkg, page)
+            if (path != null) {
+                return Result.Path(app.label, app.pkg, page, listOf(step) + path.map { MacroStep("tap", "|${it.id}|${it.label}", label = it.label) })
+            }
+            if (apps.launch(app.pkg, fresh = true)) return Result.Opened(app.label, app.pkg, page, step, fresh = true)
+        }
+        // Open an app (optionally followed by more instructions)
         if (words.size >= 2 && words.first() in Commands.OPEN_VERBS) {
             val rest = words.drop(1)
             for (k in minOf(rest.size, 4) downTo 1) {
                 val app = apps.exact(rest.take(k).joinToString(" ")) ?: continue
-                if (!apps.launch(app.pkg)) break
                 val remaining = rest.drop(k).joinToString(" ").trim()
-                return if (remaining.isEmpty()) Result.Handled("تم فتح ${app.label}") else Result.Opened(app.label, app.pkg, remaining, MacroStep("open_app", text = app.pkg, label = app.label))
+                // A task that continues inside the app starts from the app's first page, like its saved routes will
+                if (!apps.launch(app.pkg, fresh = remaining.isNotEmpty())) break
+                return if (remaining.isEmpty()) Result.Handled("تم فتح ${app.label}")
+                else Result.Opened(app.label, app.pkg, remaining, MacroStep("open_app", text = app.pkg, label = app.label), fresh = true)
             }
         }
         return Result.None
+    }
+
+    /** "<open verb> <page> في <app>" → the app and the page name; null for anything else. */
+    private fun pageInApp(words: List<String>): Pair<AppIndex.App, String>? {
+        if (words.size < 4 || words.first() !in Commands.OPEN_VERBS) return null
+        for (i in words.size - 2 downTo 2) {
+            if (words[i] !in IN_WORDS) continue
+            val appName = words.drop(i + 1).filter { it !in APP_WORDS }.joinToString(" ")
+            val app = apps.exact(appName) ?: continue
+            val page = words.subList(1, i).dropWhile { it in PAGE_LEAD }.joinToString(" ").trim()
+            if (page.length >= 2) return app to page
+        }
+        return null
     }
 
     // ------------------------------------------------------------------ switches
@@ -132,9 +158,15 @@ class LocalRouter(private val ctx: Context, private val apps: AppIndex) {
             val onDedicatedPage = scr.nodes.any { n ->
                 n.bounds.centerY() < scr.height * 0.22f && Text.norm(n.label).let { l -> l.isNotEmpty() && words.any { w -> l.contains(w) } }
             }
+            fun named(l: String) = Text.norm(l).let { n -> n.isNotEmpty() && words.any { w -> n.contains(w) } }
+            // Many phones draw the switch as a bare toggle inside a row; the row carries the name
+            fun inNamedRow(sw: UiNode) = scr.nodes.any { row ->
+                row !== sw && row.bounds.height() < scr.height / 5 && row.bounds.top <= sw.bounds.centerY() && row.bounds.bottom >= sw.bounds.centerY() && named(row.label)
+            }
             val sw: UiNode? = when {
                 switches.size == 1 && onDedicatedPage -> switches[0]
-                else -> switches.firstOrNull { n -> Text.norm(n.label).let { l -> words.any { w -> l.contains(w) } } }
+                else -> switches.firstOrNull { named(it.label) }
+                    ?: switches.firstOrNull { inNamedRow(it) }
                     ?: if (onDedicatedPage) switches.filter { it.bounds.top < scr.height * 0.4f }.minByOrNull { it.bounds.top } else null
             }
             if (sw != null) {
@@ -179,12 +211,13 @@ class LocalRouter(private val ctx: Context, private val apps: AppIndex) {
         val page = SettingsCatalog.page(k)
             ?: SettingsCatalog.keyForWords(Text.norm(k))?.let { SettingsCatalog.page(it) }
             ?: return false to k
-        for (a in page.actions) if (start(Intent(a))) return true to page.ar
-        return start(Intent("android.settings.SETTINGS")) to page.ar
+        // A clean task: the page is not stacked on whatever Settings was showing before, so saved routes always start the same way
+        for (a in page.actions) if (start(Intent(a), clean = true)) return true to page.ar
+        return start(Intent("android.settings.SETTINGS"), clean = true) to page.ar
     }
 
     fun appInfo(pkg: String): Boolean =
-        start(Intent("android.settings.APPLICATION_DETAILS_SETTINGS", Uri.parse("package:$pkg")))
+        start(Intent("android.settings.APPLICATION_DETAILS_SETTINGS", Uri.parse("package:$pkg")), clean = true)
 
     /** Opens a web link or a known deep link. `tel:` only opens the dialer; nothing is ever sent or called. */
     fun openUrl(rawUrl: String): Boolean {
@@ -202,13 +235,17 @@ class LocalRouter(private val ctx: Context, private val apps: AppIndex) {
         true
     }.getOrDefault(false)
 
-    private fun start(i: Intent): Boolean = runCatching {
-        i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+    private fun start(i: Intent, clean: Boolean = false): Boolean = runCatching {
+        i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or (if (clean) Intent.FLAG_ACTIVITY_CLEAR_TASK else 0))
         (AgentAccessibilityService.instance ?: ctx).startActivity(i)
         true
     }.getOrDefault(false)
 
     companion object {
+        private val IN_WORDS = setOf("في", "من", "داخل", "ب", "علي", "ضمن", "in", "inside", "of").map { Text.norm(it) }.toSet()
+        private val APP_WORDS = setOf("تطبيق", "برنامج", "app").map { Text.norm(it) }.toSet()
+        private val PAGE_LEAD = setOf("إلى", "الى", "ل", "على", "صفحة", "قسم", "تبويب", "قائمة", "شاشة", "to", "the", "page", "tab", "screen").map { Text.norm(it) }.toSet()
+
         private val SCHEMES = setOf(
             "http", "https", "geo", "google.navigation", "tel", "sms", "smsto", "mailto", "market",
             "instagram", "whatsapp", "tg", "twitter", "vnd.youtube", "youtube", "fb", "snapchat", "spotify", "zoomus", "linkedin",

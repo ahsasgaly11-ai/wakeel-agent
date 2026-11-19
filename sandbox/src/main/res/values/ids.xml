@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <item name="status" type="id" />
+    <item name="tab_home" type="id" />
+    <item name="tab_contacts" type="id" />
+    <item name="tab_wallet" type="id" />
+    <item name="tab_profile" type="id" />
+    <item name="search_box" type="id" />
+    <item name="btn_prefs" type="id" />
+    <item name="btn_about" type="id" />
+    <item name="contact_list" type="id" />
+    <item name="chat_to" type="id" />
+    <item name="message" type="id" />
+    <item name="btn_send" type="id" />
+    <item name="coin_search" type="id" />
+    <item name="btn_buy" type="id" />
+    <item name="btn_history" type="id" />
+    <item name="bio" type="id" />
+    <item name="btn_save" type="id" />
+    <item name="btn_security" type="id" />
+    <item name="pin" type="id" />
+    <item name="pin_len" type="id" />
+    <item name="sw_dark" type="id" />
+</resources>

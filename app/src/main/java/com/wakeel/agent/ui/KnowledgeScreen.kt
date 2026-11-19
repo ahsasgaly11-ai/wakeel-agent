@@ -20,6 +20,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Bolt
 import androidx.compose.material.icons.rounded.Explore
+import androidx.compose.material.icons.rounded.FiberManualRecord
 import androidx.compose.material.icons.rounded.Lock
 import androidx.compose.material.icons.rounded.School
 import androidx.compose.material.icons.rounded.Search
@@ -133,6 +134,21 @@ fun KnowledgeScreen(onRun: (String) -> Unit, onDraft: (String) -> Unit, onGoHome
                         "كل مهمة تنجح تتحوّل إلى مهارة. المهارة «المجانية» تُنفَّذ بلا أي طلب API، و«تحت التجربة» تحتاج إلى طلب تحقق واحد.",
                         style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
+                }
+                item {
+                    val ctx = LocalContext.current
+                    Panel {
+                        Text("علّمني مهمة بيدك", style = MaterialTheme.typography.titleSmall)
+                        Text(
+                            "نفّذ المهمة مرة واحدة وأنا أسجّل خطواتك، فتصير مهارة مجانية من أول مرة — دون أي طلب API.",
+                            style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                        Button(onClick = { CommandActivity.open(ctx, teach = true) }) {
+                            Icon(Icons.Rounded.FiberManualRecord, null, Modifier.size(18.dp))
+                            Spacer(Modifier.width(6.dp))
+                            Text("ابدأ التعليم")
+                        }
+                    }
                 }
                 items(skillList.sortedByDescending { maxOf(it.lastUsed, it.createdAt) }, key = { it.id }) { sk ->
                     SkillItem(sk, onRun = { if (sk.params.isEmpty()) onRun(sk.example) else onDraft(sk.pattern) })

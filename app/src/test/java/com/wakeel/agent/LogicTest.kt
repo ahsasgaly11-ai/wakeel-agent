@@ -1,11 +1,16 @@
 package com.wakeel.agent
 
+import com.wakeel.agent.agent.AppMap
+import com.wakeel.agent.agent.AppMapStore
 import com.wakeel.agent.agent.Cmd
 import com.wakeel.agent.agent.Commands
+import com.wakeel.agent.agent.Demo
 import com.wakeel.agent.agent.KnowledgeBase
 import com.wakeel.agent.agent.Learner
 import com.wakeel.agent.agent.LocalRouter
 import com.wakeel.agent.agent.MacroStep
+import com.wakeel.agent.agent.MapEdge
+import com.wakeel.agent.agent.MapScreen
 import com.wakeel.agent.agent.Mastery
 import com.wakeel.agent.agent.Safety
 import com.wakeel.agent.agent.SettingsCatalog
@@ -27,6 +32,62 @@ class LogicTest {
     fun normalization() {
         assertEquals("ارسل رساله الي احمد", Text.norm("أَرسِلْ رسالةً إلى أحمد"))
         assertEquals("12", Text.norm("١٢"))
+    }
+
+    @Test
+    fun textIgnoresInvisibleMarks() {
+        // Android writes "Wi‑Fi" with a non-breaking hyphen, and Arabic screens wrap mixed text in direction marks
+        assertEquals("wi-fi", Text.norm("Wi\u2011Fi"))
+        assertEquals("الاعدادات", Text.norm("\u200Fالإعدادات\u200E"))
+    }
+
+    @Test
+    fun demonstrationBecomesAPattern() {
+        val steps = listOf(
+            MacroStep("open_app", text = "com.whatsapp", label = "WhatsApp"),
+            MacroStep("tap", "LinearLayout||أحمد", label = "أحمد"),
+            MacroStep("type", "EditText|entry|", text = "مرحبا"),
+            MacroStep("tap", "ImageButton|send|إرسال", label = "إرسال", confirm = true),
+        )
+        // The owner wrote the name without the hamza; the row in the app has it
+        val task = "أرسل واتساب إلى احمد: مرحبا"
+        val learned = Demo.generalize(task, steps, listOf("أحمد"))
+        assertEquals("أرسل واتساب إلى {p1}: {p2}", learned.pattern)
+        assertEquals("احمد", learned.params["p1"])
+        assertEquals("مرحبا", learned.params["p2"])
+        val skill = Learner.newSkill(task, learned, steps, "تم", "com.whatsapp")
+        assertEquals(listOf("p1", "p2"), skill.params)
+        assertEquals("{p1}", skill.steps[1].label)
+        assertEquals("{p2}", skill.steps[2].text)
+        assertEquals("سارة", Templates.match(skill.pattern, "أرسل واتساب إلى سارة: أنا في الطريق")?.get("p1"))
+        // Nothing typed or picked appears in the phrase: a fixed routine, no slots
+        val fixed = Demo.generalize("اعرض صفحة البطارية", listOf(MacroStep("tap", "x||Battery", label = "Battery")), listOf("Battery"))
+        assertEquals("اعرض صفحة البطارية", fixed.pattern)
+        assertTrue(fixed.params.isEmpty())
+        // Only whole words become slots
+        assertTrue(Demo.generalize("افتح الإعدادات", listOf(MacroStep("type", "e||", text = "ال")), emptyList()).params.isEmpty())
+    }
+
+    @Test
+    fun mapFindsTheWayToAPage() {
+        fun scr(key: String, tab: String = "", title: String = "") = MapScreen(key, "MainActivity", tab, title, 0, 0, LinkedHashMap(), 1, 0L)
+        val m = AppMap("com.example")
+        m.screens["home"] = scr("home", tab = "Home")
+        m.screens["profile"] = scr("profile", tab = "Profile")
+        m.screens["edit"] = scr("edit", title = "Edit profile")
+        m.screens["prefs"] = scr("prefs", title = "Preferences")
+        m.edges += MapEdge("home", "Profile", "profile", 3, "tab_profile")
+        m.edges += MapEdge("profile", "Edit profile", "edit", 1)
+        m.edges += MapEdge("home", "#btn_prefs", "prefs", 1, "btn_prefs")
+        m.edges += MapEdge("home", AppMapStore.ITEM, "edit", 9)
+        assertNull(m.findPath("Profile"))   // the app's first page is not known yet
+        m.root = "home"
+        assertEquals(listOf("Profile"), m.findPath("profile")?.map { it.label })
+        assertEquals(listOf("Profile", "Edit profile"), m.findPath("Edit profile")?.map { it.label })
+        // An icon without text is found through the title of the page it opens
+        assertEquals(listOf("#btn_prefs"), m.findPath("Preferences")?.map { it.label })
+        assertEquals(emptyList<String>(), m.findPath("Home")?.map { it.label })
+        assertNull(m.findPath("Wallet"))
     }
 
     @Test
@@ -89,6 +150,9 @@ class LogicTest {
     @Test
     fun builtInKnowledge() {
         assertEquals("Instagram", KnowledgeBase.guideFor("com.instagram.android")?.name)
+        assertTrue(KnowledgeBase.guideFor("com.instagram.android")!!.ar.contains("تعديل الملف الشخصي"))
+        assertTrue(KnowledgeBase.guideFor("com.android.settings")!!.ar.contains("العناية بالجهاز"))
+        assertTrue(KnowledgeBase.guideFor("com.mexcpro.client")!!.ar.contains("الأسواق"))
         assertEquals("WhatsApp", KnowledgeBase.guideFor("com.whatsapp")?.name)
         assertEquals("Crypto exchange", KnowledgeBase.guideFor("com.mexcpro.client")?.name)
         assertEquals("Settings", KnowledgeBase.guideFor("com.android.settings")?.name)

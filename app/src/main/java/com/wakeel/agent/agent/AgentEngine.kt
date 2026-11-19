@@ -67,6 +67,8 @@ class AgentEngine(
     private val notes: AppNotes,
     private val apps: AppIndex,
     private val maps: AppMapStore,
+    /** True while the owner is demonstrating a task by hand — the agent must not act then. */
+    private val isRecording: () -> Boolean = { false },
 ) {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
     private var job: Job? = null
@@ -89,7 +91,7 @@ class AgentEngine(
 
     fun start(task: String, delayMs: Long = 0) {
         val t = task.trim()
-        if (t.isEmpty() || isRunning) return
+        if (t.isEmpty() || isRunning || isRecording()) return
         job = scope.launch {
             if (delayMs > 0) delay(delayMs)
             val run = Run(t)
@@ -99,7 +101,7 @@ class AgentEngine(
 
     /** Visits an app's bottom tabs and records its pages — no API calls, nothing is typed or submitted. */
     fun explore(pkg: String) {
-        if (isRunning) return
+        if (isRunning || isRecording()) return
         job = scope.launch {
             val label = apps.byPackage(pkg)?.label ?: pkg
             val run = Run("استكشاف «$label»")
@@ -123,7 +125,19 @@ class AgentEngine(
 
     // ------------------------------------------------------------------ run state
 
-    private class Pending(val pkg: String, val from: String?, val label: String)
+    private class Pending(val pkg: String, val from: String?, val label: String, val viewId: String)
+
+    /** What a tap is remembered as in the app's map: a list row by its title only, an icon without text by its view id. */
+    private fun pendingFor(pkg: String, from: String?, n: UiNode): Pending? {
+        val label = if (n.inList) n.label.substringBefore(" · ").trim() else n.label
+        return if (label.isBlank() && n.viewId.isEmpty()) null else Pending(pkg, from, label, n.viewId)
+    }
+
+    /** How a tapped element is named in a saved route: a list row by its title, since the rest of the row changes. */
+    private fun stepLabel(n: UiNode): String = (if (n.inList) n.label.substringBefore(" · ").trim() else n.label).take(40)
+
+    private val uiLang: String
+        get() = runCatching { ctx.resources.configuration.locales[0].toLanguageTag() }.getOrDefault("ar")
 
     private class Run(val task: String) {
         val started = System.currentTimeMillis()
@@ -247,7 +261,7 @@ class AgentEngine(
         val svc = AgentAccessibilityService.instance
             ?: throw Stop(TaskStatus.FAILED, "خدمة إمكانية الوصول غير مفعّلة. فعّلها من الصفحة الرئيسية أولاً.")
         val trail = mutableListOf<String>()
-        val router = LocalRouter(ctx, apps)
+        val router = LocalRouter(ctx, apps, maps)
 
         // 1) A learned skill that matches locally (exact or by pattern) — zero cost
         var match: Pair<Skill, Map<String, String>>? = if (settings.autoLearn) skills.localMatch(task) else null
@@ -263,9 +277,19 @@ class AgentEngine(
                 is LocalRouter.Result.Opened -> {
                     run.localSteps++
                     run.route += r.step
+                    if (r.fresh) maps.expectRoot(r.pkg)
                     log(run, LogKind.LOCAL, "فُتح «${r.app}» محلياً دون استهلاك API")
                     trail += "${r.step.type} \"${r.app}\" ✓"
                     svc.waitForIdle(600, 4000)
+                }
+                is LocalRouter.Result.Path -> {
+                    // The learned map already knows the way to this page: walk it, no model involved
+                    val known = Skill(
+                        id = "", title = "${r.page} — ${r.app}", pattern = task, params = emptyList(), example = task,
+                        steps = r.steps, doneTpl = "", readout = false, pkg = r.pkg,
+                    )
+                    val walked = replay(svc, run, known, emptyMap(), trail, router, "مسار محفوظ في خريطة «${r.app}» إلى «${r.page}» — تنفيذ محلي دون استهلاك API")
+                    if (walked == known.steps.size) throw Stop(TaskStatus.DONE, "فتحتُ «${r.page}» في ${r.app}.")
                 }
                 LocalRouter.Result.None -> Unit
             }
@@ -339,7 +363,7 @@ class AgentEngine(
         }
         val key = maps.observe(s)
         val p = run.pending
-        if (p != null && key != null && p.pkg == s.pkg && p.from != null && p.from != key) maps.edge(s.pkg, p.from, p.label, key)
+        if (p != null && key != null && p.pkg == s.pkg && p.from != null && p.from != key) maps.edge(s.pkg, p.from, p.label, key, p.viewId)
         run.pending = null
         run.lastKey = key
         return s
@@ -357,7 +381,10 @@ class AgentEngine(
             val tips = notes.get(p)
             if (guide == null && map.isBlank() && tips.isEmpty()) continue
             sb.append("## APP KNOWLEDGE — ").append(apps.byPackage(p)?.label ?: p).append(" (").append(p).append(")\n")
-            guide?.let { sb.append("GUIDE: ").append(it.guide).append('\n') }
+            guide?.let {
+                sb.append("GUIDE: ").append(it.guide).append('\n')
+                if (it.ar.isNotEmpty() && uiLang.startsWith("ar")) sb.append("ARABIC UI LABELS (English=Arabic, use the Arabic in `find`): ").append(it.ar).append('\n')
+            }
             if (map.isNotBlank()) sb.append("MAP (learned on this phone):\n").append(map).append('\n')
             if (tips.isNotEmpty()) {
                 sb.append("NOTES:\n")
@@ -435,7 +462,6 @@ class AgentEngine(
             val finalNote = if (step >= max - 1) "FINAL STEP: call done now with your best answer from MEMO and this screen (state any limits), or fail with the reason." else null
             val stepNote = listOfNotNull(note.takeIf { step == 1 }, finalNote).joinToString("\n").ifEmpty { null }
             val device = if (run.playbook != null) DeviceInfo.brief(DeviceInfo.snapshot(ctx)) else null
-            val uiLang = runCatching { ctx.resources.configuration.locales[0].toLanguageTag() }.getOrDefault("ar")
             val user = Prompt.user(run.task, trail, screen, shot, step, max, stepNote, memo, device, uiLang)
             val res = client.decide(model, user, shot, knowledgeFor(run, screen.pkg))
             account(run, model, res.usage)
@@ -601,10 +627,10 @@ class AgentEngine(
                 if (!confirm(run, risky, if (a.type == ActionType.TAP) "الضغط على «${n.label.take(40)}»" else "الضغط المطوّل على «${n.label.take(40)}»"))
                     return Outcome("${a.describe()} ✗ DENIED by owner — do not retry", abort = true, breaksMacro = true)
                 val ok = if (a.type == ActionType.TAP) click(svc, n) else longClick(svc, n)
-                if (ok && n.label.isNotBlank()) run.pending = Pending(cur.pkg, run.lastKey, n.label)
+                if (ok) run.pending = pendingFor(cur.pkg, run.lastKey, n)
                 Outcome(
                     "${a.describe()} \"${n.label.take(30)}\" ${mark(ok)}", abort = !ok,
-                    macro = if (ok) MacroStep(a.type.key, n.signature, label = n.label.take(40), confirm = risky) else null,
+                    macro = if (ok) MacroStep(a.type.key, n.signature, label = stepLabel(n), confirm = risky) else null,
                     breaksMacro = !ok, tap = ok, onEditable = n.editable,
                 )
             }
@@ -686,8 +712,13 @@ class AgentEngine(
                 val app = apps.fuzzy(a.text.orEmpty())
                     ?: return Outcome("open_app \"${a.text}\" ✗ app not found on this phone", abort = true)
                 Safety.blockReason(app.pkg, settings, apps)?.let { return Outcome("open_app \"${app.label}\" ✗ blocked by owner settings", abort = true) }
-                val ok = apps.launch(app.pkg)
-                if (ok) svc.waitForIdle(600, 4000)
+                // Already opened a moment ago by the local router: do not restart it a second time
+                val justOpened = cur.pkg == app.pkg && run.route.lastOrNull()?.let { it.type == "open_app" && it.text == app.pkg } == true
+                val ok = justOpened || apps.launch(app.pkg, fresh = true)
+                if (ok && !justOpened) {
+                    maps.expectRoot(app.pkg)
+                    svc.waitForIdle(600, 4000)
+                }
                 run.pending = null
                 Outcome(
                     "open_app \"${app.label}\" ${mark(ok)}", abort = !ok,
@@ -698,7 +729,10 @@ class AgentEngine(
             ActionType.OPEN_SETTINGS -> {
                 val key = a.text.orEmpty()
                 val (ok, label) = router.openSettings(key)
-                if (ok) svc.waitForIdle(600, 4000)
+                if (ok) {
+                    if (key.trim().equals("main", ignoreCase = true)) maps.expectRoot("com.android.settings")
+                    svc.waitForIdle(600, 4000)
+                }
                 run.pending = null
                 Outcome(
                     "open_settings $key ${mark(ok)}" + if (ok) "" else " (unknown key or app — use a key from the list)", abort = !ok,
@@ -739,9 +773,10 @@ class AgentEngine(
 
     private suspend fun replay(
         svc: AgentAccessibilityService, run: Run, skill: Skill, params: Map<String, String>, trail: MutableList<String>, router: LocalRouter,
+        intro: String? = null,
     ): Int {
         val vars = if (params.isEmpty()) "" else " (" + params.values.joinToString("، ") { "«$it»" } + ")"
-        log(run, LogKind.LOCAL, "مهارة متعلَّمة: «${skill.title}»$vars — تنفيذ محلي دون استهلاك API")
+        log(run, LogKind.LOCAL, intro ?: "مهارة متعلَّمة: «${skill.title}»$vars — تنفيذ محلي دون استهلاك API")
         for ((i, s) in skill.steps.withIndex()) {
             currentCoroutineContext().ensureActive()
             run.step = i + 1
@@ -758,9 +793,9 @@ class AgentEngine(
                     else if (!confirm(run, s.confirm || Safety.isSensitiveLabel(n.label), "الضغط على «${n.label.take(40)}»")) {
                         trail += "(owner denied a saved step)"; return i
                     } else {
-                        filled = filled.copy(sig = n.signature, label = n.label.take(40))
+                        filled = filled.copy(sig = n.signature, label = stepLabel(n))
                         val done = if (s.type == "tap") click(svc, n) else longClick(svc, n)
-                        if (done && n.label.isNotBlank()) run.pending = Pending(here.pkg, run.lastKey, n.label)
+                        if (done) run.pending = pendingFor(here.pkg, run.lastKey, n)
                         done
                     }
                 }
@@ -778,9 +813,23 @@ class AgentEngine(
                 "recents" -> svc.global(AccessibilityService.GLOBAL_ACTION_RECENTS)
                 "notifications" -> svc.global(AccessibilityService.GLOBAL_ACTION_NOTIFICATIONS)
                 "open_app" -> s.text?.let { pkg ->
-                    Safety.blockReason(pkg, settings, apps) == null && apps.launch(pkg).also { if (it) svc.waitForIdle(600, 4000) }
+                    // Saved routes begin on the app's first page ("resume" marks a return to an app mid-task)
+                    val fresh = s.dir != "resume"
+                    Safety.blockReason(pkg, settings, apps) == null && apps.launch(pkg, fresh).also {
+                        if (it) {
+                            if (fresh) maps.expectRoot(pkg)
+                            run.pending = null
+                            svc.waitForIdle(600, 4000)
+                        }
+                    }
                 } ?: false
-                "open_settings" -> router.openSettings(s.text.orEmpty()).first.also { if (it) svc.waitForIdle(600, 4000) }
+                "open_settings" -> router.openSettings(s.text.orEmpty()).first.also {
+                    if (it) {
+                        if (s.text?.trim().equals("main", ignoreCase = true)) maps.expectRoot("com.android.settings")
+                        run.pending = null
+                        svc.waitForIdle(600, 4000)
+                    }
+                }
                 "open_url" -> {
                     // Values inside a link are percent-encoded
                     val url = Templates.fill(s.text, params.mapValues { Commands.enc(it.value) }).orEmpty()
@@ -820,11 +869,25 @@ class AgentEngine(
         else -> type
     }
 
+    /**
+     * Waits for the element of a saved step. If it is not on screen (a longer list, a smaller display),
+     * scrolls down up to twice to look for it — scrolling changes nothing in the app.
+     */
     private suspend fun waitFor(svc: AgentAccessibilityService, step: MacroStep, params: Map<String, String>): UiNode? {
         if (step.sig == null && step.label == null) return null
-        repeat(10) {
-            Learner.locate(svc.readScreen(), step, params)?.let { return it }
-            delay(400)
+        val mayScroll = step.type == "tap" || step.type == "long_press"
+        for (round in 0..2) {
+            repeat(if (round == 0) 6 else 3) {
+                Learner.locate(svc.readScreen(), step, params)?.let { return it }
+                delay(400)
+            }
+            if (!mayScroll || round == 2) break
+            // One page down in the main list (a page scroll never overshoots the way a swipe can)
+            val list = svc.readScreen().nodes
+                .filter { it.scrollable && !it.cls.contains("Pager") && !it.cls.contains("Horizontal") }
+                .maxByOrNull { it.bounds.width().toLong() * it.bounds.height() } ?: break
+            if (!list.info.refresh() || !list.info.performAction(AccessibilityNodeInfo.ACTION_SCROLL_FORWARD)) break
+            svc.waitForIdle(300, 1500)
         }
         return null
     }
@@ -848,13 +911,15 @@ class AgentEngine(
             ?: throw Stop(TaskStatus.FAILED, "خدمة إمكانية الوصول غير مفعّلة.")
         if (Safety.policy(pkg, settings, apps) == Policy.BLOCKED) throw Stop(TaskStatus.FAILED, "هذا التطبيق محجوب عن الوكيل، فلا يمكن استكشافه.")
         log(run, LogKind.LOCAL, "استكشاف آمن: يزور التبويبات السفلية فقط، دون كتابة أو إرسال، ودون استهلاك API")
-        if (!apps.launch(pkg)) throw Stop(TaskStatus.FAILED, "تعذّر فتح «$label».")
+        if (!apps.launch(pkg, fresh = true)) throw Stop(TaskStatus.FAILED, "تعذّر فتح «$label».")
+        maps.expectRoot(pkg)
         svc.waitForIdle(900, 6000)
         delay(700)
         var home = svc.readScreen()
         if (home.pkg != pkg) { delay(1800); home = svc.readScreen() }
         if (home.pkg != pkg) throw Stop(TaskStatus.FAILED, "لم يظهر «$label» في المقدمة (ربما يطلب تسجيل دخول أو إذناً).")
         maps.observe(home)
+        val rootKey = AppMapStore.keyOf(home)
         var learned = 1
         val bar = navItems(home)
         if (bar.isEmpty()) log(run, LogKind.INFO, "لا يوجد شريط تبويبات سفلي واضح؛ حُفظت الصفحة الرئيسية فقط")
@@ -879,7 +944,9 @@ class AgentEngine(
             }
             val key = maps.observe(next)
             if (key != null) {
-                maps.edge(pkg, fromKey, node.label, key)
+                maps.edge(pkg, fromKey, node.label, key, node.viewId)
+                // The tab bar is on the first page too, so every tab is one tap away from it
+                if (fromKey != rootKey) maps.edge(pkg, rootKey, node.label, key, node.viewId)
                 learned++
             }
             run.localSteps++

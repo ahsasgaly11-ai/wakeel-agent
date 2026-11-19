@@ -210,6 +210,14 @@ class SkillStore(ctx: Context) {
         persist(list)
     }
 
+    /** Saves a skill exactly as given (one the owner taught by hand), replacing any skill with the same phrase. */
+    @Synchronized
+    fun put(skill: Skill) {
+        val np = Text.norm(skill.pattern)
+        val ne = Text.norm(skill.example)
+        persist(_skills.value.filterNot { Text.norm(it.pattern) == np || Text.norm(it.example) == ne } + skill)
+    }
+
     fun forPackage(pkg: String): List<Skill> = _skills.value.filter { it.pkg == pkg }
     fun remove(id: String) = persist(_skills.value.filter { it.id != id })
     fun clear() = persist(emptyList())
@@ -402,25 +410,32 @@ Return skill_id null if none fits exactly. Extract each slot value verbatim from
         )
     }
 
-    /** Finds the node a saved step refers to, filling {slots} in its label. */
+    /**
+     * Finds the element a saved step refers to. Order: the exact element as recorded → its label
+     * (with {slots} filled) → its view id, which stays the same when the phone language or a counter changes.
+     */
     fun locate(screen: Screen, step: MacroStep, params: Map<String, String>): UiNode? {
         val templated = Templates.isTemplated(step.label)
         if (!templated && step.sig != null) screen.find(step.sig)?.let { return it }
         val parts = step.sig?.split('|', limit = 3).orEmpty()
         val cls = parts.getOrNull(0).orEmpty()
-        val viewId = parts.getOrNull(1).orEmpty()
-        val label = Templates.fill(step.label, params)
-        if (!label.isNullOrBlank()) {
+        val label = Templates.fill(step.label, params)?.trim().orEmpty()
+        val idOnly = label.startsWith("#")
+        val viewId = parts.getOrNull(1).orEmpty().ifEmpty { if (idOnly) label.drop(1) else "" }
+        val sameId = if (viewId.isEmpty()) emptyList() else screen.nodes.filter { it.viewId == viewId && (cls.isEmpty() || it.cls == cls) }
+        if (label.isNotEmpty() && !idOnly) {
             val n = Text.norm(label)
-            val cands = screen.nodes.filter { Text.norm(it.label).contains(n) }
-            (cands.firstOrNull { it.viewId == viewId && it.cls == cls }
+            val normed = screen.nodes.map { it to Text.norm(it.label) }
+            val cands = normed.filter { it.second == n }
+                .ifEmpty { normed.filter { it.second.startsWith(n) } }
+                .ifEmpty { if (n.length >= 2) normed.filter { it.second.contains(n) } else emptyList() }
+                .map { it.first }
+            (cands.firstOrNull { c -> sameId.any { it === c } }
                 ?: cands.firstOrNull { it.clickable || it.editable }
                 ?: cands.firstOrNull())?.let { return it }
+            // The label is a value that changes every run: never settle for "whatever carries the same id"
+            if (templated) return null
         }
-        if (viewId.isNotEmpty()) {
-            val same = screen.nodes.filter { it.viewId == viewId && it.cls == cls }
-            if (same.size == 1) return same[0]
-        }
-        return null
+        return sameId.singleOrNull()
     }
 }

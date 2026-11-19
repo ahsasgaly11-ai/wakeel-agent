@@ -5,6 +5,7 @@ import com.wakeel.agent.agent.AgentEngine
 import com.wakeel.agent.agent.AppIndex
 import com.wakeel.agent.agent.AppMapStore
 import com.wakeel.agent.agent.AppNotes
+import com.wakeel.agent.agent.DemoRecorder
 import com.wakeel.agent.agent.HistoryStore
 import com.wakeel.agent.agent.SkillStore
 import com.wakeel.agent.core.Settings
@@ -30,6 +31,8 @@ object Hub {
         private set
     lateinit var apps: AppIndex
         private set
+    lateinit var recorder: DemoRecorder
+        private set
     lateinit var engine: AgentEngine
         private set
 
@@ -40,6 +43,7 @@ object Hub {
         notes = AppNotes(app)
         maps = AppMapStore(app)
         apps = AppIndex(app)
-        engine = AgentEngine(app, settings, history, skills, notes, apps, maps)
+        recorder = DemoRecorder(app, settings, skills, apps)
+        engine = AgentEngine(app, settings, history, skills, notes, apps, maps) { recorder.active }
     }
 }

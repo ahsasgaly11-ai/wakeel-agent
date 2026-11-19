@@ -33,8 +33,13 @@ class AppIndex(private val ctx: Context) {
         return list
     }
 
+    /**
+     * Home-screen apps. The Settings app also answers the "home" intent (a low-priority fallback shown
+     * before the phone is unlocked) — it is not a launcher and must stay a normal app for the agent.
+     */
     fun launcherPackages(): Set<String> = launchers ?: ctx.packageManager
         .queryIntentActivities(Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_HOME), 0)
+        .filter { it.priority >= 0 && it.activityInfo.packageName != "com.android.settings" }
         .map { it.activityInfo.packageName }.toSet().also { launchers = it }
 
     private fun matchKeys(keys: List<String>): App? =
@@ -93,9 +98,13 @@ class AppIndex(private val ctx: Context) {
         }
     }
 
-    fun launch(pkg: String): Boolean {
+    /**
+     * Brings an app to the front. [fresh] restarts it on its first page, so a saved route
+     * (or a plan built from the app's guide) always begins from the same place.
+     */
+    fun launch(pkg: String, fresh: Boolean = false): Boolean {
         val i = ctx.packageManager.getLaunchIntentForPackage(pkg) ?: return false
-        i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_RESET_TASK_IF_NEEDED)
+        i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or (if (fresh) Intent.FLAG_ACTIVITY_CLEAR_TASK else Intent.FLAG_ACTIVITY_RESET_TASK_IF_NEEDED))
         return runCatching { (AgentAccessibilityService.instance ?: ctx).startActivity(i); true }.getOrDefault(false)
     }
 

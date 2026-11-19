@@ -3,7 +3,8 @@ package com.wakeel.agent.core
 import java.util.Locale
 
 object Text {
-    private val tashkeel = Regex("[\\u064B-\\u0652\\u0670\\u0640]")
+    // Diacritics and tatweel, plus the invisible direction marks Arabic interfaces put around mixed text
+    private val tashkeel = Regex("[\\u064B-\\u0652\\u0670\\u0640\\u200B-\\u200F\\u202A-\\u202E\\u2066-\\u2069\\uFEFF]")
     private val spaces = Regex("\\s+")
 
     /** Normalizes Arabic/English text for matching: lowercase, no diacritics, unified letters and digits. */
@@ -20,6 +21,8 @@ object Text {
                     in '٠'..'٩' -> '0' + (ch - '٠')
                     in '۰'..'۹' -> '0' + (ch - '۰')
                     '،' -> ','
+                    '\u2010', '\u2011', '\u2012', '\u2013' -> '-'   // "Wi‑Fi" is written with a non-breaking hyphen
+                    '\u00A0', '\u202F' -> ' '
                     else -> ch
                 }
             )

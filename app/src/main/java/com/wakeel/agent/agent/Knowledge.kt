@@ -9,6 +9,69 @@ import com.wakeel.agent.core.Text
  */
 data class AppGuide(val keys: List<String>, val name: String, val category: String, val guide: String) {
     fun matches(pkg: String): Boolean = keys.any { if (it.startsWith("=")) pkg == it.drop(1) else pkg.contains(it) }
+
+    /** The same controls as they are labelled when the phone is in Arabic ("English=عربي; …"). Empty if not listed. */
+    val ar: String get() = ArabicLabels.of(name)
+}
+
+/**
+ * Arabic interface labels for the built-in guides, which are written in English.
+ * With these the first plan in an Arabic phone can already name the right buttons (find:"تعديل الملف الشخصي|Edit profile").
+ * Wording differs slightly between app versions — the live screen always wins.
+ */
+object ArabicLabels {
+    private val byGuide: Map<String, String> = mapOf(
+        "Instagram" to "Home=الصفحة الرئيسية; Search=البحث والاستكشاف; Create=إنشاء|منشور جديد; Reels=Reels|ريلز; Profile=الملف الشخصي; " +
+            "Edit profile=تعديل الملف الشخصي; Share profile=مشاركة الملف الشخصي; menu=الخيارات|القائمة; Settings and privacy=الإعدادات والنشاط|الإعدادات والخصوصية; " +
+            "Your activity=نشاطك; Archive=الأرشيف; Saved=المحفوظات|العناصر المحفوظة; Name=الاسم; Username=اسم المستخدم; Bio=السيرة الذاتية|النبذة التعريفية; Links=الروابط; Done=تم; " +
+            "Your reels=مقاطع ريلز الخاصة بك; More=المزيد|خيارات إضافية; Edit=تعديل; Edit cover=تعديل صورة الغلاف|الغلاف; Delete=حذف; Insights=الرؤى|عرض الرؤى; " +
+            "Next=التالي; Share=مشاركة; Caption=اكتب شرحاً توضيحياً|الشرح التوضيحي; Message=مراسلة|رسالة; Follow=متابعة",
+        "WhatsApp" to "Chats=الدردشات; Updates=المستجدات|الحالة; Communities=المجتمعات; Calls=المكالمات; Search=بحث; Message field=اكتب رسالة|مراسلة|الرسالة; " +
+            "Send=إرسال; Attach=إرفاق; More options=خيارات أكثر|خيارات إضافية; New group=مجموعة جديدة; Linked devices=الأجهزة المرتبطة; Starred=الرسائل المميزة بنجمة; Settings=الإعدادات",
+        "Telegram" to "Search=بحث; Message=رسالة|الرسالة; Send=إرسال; Contacts=جهات الاتصال; Saved Messages=الرسائل المحفوظة; Settings=الإعدادات; Attach=إرفاق",
+        "Snapchat" to "Map=الخريطة; Chat=الدردشة; Camera=الكاميرا; Stories=القصص; Spotlight=الأضواء; Settings=الإعدادات",
+        "TikTok" to "Home=الرئيسية; Friends=الأصدقاء; Inbox=صندوق الوارد; Profile=الملف الشخصي; Edit profile=تعديل الملف الشخصي; Search=بحث; Settings and privacy=الإعدادات والخصوصية; Post=نشر",
+        "X (Twitter)" to "Home=الرئيسية; Search=بحث|استكشاف; Notifications=الإشعارات; Messages=الرسائل; Post=نشر; Profile=الملف الشخصي; Edit profile=تعديل الملف الشخصي",
+        "Facebook" to "Home=الصفحة الرئيسية; Video=فيديو; Friends=الأصدقاء; Notifications=الإشعارات; Menu=القائمة; What's on your mind?=بم تفكر؟; Post=نشر; Settings & privacy=الإعدادات والخصوصية; Search=بحث",
+        "Messenger" to "Chats=الدردشات; Search=بحث; Message=رسالة|مراسلة; Send=إرسال",
+        "LinkedIn" to "Home=الرئيسية; My Network=شبكتي; Post=نشر; Notifications=الإشعارات; Jobs=الوظائف; Search=بحث",
+        "YouTube" to "Home=الصفحة الرئيسية; Shorts=Shorts; Create=إنشاء; Subscriptions=الاشتراكات; You=أنت; Search=بحث; Like=أعجبني; Share=مشاركة; Save=حفظ; Comments=التعليقات; Settings=الإعدادات",
+        "Music" to "Home=الصفحة الرئيسية; Search=بحث; Library=المكتبة; Play=تشغيل; Pause=إيقاف مؤقت; Next=التالي",
+        "Streaming" to "Home=الرئيسية; Search=بحث; Play=تشغيل; My List=قائمتي; Downloads=التنزيلات",
+        "Browser" to "Address bar=ابحث أو اكتب عنوان URL|البحث أو كتابة عنوان الويب; More options=خيارات إضافية; New tab=علامة تبويب جديدة; History=السجل|المحفوظات; " +
+            "Downloads=التنزيلات; Bookmarks=الإشارات المرجعية|الإشارات; Find in page=البحث في الصفحة; Translate=ترجمة; Desktop site=موقع إلكتروني لسطح المكتب; Settings=الإعدادات",
+        "Email" to "Search=البحث في البريد; Compose=إنشاء|إنشاء رسالة; To=إلى; Subject=الموضوع; Body=إنشاء رسالة إلكترونية; Send=إرسال; Inbox=البريد الوارد",
+        "Google Maps" to "Search here=البحث هنا; Directions=الاتجاهات; Start=بدء; Explore=استكشاف; You=أنت; Contribute=مساهمة",
+        "Play Store" to "Search=بحث; Install=تثبيت; Update=تحديث; Open=فتح; Uninstall=إلغاء التثبيت; Manage apps & device=إدارة التطبيقات والجهاز; Updates available=التحديثات المتاحة; Manage=إدارة",
+        "Settings" to "Connections=الاتصالات; Connected devices=الأجهزة المتصلة; Modes and Routines=الأوضاع والتطبيقات الروتينية; Sounds and vibration=الأصوات والاهتزاز; Notifications=الإشعارات; " +
+            "Display=الشاشة; Battery=البطارية; Wallpaper and style=الخلفية والنمط; Home screen=الشاشة الرئيسية; Lock screen=شاشة القفل; Security and privacy=الأمان والخصوصية; Location=الموقع; " +
+            "Accounts and backup=الحسابات والنسخ الاحتياطي; Advanced features=الميزات المتقدمة; Digital Wellbeing=الرفاهية الرقمية; Device care=العناية بالجهاز; Storage=مكان التخزين|التخزين; " +
+            "Memory=الذاكرة; Apps=التطبيقات|التطبيقات المثبتة; General management=الإدارة العامة; Accessibility=إمكانية الوصول; Software update=تحديث البرنامج; About phone=حول الهاتف; " +
+            "Search=بحث; Wi-Fi=Wi-Fi|الواي فاي; Bluetooth=البلوتوث; Mobile networks=شبكات الهاتف المحمول; Data usage=استخدام البيانات; Airplane mode=وضع الطيران; " +
+            "Dark mode=الوضع الداكن|داكن; Brightness=السطوع; Font size=حجم الخط; Screen timeout=زمن توقف الشاشة; Language=اللغة; Reset=إعادة الضبط; Recycle bin=سلة المحذوفات; " +
+            "Network & internet (Pixel)=الشبكة والإنترنت; Sort by size=الحجم|فرز حسب الحجم; Clear cache=مسح الذاكرة المؤقتة; Force stop=فرض الإيقاف",
+        "Phone" to "Keypad=لوحة المفاتيح; Recents=الأخيرة; Contacts=جهات الاتصال; Call=اتصال",
+        "Messages (SMS)" to "Compose=إنشاء رسالة|بدء محادثة; Recipient=المستلم; Message field=رسالة|رسالة نصية; Send=إرسال",
+        "Contacts" to "Search=بحث; Create=إنشاء جهة اتصال; Name=الاسم; Phone=الهاتف; Save=حفظ; Edit=تعديل; Delete=حذف",
+        "Camera" to "Photo=صورة; Video=فيديو; Portrait=بورتريه|عمودي; More=المزيد; Switch camera=تبديل الكاميرا",
+        "Gallery / Photos" to "Pictures=الصور; Albums=الألبومات; Stories=القصص; Search=بحث; Share=مشاركة; Delete=حذف; Edit=تعديل; Details=التفاصيل; More=المزيد",
+        "Files" to "Images=الصور; Videos=الفيديوهات|ملفات الفيديو; Audio=الملفات الصوتية; Documents=المستندات; Downloads=التنزيلات; Installation files=ملفات التثبيت; " +
+            "Internal storage=مكان التخزين الداخلي; Analyse storage=تحليل مساحة التخزين; Recycle bin=سلة المحذوفات",
+        "Clock" to "Alarm=المنبه; World clock=الساعة العالمية; Stopwatch=ساعة الإيقاف; Timer=المؤقت",
+        "Calendar" to "Title=العنوان; Save=حفظ; Today=اليوم",
+        "Notes" to "Search=بحث; Title=العنوان; New note=ملاحظة جديدة",
+        "Crypto exchange" to "Home=الرئيسية; Markets=الأسواق; Trade=تداول; Spot=فوري|التداول الفوري; Futures=العقود الآجلة; Assets=الأصول; Wallet=المحفظة; Search=بحث; " +
+            "Chart=الرسم البياني|الشارت; Order book=دفتر الطلبات; Trades=الصفقات; Info=المعلومات; AI analysis=تحليل AI; Indicators=المؤشرات; " +
+            "5m=5دقيقة; 15m=15دقيقة; 30m=30دقيقة; 1h=1ساعة; 4h=4ساعة; 1D=1يوم; More=المزيد; Buy=شراء; Sell=بيع; Neutral=محايد",
+        "Trading / charts" to "Markets=الأسواق; Chart=الرسم البياني; Indicators=المؤشرات; Search=بحث; Buy=شراء; Sell=بيع; Neutral=محايد",
+        "Food delivery" to "Search=بحث; Cart=السلة; Checkout=إتمام الطلب|الدفع; Orders=الطلبات; Add=إضافة",
+        "Shopping" to "Search=بحث; Add to cart=أضف إلى السلة|إضافة إلى عربة التسوق; Cart=السلة|عربة التسوق; Orders=الطلبات; Account=الحساب",
+        "Ride hailing" to "Where to?=إلى أين؟; Confirm=تأكيد",
+        "AI assistant" to "Message=رسالة|اكتب رسالة; Send=إرسال; New chat=محادثة جديدة",
+        "Translate" to "Enter text=إدخال نص|أدخل النص; Copy=نسخ",
+    )
+
+    fun of(guideName: String): String = byGuide[guideName].orEmpty()
 }
 
 data class Playbook(val id: String, val title: String, val pattern: Regex, val text: String)

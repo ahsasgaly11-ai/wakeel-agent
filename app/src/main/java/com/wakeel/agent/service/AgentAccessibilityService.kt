@@ -90,6 +90,9 @@ class AgentAccessibilityService : AccessibilityService() {
         val pkg = event.packageName?.toString() ?: return
         if (pkg == packageName) return
         lastEvent = SystemClock.uptimeMillis()
+        // Learning by demonstration: while the owner shows a task by hand, their steps are recorded
+        val recording = Hub.recorder.active
+        if (recording) runCatching { Hub.recorder.onEvent(event) }
         when (event.eventType) {
             AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED -> {
                 val cls = event.className?.toString().orEmpty()
@@ -104,7 +107,7 @@ class AgentAccessibilityService : AccessibilityService() {
                 }
                 schedulePassive()
             }
-            AccessibilityEvent.TYPE_VIEW_CLICKED -> if (Hub.settings.passiveLearn) {
+            AccessibilityEvent.TYPE_VIEW_CLICKED -> if (Hub.settings.passiveLearn || recording) {
                 pendingClick = Triple(pkg, clickLabel(event), SystemClock.uptimeMillis())
                 schedulePassive()
             }
@@ -126,6 +129,7 @@ class AgentAccessibilityService : AccessibilityService() {
 
     private fun cleanup() {
         if (instance == null) return
+        Hub.recorder.stop(save = false)
         Hub.engine.stop()
         Hub.maps.flush()
         scope.cancel()
@@ -149,12 +153,16 @@ class AgentAccessibilityService : AccessibilityService() {
             if (c.isScrollable && !(cls.endsWith("ScrollView") || cls.contains("Pager"))) return AppMapStore.ITEM
             n = c.parent
         }
-        val label = e.contentDescription?.toString() ?: e.text?.joinToString(" ") { it.toString() }.orEmpty()
-        return label.trim()
+        val label = (e.contentDescription?.toString() ?: e.text?.joinToString(" ") { it.toString() }.orEmpty()).trim()
+        if (label.isNotEmpty()) return label
+        // An icon without text: remembered by its view id
+        val id = runCatching { e.source?.viewIdResourceName }.getOrNull()?.substringAfter(":id/").orEmpty()
+        return if (id.isEmpty()) "" else "#$id"
     }
 
     private fun schedulePassive() {
-        if (!Hub.settings.passiveLearn || !Hub.settings.autoLearn || Hub.engine.isRunning) return
+        // The map is filled while the owner uses the phone only if they enabled that — or while they are teaching a task
+        if (!(Hub.settings.passiveLearn || Hub.recorder.active) || !Hub.settings.autoLearn || Hub.engine.isRunning) return
         passiveJob?.cancel()
         passiveJob = scope.launch {
             delay(900)
