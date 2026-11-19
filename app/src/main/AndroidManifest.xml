@@ -42,6 +42,15 @@
             </intent-filter>
         </activity>
 
+        <activity
+            android:name=".ui.CommandActivity"
+            android:exported="false"
+            android:excludeFromRecents="true"
+            android:launchMode="singleTask"
+            android:taskAffinity="com.wakeel.agent.command"
+            android:theme="@style/Theme.Wakeel.Command"
+            android:windowSoftInputMode="adjustResize|stateAlwaysVisible" />
+
         <service
             android:name=".service.AgentAccessibilityService"
             android:exported="true"

@@ -73,10 +73,13 @@ class AgentEngine(
 
     val isRunning: Boolean get() = job?.isActive == true
 
-    fun start(task: String) {
+    fun start(task: String, delayMs: Long = 0) {
         val t = task.trim()
         if (t.isEmpty() || isRunning) return
-        job = scope.launch { execute(t) }
+        job = scope.launch {
+            if (delayMs > 0) delay(delayMs)
+            execute(t)
+        }
     }
 
     fun stop() {
@@ -162,7 +165,7 @@ class AgentEngine(
             }
 
             // 2) Never operate on ourselves
-            if (trail.isEmpty() && svc.readScreen().pkg.let { it == ctx.packageName || it.isEmpty() }) {
+            if (trail.isEmpty() && ownAppInFront(svc)) {
                 svc.global(AccessibilityService.GLOBAL_ACTION_HOME)
                 svc.waitForIdle()
             }
@@ -209,6 +212,15 @@ class AgentEngine(
         }
     }
 
+    private suspend fun ownAppInFront(svc: AgentAccessibilityService): Boolean {
+        repeat(6) {
+            val p = svc.readScreen().pkg
+            if (p != ctx.packageName && p.isNotEmpty()) return false
+            delay(250)
+        }
+        return svc.readScreen().pkg.let { it == ctx.packageName || it.isEmpty() }
+    }
+
     private fun budgetCheck(run: Run) {
         if (run.cost >= settings.taskBudget) throw Stop(TaskStatus.FAILED, "توقّفت المهمة لبلوغ حد ميزانيتها (${Text.money(settings.taskBudget.toDouble())}).")
         if (settings.todaySpend() + run.cost >= settings.dailyBudget) throw Stop(TaskStatus.FAILED, "بلغت الحد اليومي للإنفاق (${Text.money(settings.dailyBudget.toDouble())}).")
@@ -233,7 +245,11 @@ class AgentEngine(
             svc.waitForIdle()
             var screen = svc.readScreen()
             if (screen.pkg == ctx.packageName) {
-                svc.global(AccessibilityService.GLOBAL_ACTION_HOME); svc.waitForIdle(); screen = svc.readScreen()
+                // Our own window may still be closing (e.g. after answering a question) — give it a moment
+                repeat(6) { if (screen.pkg == ctx.packageName) { delay(250); screen = svc.readScreen() } }
+                if (screen.pkg == ctx.packageName) {
+                    svc.global(AccessibilityService.GLOBAL_ACTION_HOME); svc.waitForIdle(); screen = svc.readScreen()
+                }
             }
             Safety.blockReason(screen.pkg, settings, apps)?.let {
                 svc.global(AccessibilityService.GLOBAL_ACTION_HOME)

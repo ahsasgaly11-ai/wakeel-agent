@@ -6,7 +6,6 @@ import android.graphics.Color
 import android.graphics.PixelFormat
 import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
-import android.text.InputType
 import android.text.TextUtils
 import android.view.Gravity
 import android.view.MotionEvent
@@ -15,12 +14,11 @@ import android.view.ViewConfiguration
 import android.view.ViewGroup
 import android.view.WindowManager
 import android.view.animation.LinearInterpolator
-import android.view.inputmethod.InputMethodManager
-import android.widget.EditText
 import android.widget.LinearLayout
 import android.widget.TextView
 import com.wakeel.agent.Hub
 import com.wakeel.agent.agent.EngineState
+import com.wakeel.agent.ui.CommandActivity
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -44,7 +42,6 @@ class Overlay(private val svc: AgentAccessibilityService) {
     private var panel: LinearLayout? = null
     private var statusTv: TextView? = null
     private var questionTv: TextView? = null
-    private var input: EditText? = null
     private var confirmRow: LinearLayout? = null
     private var mainBtn: TextView? = null
     private var stopBtn: TextView? = null
@@ -124,7 +121,11 @@ class Overlay(private val svc: AgentAccessibilityService) {
                 MotionEvent.ACTION_UP -> {
                     if (!moved) {
                         v.performClick()
-                        if (panel == null) openPanel() else closePanel()
+                        when {
+                            panel != null -> closePanel()
+                            lastState is EngineState.Idle -> CommandActivity.open(svc)
+                            else -> openPanel()
+                        }
                     } else {
                         // snap to nearest edge
                         val w = svc.screenSize().first
@@ -189,23 +190,6 @@ class Overlay(private val svc: AgentAccessibilityService) {
         }
         p.addView(questionTv)
 
-        input = EditText(svc).apply {
-            hint = "اكتب المهمة…"
-            setHintTextColor(0x80FFFFFF.toInt())
-            setTextColor(Color.WHITE)
-            textSize = 15f
-            minLines = 2
-            maxLines = 4
-            gravity = Gravity.TOP or Gravity.START
-            inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_FLAG_MULTI_LINE
-            background = GradientDrawable().apply {
-                cornerRadius = dp(14).toFloat()
-                setColor(0x1AFFFFFF)
-            }
-            setPadding(dp(12), dp(10), dp(12), dp(10))
-        }
-        p.addView(input, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
-
         confirmRow = LinearLayout(svc).apply {
             orientation = LinearLayout.HORIZONTAL
             visibility = View.GONE
@@ -219,23 +203,29 @@ class Overlay(private val svc: AgentAccessibilityService) {
             orientation = LinearLayout.HORIZONTAL
             setPadding(0, dp(12), 0, 0)
         }
-        mainBtn = pill("تنفيذ", 0xFF6366F1.toInt()) { onMain() }
+        mainBtn = pill("مهمة جديدة", 0xFF6366F1.toInt()) { onMain() }
         stopBtn = pill("إيقاف", 0xFFEF4444.toInt()) { Hub.engine.stop() }
         actions.addView(mainBtn, weightLp(end = dp(8)))
         actions.addView(stopBtn, weightLp())
         p.addView(actions)
 
-        val w = svc.screenSize().first
+        val (w, h) = svc.screenSize()
+        val by = bubbleLp?.y ?: dp(240)
+        val below = by < h / 2
         val lp = WindowManager.LayoutParams(
             minOf(dp(340), w - dp(24)),
             ViewGroup.LayoutParams.WRAP_CONTENT,
             WindowManager.LayoutParams.TYPE_ACCESSIBILITY_OVERLAY,
-            WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL or WindowManager.LayoutParams.FLAG_WATCH_OUTSIDE_TOUCH,
+            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or WindowManager.LayoutParams.FLAG_WATCH_OUTSIDE_TOUCH,
             PixelFormat.TRANSLUCENT,
         ).apply {
-            gravity = Gravity.TOP or Gravity.CENTER_HORIZONTAL
-            y = ((bubbleLp?.y ?: dp(240)) + dp(64))
-            softInputMode = WindowManager.LayoutParams.SOFT_INPUT_ADJUST_PAN
+            if (below) {
+                gravity = Gravity.TOP or Gravity.CENTER_HORIZONTAL
+                y = by + dp(64)
+            } else {
+                gravity = Gravity.BOTTOM or Gravity.CENTER_HORIZONTAL
+                y = (h - by + dp(8)).coerceAtLeast(dp(8))
+            }
         }
         p.setOnTouchListener { _, e ->
             if (e.actionMasked == MotionEvent.ACTION_OUTSIDE && lastState is EngineState.Idle) {
@@ -248,45 +238,41 @@ class Overlay(private val svc: AgentAccessibilityService) {
     }
 
     private fun closePanel() {
-        input?.let { svc.getSystemService(InputMethodManager::class.java)?.hideSoftInputFromWindow(it.windowToken, 0) }
         panel?.let { runCatching { wm.removeView(it) } }
         panel = null
-        statusTv = null; questionTv = null; input = null; confirmRow = null; mainBtn = null; stopBtn = null
+        statusTv = null; questionTv = null; confirmRow = null; mainBtn = null; stopBtn = null
     }
 
     private fun onMain() {
-        val text = input?.text?.toString()?.trim().orEmpty()
-        when (lastState) {
-            is EngineState.Idle -> if (text.isNotEmpty()) {
-                input?.setText("")
-                closePanel()
-                Hub.engine.start(text)
-            }
-            is EngineState.Ask -> if (text.isNotEmpty()) {
-                input?.setText("")
-                Hub.engine.answerAsk(text)
-                closePanel()
-            }
+        when (val st = lastState) {
+            is EngineState.Idle -> { closePanel(); CommandActivity.open(svc) }
+            is EngineState.Ask -> { closePanel(); CommandActivity.open(svc, st.question) }
             else -> {}
         }
     }
 
     // ---------- Rendering ----------
     private fun render(s: EngineState) {
+        val prev = lastState
         lastState = s
+        if (s is EngineState.Ask && prev !is EngineState.Ask) {
+            closePanel()
+            CommandActivity.open(svc, s.question)
+        }
         val b = bubble ?: return
         when (s) {
             is EngineState.Idle -> { b.background = oval(indigo); stopSpin() }
             is EngineState.Running -> { b.background = oval(teal); startSpin() }
-            is EngineState.Confirm, is EngineState.Ask -> {
+            is EngineState.Confirm -> {
                 b.background = oval(amber); stopSpin()
                 if (panel == null) openPanel()
             }
+            is EngineState.Ask -> { b.background = oval(amber); stopSpin() }
         }
         if (panel == null) return
         val result = Hub.engine.lastResult.value
         statusTv?.text = when (s) {
-            is EngineState.Idle -> result?.let { "آخر نتيجة: $it" } ?: "جاهز. اكتب ما تريد أن أفعله."
+            is EngineState.Idle -> result?.let { "آخر نتيجة: $it" } ?: "جاهز."
             is EngineState.Running -> "الخطوة ${s.step}/${s.max} — ${s.line}"
             is EngineState.Confirm -> "بانتظار موافقتك قبل المتابعة"
             is EngineState.Ask -> "الوكيل يحتاج معلومة منك"
@@ -297,10 +283,8 @@ class Overlay(private val svc: AgentAccessibilityService) {
             visibility = if (q != null) View.VISIBLE else View.GONE
         }
         confirmRow?.visibility = if (s is EngineState.Confirm) View.VISIBLE else View.GONE
-        input?.visibility = if (s is EngineState.Idle || s is EngineState.Ask) View.VISIBLE else View.GONE
-        input?.hint = if (s is EngineState.Ask) "اكتب ردّك…" else "اكتب المهمة…"
         mainBtn?.visibility = if (s is EngineState.Idle || s is EngineState.Ask) View.VISIBLE else View.GONE
-        mainBtn?.text = if (s is EngineState.Ask) "إرسال الرد" else "تنفيذ"
+        mainBtn?.text = if (s is EngineState.Ask) "اكتب الرد" else "مهمة جديدة"
         stopBtn?.visibility = if (s is EngineState.Idle) View.GONE else View.VISIBLE
     }
 
