@@ -93,6 +93,17 @@ class Overlay(private val svc: AgentAccessibilityService) {
 
     fun dispose() = scope.cancel()
 
+    /** Makes bubble + panel invisible and click-through so they never block a gesture or appear in a screenshot. */
+    fun setSuspended(suspended: Boolean) {
+        listOfNotNull(bubble, panel).forEach { v ->
+            val lp = v.layoutParams as? WindowManager.LayoutParams ?: return@forEach
+            lp.flags = if (suspended) lp.flags or WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE
+            else lp.flags and WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE.inv()
+            v.alpha = if (suspended) 0f else 1f
+            runCatching { wm.updateViewLayout(v, lp) }
+        }
+    }
+
     // ---------- Bubble drag / tap ----------
     private inner class DragListener : View.OnTouchListener {
         private var downX = 0f

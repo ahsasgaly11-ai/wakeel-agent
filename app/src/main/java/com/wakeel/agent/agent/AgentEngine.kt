@@ -275,6 +275,7 @@ class AgentEngine(
         var strong = false
         var stagnant = 0
         var wantShot = false
+        var wantHd = false
         val recent = ArrayDeque<String>()
         var escalatedForLoop = false
         val max = settings.maxSteps
@@ -298,9 +299,10 @@ class AgentEngine(
             }
 
             val needShot = settings.allowScreenshots && !screen.hasPassword && (wantShot || screen.nodes.size < 3)
-            val shot = if (needShot) svc.screenshot() else null
-            if (shot != null) log(run, LogKind.INFO, "أُرفقت لقطة شاشة مصغّرة")
+            val shot = if (needShot) { if (wantHd) svc.screenshot(1280, 70) else svc.screenshot() } else null
+            if (shot != null) log(run, LogKind.INFO, if (wantHd) "أُرفقت لقطة شاشة عالية الدقة" else "أُرفقت لقطة شاشة مصغّرة")
             wantShot = false
+            wantHd = false
 
             val useStrong = strong && settings.strongModel.isNotBlank()
             val model = if (useStrong) settings.strongModel else settings.fastModel
@@ -361,7 +363,10 @@ class AgentEngine(
                 trail += out.line
                 if (out.macro != null) run.route += out.macro else if (out.breaksMacro) run.routeOk = false
                 if (a.type == ActionType.WAIT) waited = true
-                if (a.type == ActionType.SCREENSHOT && settings.allowScreenshots) wantShot = true
+                if (a.type == ActionType.SCREENSHOT && settings.allowScreenshots) {
+                    wantShot = true
+                    if (a.text?.contains("hd", ignoreCase = true) == true) wantHd = true
+                }
                 if (out.abort) break
             }
 

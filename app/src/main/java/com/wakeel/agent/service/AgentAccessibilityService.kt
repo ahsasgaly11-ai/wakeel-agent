@@ -18,6 +18,7 @@ import android.view.accessibility.AccessibilityEvent
 import com.wakeel.agent.Hub
 import com.wakeel.agent.core.Shot
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -126,7 +127,21 @@ class AgentAccessibilityService : AccessibilityService() {
         return gesture(GestureDescription.Builder().addStroke(GestureDescription.StrokeDescription(path, 0, duration)).build())
     }
 
-    private suspend fun gesture(g: GestureDescription): Boolean = withContext(Dispatchers.Main) {
+    /** Runs [block] with our overlays hidden and click-through, then restores them. */
+    private suspend fun <T> clearOfOverlays(block: suspend () -> T): T {
+        val o = overlay ?: return block()
+        withContext(Dispatchers.Main) { o.setSuspended(true) }
+        delay(80)
+        try {
+            return block()
+        } finally {
+            withContext(NonCancellable + Dispatchers.Main) { o.setSuspended(false) }
+        }
+    }
+
+    private suspend fun gesture(g: GestureDescription): Boolean = clearOfOverlays { dispatch(g) }
+
+    private suspend fun dispatch(g: GestureDescription): Boolean = withContext(Dispatchers.Main) {
         suspendCancellableCoroutine { cont ->
             val ok = dispatchGesture(g, object : GestureResultCallback() {
                 override fun onCompleted(gestureDescription: GestureDescription?) {
@@ -144,7 +159,12 @@ class AgentAccessibilityService : AccessibilityService() {
     // ---------------- Screenshot ----------------
 
     suspend fun screenshot(maxSide: Int = 768, quality: Int = 55): Shot? {
-        val bmp = withContext(Dispatchers.Main) {
+        val bmp = clearOfOverlays { capture() } ?: return null
+        return encode(bmp, maxSide, quality)
+    }
+
+    private suspend fun capture(): Bitmap? =
+        withContext(Dispatchers.Main) {
             suspendCancellableCoroutine<Bitmap?> { cont ->
                 takeScreenshot(Display.DEFAULT_DISPLAY, mainExecutor, object : TakeScreenshotCallback {
                     override fun onSuccess(result: ScreenshotResult) {
@@ -163,8 +183,10 @@ class AgentAccessibilityService : AccessibilityService() {
                     }
                 })
             }
-        } ?: return null
-        return withContext(Dispatchers.Default) {
+        }
+
+    private suspend fun encode(bmp: Bitmap, maxSide: Int, quality: Int): Shot =
+        withContext(Dispatchers.Default) {
             val scale = max(bmp.width, bmp.height).toFloat() / maxSide
             val f = if (scale > 1f) scale else 1f
             val sw = (bmp.width / f).toInt()
@@ -176,5 +198,4 @@ class AgentAccessibilityService : AccessibilityService() {
             bmp.recycle()
             Shot(Base64.encodeToString(bos.toByteArray(), Base64.NO_WRAP), sw, sh, f, f)
         }
-    }
 }
