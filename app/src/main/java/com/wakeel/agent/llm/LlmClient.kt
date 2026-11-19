@@ -90,6 +90,7 @@ object Http {
         }.getOrNull().orEmpty().take(180)
         return when {
             code == 401 || code == 403 -> "مفتاح API غير صالح أو لا يملك صلاحية."
+            msg.contains("tool_choice") || msg.contains("thinking") -> "إعداد غير مدعوم لهذا النموذج: $msg"
             msg.contains("credit", true) || msg.contains("balance", true) || msg.contains("billing", true) ->
                 "الرصيد غير كافٍ في حساب الـ API. اشحن الرصيد ثم أعد المحاولة."
             code == 404 || (msg.contains("model", true) && code == 400) -> "اسم النموذج أو عنوان الخادم غير صحيح: $msg"
