@@ -6,11 +6,7 @@ plugins {
 
 val runNumber = System.getenv("GITHUB_RUN_NUMBER")?.toIntOrNull() ?: 1
 val keystoreFile = file("release.jks")
-val ksProps = java.util.Properties().apply {
-    val f = file("keystore.properties")
-    if (f.exists()) f.inputStream().use { load(it) }
-}
-val ksPass: String? = System.getenv("KS_PASS")?.takeIf { it.isNotBlank() } ?: ksProps.getProperty("storePassword")
+val ksPass: String? = System.getenv("KS_PASS")?.takeIf { it.isNotBlank() }
 
 android {
     namespace = "com.wakeel.agent"
@@ -26,10 +22,10 @@ android {
 
     signingConfigs {
         create("release") {
-            if (keystoreFile.exists()) {
+            if (keystoreFile.exists() && ksPass != null) {
                 storeFile = keystoreFile
                 storePassword = ksPass
-                keyAlias = ksProps.getProperty("keyAlias") ?: "wakeel"
+                keyAlias = "wakeel"
                 keyPassword = ksPass
             }
         }
@@ -40,7 +36,7 @@ android {
             isMinifyEnabled = true
             isShrinkResources = true
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
-            signingConfig = if (keystoreFile.exists()) signingConfigs.getByName("release")
+            signingConfig = if (keystoreFile.exists() && ksPass != null) signingConfigs.getByName("release")
             else signingConfigs.getByName("debug")
         }
     }
