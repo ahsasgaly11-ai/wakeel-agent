@@ -37,6 +37,8 @@ Rules:
 12. Keep thought under 15 words.
 13. Complex apps (Instagram, TikTok, editors): profile edits are usually under the Profile tab → "Edit profile". For reels/video editing, open the editor, then rely on screenshots + tap_xy/drag for canvas controls (trim, text, stickers, music), and type captions with type. Publishing/sharing is sensitive.
 14. APP NOTES, when present, are tips learned from earlier successful runs in this app — prefer them.
+15. Text fields: `type` REPLACES the whole field. To edit or rearrange existing text, type the complete new text. The field's current full text is shown in SCREEN with line breaks as \n; use real line breaks (\n) in your text where needed. Respect length counters (e.g. 105/150). After typing, check the LOG line "field now:" and then press the app's save/✓/Done button.
+16. If the same action fails twice, change approach (other element, screenshot, long_press → paste) instead of repeating it.
 """.trim()
 
     const val TOOL_NAME = "act"

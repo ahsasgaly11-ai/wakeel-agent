@@ -1,6 +1,8 @@
 package com.wakeel.agent.agent
 
 import android.accessibilityservice.AccessibilityService
+import android.content.ClipData
+import android.content.ClipboardManager
 import android.content.Context
 import android.os.Bundle
 import android.view.accessibility.AccessibilityNodeInfo
@@ -273,6 +275,8 @@ class AgentEngine(
         var strong = false
         var stagnant = 0
         var wantShot = false
+        val recent = ArrayDeque<String>()
+        var escalatedForLoop = false
         val max = settings.maxSteps
 
         for (step in 1..max) {
@@ -316,6 +320,22 @@ class AgentEngine(
             }
 
             val before = screen.hash
+            // Loop guard: the same action on the same screen again and again = no progress
+            val key = d.actions.first().describe() + "|" + before
+            recent.addLast(key)
+            if (recent.size > 6) recent.removeFirst()
+            if (recent.count { it == key } >= 3) {
+                if (!escalatedForLoop && settings.escalate && settings.strongModel.isNotBlank()) {
+                    escalatedForLoop = true
+                    strong = true
+                    if (settings.allowScreenshots) wantShot = true
+                    recent.clear()
+                    trail += "(you repeated the same action 3 times without progress — use a different approach)"
+                    log(run, LogKind.WARN, "يكرر الوكيل نفس الخطوة — سيستعين بالنموذج الأقوى وبلقطة شاشة")
+                    continue
+                }
+                throw Stop(TaskStatus.FAILED, "توقّف الوكيل لأنه يكرر نفس الخطوة دون تقدّم، وأوقفته لتوفير الاستهلاك. جرّب صياغة أوضح للمهمة.")
+            }
             var waited = false
             val orig = screen
             for ((i, a) in d.actions.withIndex()) {
@@ -417,9 +437,11 @@ class AgentEngine(
                     ?: return Outcome("type ✗ no text field on screen", abort = true)
                 if (n.password) return Outcome("type ✗ refused: password field — the owner must type it", abort = true, breaksMacro = true)
                 val txt = a.text.orEmpty()
-                val ok = setText(svc, n, txt)
+                val (ok, now) = setTextVerified(svc, n, txt)
                 Outcome(
-                    "type #${n.id} \"${txt.take(30)}\" ${mark(ok)}", abort = !ok,
+                    "type #${n.id} ${mark(ok)} — field now: \"${now.replace("\n", "\\n").take(160)}\"" +
+                        if (ok) "" else " (text did not apply; try tapping the field first, or another approach)",
+                    abort = !ok,
                     macro = if (ok) MacroStep("type", n.signature, text = txt) else null, breaksMacro = !ok,
                 )
             }
@@ -499,7 +521,7 @@ class AgentEngine(
                 }
                 "type" -> {
                     val n = waitFor(svc, s, params) ?: focusedEditable(svc.readScreen()) ?: svc.readScreen().nodes.singleOrNull { it.editable }
-                    if (n == null || n.password) false else setText(svc, n, text.orEmpty())
+                    if (n == null || n.password) false else setTextVerified(svc, n, text.orEmpty()).first
                 }
                 "enter" -> {
                     if (!confirm(run, s.confirm, "إرسال/تأكيد النص المكتوب")) { trail += "(owner denied a saved step)"; return i }
@@ -627,18 +649,49 @@ class AgentEngine(
 
     private fun focusedEditable(s: Screen): UiNode? = s.nodes.firstOrNull { it.editable && it.info.isFocused }
 
-    private suspend fun setText(svc: AgentAccessibilityService, n: UiNode, text: String): Boolean {
-        val args = Bundle().apply { putCharSequence(AccessibilityNodeInfo.ACTION_ARGUMENT_SET_TEXT_CHARSEQUENCE, text) }
+    private fun sameText(a: CharSequence?, b: String): Boolean =
+        Text.norm(a?.toString().orEmpty()).replace(" ", "") == Text.norm(b).replace(" ", "")
+
+    /**
+     * Writes text into a field and checks it really changed. Falls back to select-all + paste,
+     * which works in custom fields (Instagram, etc.) that ignore ACTION_SET_TEXT.
+     * Returns (success, text now in the field).
+     */
+    private suspend fun setTextVerified(svc: AgentAccessibilityService, n: UiNode, text: String): Pair<Boolean, String> {
         val info = n.info
+        val args = Bundle().apply { putCharSequence(AccessibilityNodeInfo.ACTION_ARGUMENT_SET_TEXT_CHARSEQUENCE, text) }
         if (info.refresh()) {
             info.performAction(AccessibilityNodeInfo.ACTION_FOCUS)
-            if (info.performAction(AccessibilityNodeInfo.ACTION_SET_TEXT, args)) return true
+            if (info.performAction(AccessibilityNodeInfo.ACTION_SET_TEXT, args)) {
+                delay(300)
+                info.refresh()
+                if (sameText(info.text, text)) return true to info.text.toString()
+            }
+        } else {
+            svc.tap(n.bounds.exactCenterX(), n.bounds.exactCenterY())
+            delay(400)
         }
-        // Fallback: tap the field, then write into whatever has input focus
-        svc.tap(n.bounds.exactCenterX(), n.bounds.exactCenterY())
-        delay(400)
-        val focused = svc.findFocus(AccessibilityNodeInfo.FOCUS_INPUT) ?: return false
-        return focused.performAction(AccessibilityNodeInfo.ACTION_SET_TEXT, args)
+        // Fallback: focus the field, select everything, paste from clipboard
+        val target = svc.findFocus(AccessibilityNodeInfo.FOCUS_INPUT) ?: info.takeIf { it.refresh() }
+            ?: return false to ""
+        target.refresh()
+        val len = target.text?.length ?: 0
+        withContext(Dispatchers.Main) {
+            runCatching { svc.getSystemService(ClipboardManager::class.java)?.setPrimaryClip(ClipData.newPlainText("wakeel", text)) }
+        }
+        delay(150)
+        target.performAction(
+            AccessibilityNodeInfo.ACTION_SET_SELECTION,
+            Bundle().apply {
+                putInt(AccessibilityNodeInfo.ACTION_ARGUMENT_SELECTION_START_INT, 0)
+                putInt(AccessibilityNodeInfo.ACTION_ARGUMENT_SELECTION_END_INT, len)
+            },
+        )
+        target.performAction(AccessibilityNodeInfo.ACTION_PASTE)
+        delay(350)
+        target.refresh()
+        val now = target.text?.toString().orEmpty()
+        return sameText(now, text) to now
     }
 
     private fun pressEnter(svc: AgentAccessibilityService, cur: Screen, preferred: UiNode?): Boolean {

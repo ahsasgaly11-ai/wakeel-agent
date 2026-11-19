@@ -41,7 +41,10 @@ class Screen(val pkg: String, val nodes: List<UiNode>, val width: Int, val heigh
     fun compact(): String = buildString {
         for (n in nodes) {
             append(n.id).append('|').append(n.role).append('|')
-            append(n.label.replace('\n', ' ').replace('|', '/'))
+            append(
+                if (n.editable) n.label.replace("\n", "\\n").replace('|', '/')
+                else n.label.replace('\n', ' ').replace('|', '/')
+            )
             append('|')
             if (n.clickable) append('c')
             if (n.longClickable) append('L')
@@ -95,7 +98,7 @@ object ScreenReader {
         if (interactive || (own.isNotEmpty() && !underLabeled)) {
             out += UiNode(
                 id = out.size,
-                label = label.take(MAX_LABEL),
+                label = if (n.isEditable && !n.isPassword) label.take(400) else label.take(MAX_LABEL),
                 role = role(n),
                 viewId = n.viewIdResourceName?.substringAfter(":id/").orEmpty(),
                 cls = n.className?.toString()?.substringAfterLast('.').orEmpty(),
