@@ -201,6 +201,7 @@ class LocalRouter(private val ctx: Context, private val apps: AppIndex, private 
     }
 
     private suspend fun click(svc: AgentAccessibilityService, n: UiNode) {
+        svc.markAction()
         var cur: AccessibilityNodeInfo? = n.info
         if (n.info.refresh()) {
             repeat(5) {

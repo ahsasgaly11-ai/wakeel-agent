@@ -63,6 +63,9 @@ class AgentAccessibilityService : AccessibilityService() {
     @Volatile
     private var lastEvent = 0L
 
+    @Volatile
+    private var lastActionAt = 0L
+
     /** Short class name of the foreground activity, tracked from window events. */
     @Volatile
     private var activity = ""
@@ -266,9 +269,20 @@ class AgentAccessibilityService : AccessibilityService() {
         }
     }
 
+    /** Call right before acting on the screen, so the next wait knows a change is expected. */
+    fun markAction() {
+        lastActionAt = SystemClock.uptimeMillis()
+    }
+
     /** Waits until the UI stops changing (no accessibility events for [quietMs]) or [maxMs] passes. */
     suspend fun waitForIdle(quietMs: Long = 400, maxMs: Long = 3000) {
         val start = SystemClock.uptimeMillis()
+        // Something was just tapped or typed and the app has not reacted yet: give it a moment to start changing.
+        // Otherwise "nothing is moving" would be true at once, and the old screen would be read as the result.
+        val acted = lastActionAt
+        if (acted > 0 && start - acted < 1500) {
+            while (lastEvent <= acted && SystemClock.uptimeMillis() - acted < 700) delay(50)
+        }
         delay(150)
         while (SystemClock.uptimeMillis() - start < maxMs) {
             if (SystemClock.uptimeMillis() - lastEvent >= quietMs) return
@@ -278,7 +292,10 @@ class AgentAccessibilityService : AccessibilityService() {
 
     // ---------------- Acting ----------------
 
-    fun global(action: Int): Boolean = performGlobalAction(action)
+    fun global(action: Int): Boolean {
+        markAction()
+        return performGlobalAction(action)
+    }
 
     suspend fun tap(x: Float, y: Float, long: Boolean = false): Boolean {
         val (w, h) = screenSize()
@@ -304,7 +321,10 @@ class AgentAccessibilityService : AccessibilityService() {
         }
     }
 
-    private suspend fun gesture(g: GestureDescription): Boolean = clearOfOverlays { dispatch(g) }
+    private suspend fun gesture(g: GestureDescription): Boolean = clearOfOverlays {
+        markAction()
+        dispatch(g)
+    }
 
     private suspend fun dispatch(g: GestureDescription): Boolean = withContext(Dispatchers.Main) {
         suspendCancellableCoroutine { cont ->

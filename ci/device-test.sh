@@ -56,7 +56,23 @@ if grep -q "مهمة جديدة" "$R/release-result-text.txt" && grep -q "حال
 else
   say "a task runs from the bubble to its result window: NOT CONFIRMED (see 4-release-task-result.png)"
 fi
-adb shell input keyevent 4; sleep 1
+adb shell input keyevent 4; sleep 2
+
+# Teaching by hand: the command window starts a recording, the bubble turns red and opens the recording panel
+adb shell input keyevent 3; sleep 2
+adb shell input tap 88 760
+sleep 4
+python3 ci/ui.py tap "علّمني مهمة بيدك" 6 >> "$R/release-ui.txt" 2>&1
+sleep 2
+adb shell input text "open%sthe%sclock"
+sleep 1
+shot 5-release-teach-window
+python3 ci/ui.py tap "ابدأ التسجيل" 7 >> "$R/release-ui.txt" 2>&1
+sleep 4
+shot 6-release-recording
+adb shell input tap 88 760
+sleep 3
+shot 7-release-recording-panel
 
 adb logcat -d -v time > "$R/release-logcat-full.txt" 2>&1
 grep -E "FATAL EXCEPTION|AndroidRuntime|$PKG" "$R/release-logcat-full.txt" | grep -E "FATAL|AndroidRuntime: |Exception|Error" | head -150 > "$R/release-errors.txt"
@@ -78,11 +94,11 @@ adb shell input keyevent 3
 adb logcat -c
 
 # A few pictures while the tests run
-( for i in 01 02 03 04 05 06 07 08 09 10 11 12 13 14; do sleep 14; adb exec-out screencap -p > "$R/5-tests-$i.png" 2>/dev/null; done ) &
+( for i in 01 02 03 04 05 06 07 08 09 10 11 12 13 14; do sleep 14; adb exec-out screencap -p > "$R/8-tests-$i.png" 2>/dev/null; done ) &
 SHOTS=$!
 timeout 1500 adb shell am instrument -w -r "$PKG.test/androidx.test.runner.AndroidJUnitRunner" > "$R/tests-instrument.txt" 2>&1
 kill "$SHOTS" > /dev/null 2>&1
-shot 6-after-tests
+shot 9-after-tests
 
 adb exec-out run-as "$PKG" cat files/device-report.txt > "$R/tests-report.txt" 2>/dev/null
 adb logcat -d -v time -s WakeelTest:V AndroidRuntime:E TestRunner:I > "$R/tests-logcat.txt" 2>&1

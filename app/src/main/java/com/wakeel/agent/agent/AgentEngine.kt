@@ -920,6 +920,7 @@ class AgentEngine(
             val list = svc.readScreen().nodes
                 .filter { it.scrollable && !it.cls.contains("Pager") && !it.cls.contains("Horizontal") }
                 .maxByOrNull { it.bounds.width().toLong() * it.bounds.height() } ?: break
+            svc.markAction()
             if (!list.info.refresh() || !list.info.performAction(AccessibilityNodeInfo.ACTION_SCROLL_FORWARD)) break
             svc.waitForIdle(300, 1500)
         }
@@ -961,9 +962,13 @@ class AgentEngine(
         for (item in bar.take(6)) {
             currentCoroutineContext().ensureActive()
             run.step++
-            val scr = svc.readScreen()
+            var scr = svc.readScreen()
             if (scr.pkg != pkg) {
-                apps.launch(pkg); svc.waitForIdle(800, 5000); continue
+                val t = SystemClock.uptimeMillis()
+                apps.launch(pkg)
+                svc.waitForApp(pkg, t)
+                scr = svc.readScreen()
+                if (scr.pkg != pkg) continue
             }
             val node = scr.find(item.signature, item.bounds) ?: continue
             if (Safety.isSensitiveLabel(node.label) || Safety.isTradeLabel(node.label)) continue
@@ -971,10 +976,19 @@ class AgentEngine(
             val fromKey = AppMapStore.keyOf(scr)
             click(svc, node)
             svc.waitForIdle(700, 4000)
-            val next = svc.readScreen()
+            var next = svc.readScreen()
+            if (next.pkg != pkg || navItems(next).none { it.signature == item.signature }) {
+                // Possibly still mid-transition: look once more before judging what this page is
+                delay(900)
+                next = svc.readScreen()
+            }
             if (next.pkg != pkg) {
                 svc.global(AccessibilityService.GLOBAL_ACTION_BACK); svc.waitForIdle()
-                if (svc.readScreen().pkg != pkg) { apps.launch(pkg); svc.waitForIdle(800, 5000) }
+                if (svc.readScreen().pkg != pkg) {
+                    val t = SystemClock.uptimeMillis()
+                    apps.launch(pkg)
+                    svc.waitForApp(pkg, t)
+                }
                 continue
             }
             val key = maps.observe(next)
@@ -1053,6 +1067,7 @@ class AgentEngine(
     }
 
     private suspend fun click(svc: AgentAccessibilityService, n: UiNode): Boolean {
+        svc.markAction()
         val info = n.info
         if (info.refresh()) {
             clickableAncestor(info)?.let { if (it.performAction(AccessibilityNodeInfo.ACTION_CLICK)) return true }
@@ -1061,6 +1076,7 @@ class AgentEngine(
     }
 
     private suspend fun longClick(svc: AgentAccessibilityService, n: UiNode): Boolean {
+        svc.markAction()
         val info = n.info
         if (info.refresh() && info.isLongClickable && info.performAction(AccessibilityNodeInfo.ACTION_LONG_CLICK)) return true
         return svc.tap(n.bounds.exactCenterX(), n.bounds.exactCenterY(), long = true)
@@ -1077,6 +1093,7 @@ class AgentEngine(
      * Returns (success, text now in the field).
      */
     private suspend fun setTextVerified(svc: AgentAccessibilityService, n: UiNode, text: String): Pair<Boolean, String> {
+        svc.markAction()
         val info = n.info
         val args = Bundle().apply { putCharSequence(AccessibilityNodeInfo.ACTION_ARGUMENT_SET_TEXT_CHARSEQUENCE, text) }
         if (info.refresh()) {
@@ -1114,6 +1131,7 @@ class AgentEngine(
     }
 
     private fun pressEnter(svc: AgentAccessibilityService, cur: Screen, preferred: UiNode?): Boolean {
+        svc.markAction()
         val node = svc.findFocus(AccessibilityNodeInfo.FOCUS_INPUT)
             ?: preferred?.info
             ?: focusedEditable(cur)?.info
@@ -1123,6 +1141,7 @@ class AgentEngine(
     }
 
     private suspend fun scroll(svc: AgentAccessibilityService, n: UiNode?, dir: String): Boolean {
+        svc.markAction()
         if (n != null && n.info.refresh()) {
             val act = if (dir == "down" || dir == "right") AccessibilityNodeInfo.ACTION_SCROLL_FORWARD else AccessibilityNodeInfo.ACTION_SCROLL_BACKWARD
             if (n.info.performAction(act)) return true
