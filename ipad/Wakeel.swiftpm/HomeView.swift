@@ -221,7 +221,10 @@ struct HomeView: View {
             .fileImporter(isPresented: $picking, allowedContentTypes: [.pdf, .plainText, .image, .commaSeparatedText, .json, .html], allowsMultipleSelection: true) { result in
                 if case .success(let urls) = result { attachments += urls.compactMap { AttachmentLoader.load($0) } }
             }
-            .onChange(of: model.focusComposer) { typing = true }
+            .onChange(of: model.focusComposer) {
+                typing = true
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) { FocusHelp.ensureEditor() }
+            }
             .onChange(of: photo) {
                 guard let item = photo else { return }
                 photo = nil

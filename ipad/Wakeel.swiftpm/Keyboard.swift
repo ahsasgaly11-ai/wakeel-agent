@@ -14,6 +14,32 @@ extension UIResponder {
     @objc private func wkReport(_ sender: Any?) { UIResponder.wkFound = self }
 }
 
+enum FocusHelp {
+    static var window: UIWindow? {
+        UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }.flatMap { $0.windows }.first { $0.isKeyWindow }
+            ?? UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }.flatMap { $0.windows }.first
+    }
+
+    private static func textView(in view: UIView) -> UITextView? {
+        if let t = view as? UITextView, t.isEditable, !t.isHidden, t.window != nil { return t }
+        for sub in view.subviews { if let t = textView(in: sub) { return t } }
+        return nil
+    }
+
+    /// Puts the cursor in the screen's multi-line field when the usual request for the focus was not honoured.
+    static func ensureEditor() {
+        if UIResponder.wkFirst() is UITextView { return }
+        if let w = window, let t = textView(in: w) { t.becomeFirstResponder() }
+    }
+
+    /// For the self-test's report: what holds the focus now.
+    static var report: String {
+        let r = UIResponder.wkFirst()
+        let state = UIApplication.shared.applicationState
+        return "focus=\(r.map { String(describing: type(of: $0)) } ?? "none") app=\(state == .active ? "active" : state == .inactive ? "inactive" : "background") key=\(window?.isKeyWindow ?? false)"
+    }
+}
+
 /// The app's own keyboard.
 ///
 /// It exists because the system keyboard may not appear at all for apps run from Swift Playgrounds.
@@ -68,10 +94,14 @@ final class KeyboardHub: ObservableObject {
         nativeActive = true
         // The system keyboard must not come up as well: this field's input view is an empty one
         if let tf = field as? UITextField {
+            tf.inputAssistantItem.leadingBarButtonGroups = []
+            tf.inputAssistantItem.trailingBarButtonGroups = []
             if tf.inputView == nil { tf.inputView = UIView(); tf.reloadInputViews() }
             if tf.isSecureTextEntry || [.URL, .webSearch, .emailAddress, .asciiCapable].contains(tf.keyboardType) { show(.english) }
             else if [.decimalPad, .numberPad, .numbersAndPunctuation, .phonePad].contains(tf.keyboardType) { layer = .symbols }
         } else if let tv = field as? UITextView {
+            tv.inputAssistantItem.leadingBarButtonGroups = []
+            tv.inputAssistantItem.trailingBarButtonGroups = []
             if tv.inputView == nil { tv.inputView = UIView(); tv.reloadInputViews() }
         }
         refresh()

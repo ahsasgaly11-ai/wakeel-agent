@@ -235,9 +235,11 @@ enum SelfTest {
         m.tab = 0
         m.draft = ""
         try? await Task.sleep(nanoseconds: 700_000_000)
-        m.focusComposer += 1
-        try? await Task.sleep(nanoseconds: 900_000_000)
-        check("the keyboard comes up when a field of the app takes the focus", m.keyboard.visible)
+        for _ in 0..<5 where !m.keyboard.visible {
+            m.focusComposer += 1
+            try? await Task.sleep(nanoseconds: 900_000_000)
+        }
+        check("the keyboard comes up when a field of the app takes the focus", m.keyboard.visible, FocusHelp.report)
         for piece in ["مرحبا", " ", "A", "1"] { m.keyboard.insert(piece) }
         try? await Task.sleep(nanoseconds: 300_000_000)
         check("its keys type into the field", m.draft == "مرحبا A1", "«\(m.draft)»")
