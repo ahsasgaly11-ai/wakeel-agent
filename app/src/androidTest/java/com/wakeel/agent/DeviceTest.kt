@@ -25,6 +25,12 @@ import com.wakeel.agent.llm.ToolSpec
 import com.wakeel.agent.service.AgentAccessibilityService
 import com.wakeel.agent.service.Screen
 import com.wakeel.agent.service.UiNode
+import com.wakeel.agent.trade.Analysis
+import com.wakeel.agent.trade.Candle
+import com.wakeel.agent.trade.LiveMarket
+import com.wakeel.agent.trade.MarketSource
+import com.wakeel.agent.trade.Side
+import com.wakeel.agent.trade.Trader
 import com.wakeel.agent.ui.MainActivity
 import kotlinx.coroutines.runBlocking
 import org.json.JSONArray
@@ -75,6 +81,16 @@ private object FakeModel : LlmClient {
     @Volatile
     var lastFinishUser = ""
 
+    /** The trading mode's decision for the next cycle, and what the model was shown to make it. */
+    @Volatile
+    var trade: JSONObject? = null
+
+    @Volatile
+    var lastTradeUser = ""
+
+    @Volatile
+    var tradeCalls = 0
+
     private const val NO_PLAN = """{"thought":"لا خطة","actions":[{"type":"fail","text":"انتهت الخطط المجهّزة للاختبار."}],"sensitive":false}"""
 
     override suspend fun callTool(
@@ -88,6 +104,11 @@ private object FakeModel : LlmClient {
                 lastKnowledge = extraSystem
                 val p = synchronized(plans) { plans.removeFirstOrNull() } ?: NO_PLAN
                 ToolResult(JSONObject(p), Usage(900, 60))
+            }
+            "trade" -> {
+                tradeCalls++
+                lastTradeUser = user
+                ToolResult(trade ?: JSONObject().put("outlook", "").put("decisions", JSONArray()), Usage(1500, 120))
             }
             "finish" -> {
                 lastFinishUser = user
@@ -314,7 +335,7 @@ class DeviceTest {
         assertTrue("Wakeel's main screen did not appear", waitUntil(20_000) { screen().pkg == ctx.packageName })
         assertNotNull("command box missing", find("ماذا أنجز لك؟", 10_000))
         dump("Wakeel · القيادة")
-        val expect = linkedMapOf("المعرفة" to "التطبيقات", "السجل" to "لا توجد مهام بعد", "الإعدادات" to "مزوّد الذكاء الاصطناعي", "القيادة" to "ماذا أنجز لك؟")
+        val expect = linkedMapOf("المعرفة" to "التطبيقات", "التداول" to "الحساب التجريبي", "السجل" to "لا توجد مهام بعد", "الإعدادات" to "مزوّد الذكاء الاصطناعي", "القيادة" to "ماذا أنجز لك؟")
         for ((tab, marker) in expect) {
             val node = screen().nodes.lastOrNull { it.label.trim() == tab && it.clickable }
                 ?: screen().nodes.lastOrNull { it.label.trim() == tab }
@@ -785,6 +806,124 @@ class DeviceTest {
             s.maxSteps = 6
             FakeModel.finish = null
         }
+    }
+
+    /** A market that goes where the test says: a steady climb, then (when told) a jump. */
+    private class ScriptedMarket : MarketSource {
+        @Volatile var jump = 0.0
+        @Volatile var hoursLater = 0
+        @Volatile var asked = 0
+
+        override suspend fun candles(symbol: String, interval: String, limit: Int): List<Candle> {
+            asked++
+            val step = Analysis.minutes(interval) * 60_000L
+            val end = System.currentTimeMillis() / step * step
+            val out = ArrayList<Candle>()
+            for (i in 0 until limit) {
+                val c = 100.0 * (1 + 0.001 * i)
+                out += Candle(end - (limit - 1 - i) * step, c * 0.999, c * 1.002, c * 0.998, c, 50.0)
+            }
+            // Later candles, after the trade was opened
+            var last = out.last().close
+            for (k in 1..hoursLater) {
+                val c = last * (1 + jump / hoursLater)
+                out += Candle(end + k * step, last, maxOf(last, c) * 1.001, minOf(last, c) * 0.999, c, 80.0)
+                last = c
+            }
+            return out
+        }
+
+        override suspend fun headlines(query: String): List<String> = listOf("Bitcoin climbs as markets steady - Example News")
+    }
+
+    @Test
+    fun t26_tradingModeDecidesAndExecutesOnItsPaperAccount() {
+        val s = Hub.settings
+        val market = ScriptedMarket()
+        MarketSource.override = market
+        s.tradeAuto = false
+        s.tradeSymbols = "BTCUSDT"
+        s.tradeInterval = "1h"
+        s.tradeNews = true
+        try {
+            s.tradeStart = 10_000f
+            runBlocking { Hub.trader.resetNow() }
+            assertTrue(Hub.trader.state.value.let { it.cash == 10_000.0 && it.positions.isEmpty() && it.journal.isEmpty() })
+            val price = 100.0 * (1 + 0.001 * 149)
+
+            // Cycle 1 — the model wants to buy, with a stop far beyond what the owner allows
+            FakeModel.trade = JSONObject().put("outlook", "السوق في اتجاه صاعد").put(
+                "decisions", JSONArray().put(
+                    JSONObject().put("symbol", "BTCUSDT").put("action", "buy").put("sl", price * 0.80).put("tp", price * 1.04)
+                        .put("confidence", 82).put("reason", "السعر فوق المتوسطين والاتجاه الأعلى صاعد"),
+                ),
+            )
+            val calls = FakeModel.tradeCalls
+            val line = runBlocking { Hub.trader.cycle() }
+            var st = Hub.trader.state.value
+            note("cycle 1: $line")
+            st.journal.forEach { note("     · ${it.symbol} ${it.action} (${it.confidence}) — ${it.outcome}") }
+            assertEquals("one request per cycle", 1, FakeModel.tradeCalls - calls)
+            val p = st.positions.single()
+            assertEquals(Side.LONG, p.side)
+            assertEquals("the stop was pulled in to the 3% limit", price * 0.97, p.sl, 1e-6)
+            assertEquals("the position is capped at 2000 USDT", 2000.0, p.qty * p.entry, 1e-6)
+            assertEquals(price, p.entry, 1e-9)
+            val shown = FakeModel.lastTradeUser
+            for (part in listOf("NOW: 20", "ACCOUNT: equity 10,000.00", "MARKET:", "BTCUSDT (1h) price", "RSI14", "4h trend: up", "HEADLINES", "Bitcoin climbs")) {
+                assertTrue("the model was not shown «$part»", shown.contains(part))
+            }
+
+            // Cycle 2 — hours later the market is 6% higher: the target was reached, whatever the model says now
+            market.hoursLater = 3
+            market.jump = 0.06
+            FakeModel.trade = JSONObject().put("outlook", "").put("decisions", JSONArray().put(JSONObject().put("symbol", "BTCUSDT").put("action", "hold").put("confidence", 50).put("reason", "انتظار")))
+            note("cycle 2: " + runBlocking { Hub.trader.cycle() })
+            st = Hub.trader.state.value
+            st.journal.take(2).forEach { note("     · ${it.symbol} ${it.action} — ${it.outcome}") }
+            assertTrue("the position must be closed at its target", st.positions.isEmpty())
+            val t = st.closed.first()
+            assertEquals("tp", t.why)
+            assertEquals(price * 1.04, t.exit, 1e-6)
+            assertTrue("a trade closed at its target is a profit", t.pnl > 70 && st.equity > 10_070)
+            assertEquals(st.cash, st.equity, 1e-9)
+
+            // Cycle 3 — a decision below the owner's minimum confidence opens nothing
+            FakeModel.trade = JSONObject().put("outlook", "").put("decisions", JSONArray().put(JSONObject().put("symbol", "BTCUSDT").put("action", "sell").put("confidence", 30).put("reason", "ظن")))
+            runBlocking { Hub.trader.cycle() }
+            assertTrue(Hub.trader.state.value.positions.isEmpty())
+
+            // The account survives a restart of the app
+            val again = Trader(ctx, s).state.value
+            assertEquals(1, again.closed.size)
+            assertEquals(st.cash, again.cash, 1e-9)
+            assertTrue(again.journal.size >= 3)
+
+            // And the owner sees it
+            svc().startActivity(Intent(ctx, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+            assertTrue(waitUntil(15_000) { screen().pkg == ctx.packageName })
+            val tab = find("التداول", 8000)
+            assertNotNull("the trading tab is missing", tab)
+            touch(tab!!)
+            assertTrue("the paper account is not shown", waitUntil(8000) { screen().nodes.any { it.label.contains("الحساب التجريبي") } })
+            dump("Wakeel · التداول")
+            goHome()
+        } finally {
+            MarketSource.override = null
+            FakeModel.trade = null
+            runBlocking { Hub.trader.resetNow() }
+        }
+    }
+
+    @Test
+    fun t27_liveMarketDataCanBeRead() {
+        // Not a pass/fail of the app: the emulator's network decides. The report says whether real prices arrived.
+        val r = runCatching { runBlocking { LiveMarket.candles("BTCUSDT", "1h", 60) } }
+        val c = r.getOrNull()
+        note(if (c != null) "live market data: ${c.size} candles, last BTCUSDT close ${c.last().close}" else "live market data: NOT reachable from the emulator (${r.exceptionOrNull()})")
+        val n = runCatching { runBlocking { LiveMarket.headlines("bitcoin market") } }.getOrNull()
+        note("live headlines: " + (n?.take(2)?.joinToString(" | ") ?: "NOT reachable"))
+        if (c != null) assertTrue(c.size >= 30 && c.all { it.high >= it.low && it.close > 0 })
     }
 
     @Test

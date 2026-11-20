@@ -19,6 +19,16 @@ import com.wakeel.agent.agent.SettingsCatalog
 import com.wakeel.agent.agent.Templates
 import com.wakeel.agent.core.Text
 import com.wakeel.agent.core.Usage
+import com.wakeel.agent.trade.Account
+import com.wakeel.agent.trade.Analysis
+import com.wakeel.agent.trade.Call
+import com.wakeel.agent.trade.Candle
+import com.wakeel.agent.trade.Indicators
+import com.wakeel.agent.trade.Limits
+import com.wakeel.agent.trade.MarketText
+import com.wakeel.agent.trade.Paper
+import com.wakeel.agent.trade.Side
+import com.wakeel.agent.trade.TradeText
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
@@ -49,6 +59,200 @@ class LogicTest {
         val system = com.wakeel.agent.llm.Prompt.SYSTEM
         assertTrue(system.contains("`read`") && system.contains("travel/flights?q=") && system.contains("NOW"))
         assertEquals(com.wakeel.agent.core.ActionType.READ, com.wakeel.agent.core.ActionType.of("read"))
+    }
+
+    // ------------------------------------------------------------------ trading mode
+
+    private fun candle(t: Long, o: Double, h: Double, l: Double, c: Double, v: Double = 10.0) = Candle(t, o, h, l, c, v)
+
+    @Test
+    fun `indicators are computed exactly`() {
+        assertEquals(4.0, Indicators.ema(listOf(1.0, 2.0, 3.0, 4.0, 5.0), 3)!!, 1e-9)
+        assertNull(Indicators.ema(listOf(1.0, 2.0), 3))
+        assertEquals(100.0, Indicators.rsi((1..30).map { it.toDouble() })!!, 1e-9)
+        assertEquals(50.0, Indicators.rsi(List(30) { 7.0 })!!, 1e-9)
+        // The textbook series for Wilder's RSI: 70.5 after fourteen changes
+        val book = listOf(44.34, 44.09, 44.15, 43.61, 44.33, 44.83, 45.10, 45.42, 45.84, 46.08, 45.89, 46.03, 45.61, 46.28, 46.28)
+        assertEquals(70.5, Indicators.rsi(book)!!, 0.2)
+        assertNull(Indicators.rsi(book.take(14)))
+        val flat = (0 until 30).map { candle(it * 3_600_000L, 100.0, 101.0, 99.0, 100.0) }
+        assertEquals(2.0, Indicators.atr(flat)!!, 1e-9)
+        val bb = Indicators.bollinger(List(20) { 5.0 })!!
+        assertEquals(5.0, bb.first, 1e-9)
+        assertEquals(5.0, bb.third, 1e-9)
+        assertNull(Indicators.macdHist((1..30).map { it.toDouble() }))
+        // A steady climb: the two averages rise in step, so the histogram settles at nothing
+        assertEquals(0.0, Indicators.macdHist((1..200).map { it.toDouble() })!!, 1e-6)
+    }
+
+    @Test
+    fun `market replies are read into candles and headlines`() {
+        val json = """[[1499644800000,"0.016","0.80","0.015","0.0157","148976.1",1499648399999,"2434.19",308,"1756.8","28.4","0"],[1499040000000,"0.0163","0.8","0.0157","0.0158","100.5",1499043599999,"1.0"]]"""
+        val c = MarketText.parseKlines(json)
+        assertEquals(2, c.size)
+        assertEquals(1499040000000L, c[0].time)
+        assertEquals(0.0158, c[0].close, 1e-12)
+        assertEquals(0.80, c[1].high, 1e-12)
+        assertEquals(148976.1, c[1].volume, 1e-6)
+        assertTrue(MarketText.parseKlines("""{"code":-1121,"msg":"Invalid symbol."}""").isEmpty())
+        val rss = "<rss><channel><title>feed</title><item><title>Bitcoin climbs &amp; holds - Site</title><link>x</link></item><item><title><![CDATA[Ether slips]]></title></item></channel></rss>"
+        assertEquals(listOf("Bitcoin climbs & holds - Site", "Ether slips"), MarketText.parseRss(rss))
+        assertEquals(listOf("BTCUSDT", "ETHUSDT"), MarketText.symbols("btc/usdt، ETHUSDT xx btcusdt"))
+    }
+
+    @Test
+    fun `the size of a trade follows from its stop and stays inside the limits`() {
+        val lim = Limits()
+        val a = Account(10_000.0)
+        // Risk 1% = 100 USDT, stop 2 away → 50 units, but the position cap of 2000 USDT allows only 20
+        val r = Paper.open(a, lim, "BTCUSDT", Side.LONG, 100.0, 98.0, 104.0, null, 1000L, "سبب", 10_000.0)
+        assertTrue(r.text, r.changed)
+        val p = a.positions.single()
+        assertEquals(20.0, p.qty, 1e-9)
+        assertEquals(98.0, p.sl, 1e-9)
+        assertEquals(104.0, p.tp, 1e-9)
+        assertEquals(9_999.0, a.cash, 1e-9)                     // the entry fee: 0.05% of 2000
+        assertEquals(1, a.tradesToday)
+        assertFalse("one position per symbol", Paper.open(a, lim, "BTCUSDT", Side.LONG, 100.0, 98.0, 104.0, null, 1000L, "", 10_000.0).changed)
+
+        // A small account: now the risk rule is the tighter one
+        val small = Account(1_000.0)
+        Paper.open(small, lim, "ETHUSDT", Side.LONG, 100.0, 99.0, null, null, 0L, "", 1_000.0)
+        assertEquals(10.0, small.positions.single().qty, 1e-9)   // 1% of 1000 = 10 USDT over a stop 1 away
+        assertEquals(102.0, small.positions.single().tp, 1e-9)   // no target given: twice the stop distance
+    }
+
+    @Test
+    fun `a stop is mandatory and never further than the limit`() {
+        val lim = Limits()
+        var a = Account(10_000.0)
+        val far = Paper.open(a, lim, "BTCUSDT", Side.LONG, 100.0, 90.0, null, null, 0L, "", 10_000.0)
+        assertEquals(97.0, a.positions.single().sl, 1e-9)
+        assertTrue(far.text.contains("قُرّب"))
+        a = Account(10_000.0)
+        Paper.open(a, lim, "BTCUSDT", Side.LONG, 100.0, null, null, 1.0, 0L, "", 10_000.0)
+        assertEquals(98.5, a.positions.single().sl, 1e-9)        // 1.5 x ATR
+        assertEquals(103.0, a.positions.single().tp, 1e-9)
+        a = Account(10_000.0)
+        val wrong = Paper.open(a, lim, "BTCUSDT", Side.LONG, 100.0, 105.0, 95.0, null, 0L, "", 10_000.0)
+        assertEquals("a stop on the wrong side is replaced", 97.0, a.positions.single().sl, 1e-9)
+        assertEquals("a target on the wrong side is replaced", 106.0, a.positions.single().tp, 1e-9)
+        assertTrue(wrong.text.contains("تلقائياً"))
+        a = Account(10_000.0)
+        Paper.open(a, lim, "BTCUSDT", Side.SHORT, 100.0, 102.0, 96.0, null, 0L, "", 10_000.0)
+        assertEquals(Side.SHORT, a.positions.single().side)
+        assertEquals(102.0, a.positions.single().sl, 1e-9)
+        assertFalse(Paper.open(Account(10_000.0), lim.copy(allowShort = false), "BTCUSDT", Side.SHORT, 100.0, 102.0, 96.0, null, 0L, "", 10_000.0).changed)
+    }
+
+    @Test
+    fun `profit and loss are exact, fees included`() {
+        val lim = Limits()
+        val a = Account(10_000.0)
+        Paper.open(a, lim, "BTCUSDT", Side.LONG, 100.0, 98.0, 104.0, null, 0L, "", 10_000.0)
+        assertEquals(10_039.0, Paper.equity(a, mapOf("BTCUSDT" to 102.0)), 1e-9)
+        val t = Paper.close(a, lim, a.positions.single(), 104.0, 5L, "agent")
+        assertEquals(77.96, t.pnl, 1e-9)                         // 80 gross − 1.00 entry fee − 1.04 exit fee
+        assertEquals(10_077.96, a.cash, 1e-9)
+        assertTrue(a.positions.isEmpty())
+
+        val b = Account(10_000.0)
+        Paper.open(b, lim, "BTCUSDT", Side.SHORT, 100.0, 102.0, 96.0, null, 0L, "", 10_000.0)
+        val loss = Paper.close(b, lim, b.positions.single(), 102.0, 5L, "sl")
+        assertEquals(-42.02, loss.pnl, 1e-9)                     // −40 gross − 1.00 − 1.02
+        val s = Paper.stats(a)
+        assertEquals(1, s.wins)
+        assertEquals(100.0, s.winRate, 1e-9)
+    }
+
+    @Test
+    fun `stops and targets are found in the candles since the trade was opened`() {
+        val lim = Limits()
+        val h = 3_600_000L
+        val t0 = 100 * h
+        fun fresh(): Account = Account(10_000.0).also { Paper.open(it, lim, "BTCUSDT", Side.LONG, 100.0, 98.0, 104.0, null, t0 + 60_000, "", 10_000.0) }
+
+        // The candle the trade was opened in dipped to 90 before the entry: that is not a stop-out
+        var a = fresh()
+        val quiet = listOf(candle(t0, 95.0, 101.0, 90.0, 100.0), candle(t0 + h, 100.0, 103.0, 99.0, 102.0), candle(t0 + 2 * h, 102.0, 103.5, 101.0, 103.0))
+        assertNull(Paper.sweep(a, lim, a.positions.single(), quiet, t0 + 2 * h))
+        assertEquals("finished candles are not looked at twice", t0 + h, a.positions.single().checkedAt)
+
+        a = fresh()
+        val up = quiet + candle(t0 + 3 * h, 103.0, 104.5, 102.5, 104.2)
+        val won = Paper.sweep(a, lim, a.positions.single(), up, t0 + 3 * h)!!
+        assertEquals("tp", won.why)
+        assertEquals(104.0, won.exit, 1e-9)
+
+        // One candle spans both: the stop is assumed — the worse case
+        a = fresh()
+        val both = listOf(candle(t0, 95.0, 101.0, 90.0, 100.0), candle(t0 + h, 100.0, 105.0, 97.0, 101.0))
+        val lost = Paper.sweep(a, lim, a.positions.single(), both, t0 + h)!!
+        assertEquals("sl", lost.why)
+        assertEquals(98.0, lost.exit, 1e-9)
+        assertTrue(lost.pnl < 0)
+
+        // No later candle yet, but the price now is under the stop
+        a = fresh()
+        assertEquals("sl", Paper.sweep(a, lim, a.positions.single(), listOf(candle(t0, 100.0, 101.0, 96.0, 97.0)), t0)!!.why)
+    }
+
+    @Test
+    fun `the daily limits stop new trades and nothing else`() {
+        val lim = Limits(maxTradesPerDay = 2)
+        val a = Account(10_000.0)
+        Paper.rollDay(a, "2026-11-20", 10_000.0)
+        assertTrue(Paper.open(a, lim, "AAAUSDT", Side.LONG, 100.0, 98.0, null, null, 0L, "", 10_000.0).changed)
+        assertTrue(Paper.open(a, lim, "BBBUSDT", Side.LONG, 100.0, 98.0, null, null, 0L, "", 10_000.0).changed)
+        val third = Paper.open(a, lim, "CCCUSDT", Side.LONG, 100.0, 98.0, null, null, 0L, "", 10_000.0)
+        assertFalse(third.changed)
+        assertTrue(third.text.contains("حد الصفقات"))
+        // Closing is always allowed
+        assertTrue(Paper.apply(a, lim, Call("AAAUSDT", "close", null, null, 0, ""), 101.0, null, 1L, 10_000.0).changed)
+        // A new day starts clean
+        Paper.rollDay(a, "2026-11-21", 10_000.0)
+        assertEquals(0, a.tradesToday)
+
+        val b = Account(10_000.0)
+        Paper.rollDay(b, "2026-11-20", 10_000.0)
+        val blocked = Paper.open(b, Limits(), "AAAUSDT", Side.LONG, 100.0, 98.0, null, null, 0L, "", 9_600.0)
+        assertFalse("after losing 4% of the day's opening balance no trade is opened", blocked.changed)
+        assertTrue(blocked.text.contains("خسارة اليوم"))
+    }
+
+    @Test
+    fun `the model's decisions are carried out inside the rules`() {
+        val lim = Limits()
+        val a = Account(10_000.0)
+        assertFalse(Paper.apply(a, lim, Call("BTCUSDT", "buy", 98.0, 104.0, 40, "ضعيف"), 100.0, null, 0L, 10_000.0).changed)
+        assertFalse(Paper.apply(a, lim, Call("BTCUSDT", "hold", null, null, 90, ""), 100.0, null, 0L, 10_000.0).changed)
+        assertFalse(Paper.apply(a, lim, Call("BTCUSDT", "close", null, null, 90, ""), 100.0, null, 0L, 10_000.0).changed)
+        assertTrue(Paper.apply(a, lim, Call("BTCUSDT", "BUY", 98.0, 104.0, 80, "اتجاه صاعد"), 100.0, null, 0L, 10_000.0).changed)
+        assertFalse("buying again leaves the position alone", Paper.apply(a, lim, Call("BTCUSDT", "buy", 98.0, 104.0, 80, ""), 101.0, null, 0L, 10_000.0).changed)
+        // "sell" while long closes the long; it does not flip into a short in the same breath
+        assertTrue(Paper.apply(a, lim, Call("BTCUSDT", "sell", 103.0, 97.0, 80, ""), 101.0, null, 0L, 10_000.0).changed)
+        assertTrue(a.positions.isEmpty())
+        assertEquals("agent", a.closed.first().why)
+        assertFalse(Paper.apply(a, lim, Call("BTCUSDT", "dance", null, null, 99, ""), 100.0, null, 0L, 10_000.0).changed)
+    }
+
+    @Test
+    fun `the model is shown numbers computed on the phone`() {
+        val h = 3_600_000L
+        val up = (0 until 150).map { i -> val c = 100.0 * (1 + 0.001 * i); candle(i * h, c * 0.999, c * 1.002, c * 0.998, c, 50.0) }
+        val b = Analysis.brief("BTCUSDT", "1h", up, "4h", up.takeLast(80))!!
+        assertEquals("up", b.higherTrend)
+        assertTrue(b.rsi!! > 70 && b.ema20!! > b.ema50!! && b.price > b.ema20!!)
+        assertEquals(2.13, b.change24h!!, 0.05)
+        assertNull(Analysis.brief("BTCUSDT", "1h", up.take(20), "4h", up))
+        val a = Account(10_000.0)
+        Paper.rollDay(a, "d", 10_000.0)
+        Paper.open(a, Limits(), "BTCUSDT", Side.LONG, b.price, null, null, b.atr, 0L, "اتجاه صاعد", 10_000.0)
+        val text = TradeText.user("2026-11-20 (Friday) 17:40", a, Limits(), mapOf("BTCUSDT" to b.price), listOf(b), listOf("Bitcoin climbs"), 60_000L)
+        for (part in listOf("NOW: 2026-11-20", "ACCOUNT: equity", "OPEN POSITIONS:", "BTCUSDT LONG", "MARKET:", "RSI14", "EMA20", "ATR14", "4h trend: up", "HEADLINES", "Bitcoin climbs", "trades today 1/6")) {
+            assertTrue("missing «$part» in:\n$text", text.contains(part))
+        }
+        assertTrue(TradeText.SYSTEM.contains("PAPER") && TradeText.SYSTEM.contains("hold"))
     }
 
     @Test

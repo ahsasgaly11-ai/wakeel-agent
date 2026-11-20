@@ -10,6 +10,7 @@ import com.wakeel.agent.agent.HistoryStore
 import com.wakeel.agent.agent.Scheduler
 import com.wakeel.agent.agent.SkillStore
 import com.wakeel.agent.core.Settings
+import com.wakeel.agent.trade.Trader
 
 class WakeelApp : Application() {
     override fun onCreate() {
@@ -38,6 +39,8 @@ object Hub {
         private set
     lateinit var scheduler: Scheduler
         private set
+    lateinit var trader: Trader
+        private set
 
     fun init(app: Application) {
         settings = Settings(app)
@@ -51,5 +54,8 @@ object Hub {
         engine = AgentEngine(app, settings, history, skills, notes, apps, maps, scheduler) { recorder.active }
         // Tasks scheduled before the app was last closed get their alarm back; overdue ones start as soon as they can
         scheduler.arm()
+        // The trading mode's paper account, and its next automatic cycle if the owner switched it on
+        trader = Trader(app, settings)
+        trader.arm()
     }
 }

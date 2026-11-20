@@ -170,6 +170,53 @@ class Settings(ctx: Context) {
         get() = bool("bubble", true)
         set(v) = putBool("bubble", v)
 
+    // ---- Trading mode (a paper account inside the app; never real money) ----
+    /** The agent runs a cycle by itself every [tradeEveryMin] minutes. */
+    var tradeAuto: Boolean
+        get() = bool("trade_auto", false)
+        set(v) = putBool("trade_auto", v)
+    var tradeEveryMin: Int
+        get() = p.getInt("trade_every", 60)
+        set(v) = p.edit().putInt("trade_every", v.coerceIn(15, 1440)).apply()
+    var tradeSymbols: String
+        get() = str("trade_symbols", "BTCUSDT, ETHUSDT")
+        set(v) = putStr("trade_symbols", v)
+    /** Candle size the decisions are made on: 15m, 1h or 4h. */
+    var tradeInterval: String
+        get() = str("trade_interval", "1h")
+        set(v) = putStr("trade_interval", v)
+    var tradeNews: Boolean
+        get() = bool("trade_news", true)
+        set(v) = putBool("trade_news", v)
+    /** Decide with the stronger model (dearer, one request per cycle either way). */
+    var tradeStrong: Boolean
+        get() = bool("trade_strong", false)
+        set(v) = putBool("trade_strong", v)
+    var tradeStart: Float
+        get() = float("trade_start", 10_000f)
+        set(v) = putFloat("trade_start", v.coerceIn(100f, 10_000_000f))
+    var tradeMaxPosition: Float
+        get() = float("trade_max_pos", 2_000f)
+        set(v) = putFloat("trade_max_pos", v.coerceAtLeast(10f))
+    var tradeRiskPct: Float
+        get() = float("trade_risk", 1f)
+        set(v) = putFloat("trade_risk", v.coerceIn(0.1f, 5f))
+    var tradeMaxSlPct: Float
+        get() = float("trade_max_sl", 3f)
+        set(v) = putFloat("trade_max_sl", v.coerceIn(0.2f, 15f))
+    var tradeMaxPerDay: Int
+        get() = p.getInt("trade_per_day", 6)
+        set(v) = p.edit().putInt("trade_per_day", v.coerceIn(1, 50)).apply()
+    var tradeDailyLossPct: Float
+        get() = float("trade_day_loss", 3f)
+        set(v) = putFloat("trade_day_loss", v.coerceIn(0.5f, 50f))
+    var tradeMinConfidence: Int
+        get() = p.getInt("trade_min_conf", 60)
+        set(v) = p.edit().putInt("trade_min_conf", v.coerceIn(0, 100)).apply()
+    var tradeShort: Boolean
+        get() = bool("trade_short", true)
+        set(v) = putBool("trade_short", v)
+
     fun isStrong(model: String) = model == strongModel && model != fastModel
 
     fun cost(model: String, u: Usage): Double {

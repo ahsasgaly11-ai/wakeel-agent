@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.AutoAwesome
+import androidx.compose.material.icons.rounded.CandlestickChart
 import androidx.compose.material.icons.rounded.History
 import androidx.compose.material.icons.rounded.School
 import androidx.compose.material.icons.rounded.Tune
@@ -51,6 +52,7 @@ private class Dest(val label: String, val icon: ImageVector)
 private val destinations = listOf(
     Dest("القيادة", Icons.Rounded.AutoAwesome),
     Dest("المعرفة", Icons.Rounded.School),
+    Dest("التداول", Icons.Rounded.CandlestickChart),
     Dest("السجل", Icons.Rounded.History),
     Dest("الإعدادات", Icons.Rounded.Tune),
 )
@@ -84,7 +86,7 @@ private fun WakeelRoot() {
                 0 -> HomeScreen(
                     task = draft,
                     onTask = { draft = it },
-                    onOpenSettings = { tab = 3 },
+                    onOpenSettings = { tab = 4 },
                     onOpenKnowledge = { tab = 1 },
                 )
                 1 -> KnowledgeScreen(
@@ -92,7 +94,8 @@ private fun WakeelRoot() {
                     onDraft = { text -> draft = text; tab = 0 },
                     onGoHome = { tab = 0 },
                 )
-                2 -> HistoryScreen()
+                2 -> TradeScreen(onDraft = { text -> draft = text; tab = 0 })
+                3 -> HistoryScreen()
                 else -> SettingsScreen()
             }
         }
