@@ -148,6 +148,7 @@ class DemoRecorder(
     fun start(phrase: String): Boolean {
         val svc = AgentAccessibilityService.instance ?: return false
         if (phrase.isBlank() || active) return false
+        lastOutcome = null
         steps.clear()
         picked.clear()
         visited.clear()

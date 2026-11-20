@@ -327,6 +327,15 @@ enum SelfTest {
         Market.override = nil
         fake.plans = []
         m.settings.tradeAuto = wasAuto
+        // Not a verdict on the app: the network of the machine decides. The report says whether real prices arrived.
+        if let live = try? await LiveMarket().candles("BTCUSDT", "1h", 60), let last = live.last {
+            lines.append("  · live market data: \(live.count) candles, last BTCUSDT close \(Fmt.price(last.close))")
+            check("live candles are sane", live.count >= 30 && live.allSatisfy { $0.high >= $0.low && $0.close > 0 })
+        } else {
+            lines.append("  · live market data: NOT reachable from this machine")
+        }
+        let liveNews = (try? await LiveMarket().headlines("bitcoin market")) ?? []
+        lines.append("  · live headlines: " + (liveNews.isEmpty ? "NOT reachable" : liveNews.prefix(2).joined(separator: " | ")))
         m.settings.escalate = escalate
 
         // 15 — the app's own keyboard types into the app's own fields

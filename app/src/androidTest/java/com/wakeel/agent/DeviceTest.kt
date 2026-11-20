@@ -561,7 +561,8 @@ class DeviceTest {
         Hub.recorder.trace.forEach { note("     · $it") }
         // Back on the home screen: after a still moment the skill saves itself, nothing to press
         svc().global(AccessibilityService.GLOBAL_ACTION_HOME)
-        assertTrue("the recording did not end by itself", waitUntil(15_000) { !Hub.recorder.active })
+        // The recorder switches itself off a moment before it publishes what became of the recording
+        assertTrue("the recording did not end by itself", waitUntil(15_000) { !Hub.recorder.active && Hub.recorder.lastOutcome != null })
         val outcome = Hub.recorder.lastOutcome
         note("ended by itself: saved=${outcome?.skill != null} reason=${outcome?.reason}")
         val skill = outcome?.skill
@@ -598,7 +599,8 @@ class DeviceTest {
         assertTrue("typing did not reach the field", waitUntil(8000) { screen().nodes.any { it.viewId == "message" && it.label == "draft" } })
         // The owner leaves without sending: text was typed and nothing was pressed after it
         svc().global(AccessibilityService.GLOBAL_ACTION_HOME)
-        assertTrue("the recording did not end by itself", waitUntil(15_000) { !Hub.recorder.active })
+        // The recorder switches itself off a moment before it publishes what became of the recording
+        assertTrue("the recording did not end by itself", waitUntil(15_000) { !Hub.recorder.active && Hub.recorder.lastOutcome != null })
         val outcome = Hub.recorder.lastOutcome
         note("unfinished demonstration: saved=${outcome?.skill != null} reason=${outcome?.reason}")
         assertNull("an unfinished demonstration must not become a skill", outcome?.skill)
