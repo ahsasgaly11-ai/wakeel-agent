@@ -867,7 +867,8 @@ class AgentEngine(
                 val n = page.lines.sumOf { it.length }
                 same = if (n == size && n > 0) same + 1 else 0
                 size = n
-                if (same >= (if (fresh) 2 else 1)) break
+                // Search results arrive after the page itself: a page just opened is given a few seconds before it is believed
+                if (same >= (if (fresh) 2 else 1) && (!fresh || SystemClock.uptimeMillis() - run.urlOpenedAt >= 4000)) break
             }
         }
         val lines = LinkedHashSet(page.lines)
