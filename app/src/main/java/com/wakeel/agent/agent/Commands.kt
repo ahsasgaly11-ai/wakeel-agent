@@ -95,7 +95,8 @@ object Commands {
         raw.substring(end.coerceAtMost(raw.length)).trim().trimStart(':', '،', ',', '-', ' ')
             .removePrefix("نصها").removePrefix("وقل").removePrefix("تقول").trim().trimStart(':', ' ')
 
-    fun parse(task: String): Cmd? {
+    /** [dial]: this phone's country calling code ("974"), put in front of a local number in a WhatsApp link. */
+    fun parse(task: String, dial: String? = null): Cmd? {
         val raw = task.trim().trimEnd('.', '!', '؟', '?', ' ')
         if (raw.isEmpty()) return null
         val orig = raw.split(Regex("\\s+"))
@@ -143,7 +144,7 @@ object Commands {
             val number = Text.norm(phone.value).filter { it.isDigit() || it == '+' }
             val msg = after(raw, phone.range.last + 1)
             if (tok.any { it in W_WHATSAPP }) {
-                val intl = number.removePrefix("+").removePrefix("00")
+                val intl = Dial.international(number, dial)
                 val url = "https://wa.me/$intl" + if (msg.isNotEmpty()) "?text=" + enc(msg) else ""
                 return Cmd.Url(url, "فُتحت محادثة واتساب مع $number" + if (msg.isNotEmpty()) " والرسالة جاهزة — اضغط إرسال" else "")
             }
@@ -241,5 +242,43 @@ object Commands {
             if (key != null && (hasSettings || (hasOpen && key !in SettingsCatalog.ambiguous))) return Cmd.SettingsPage(key)
         }
         return null
+    }
+}
+
+/**
+ * Country calling codes. A WhatsApp chat link only works with the full international number, while people
+ * write numbers the local way ("70776067"); the SIM's country fills the gap.
+ */
+object Dial {
+    private val CODES = mapOf(
+        "qa" to "974", "sa" to "966", "ae" to "971", "kw" to "965", "bh" to "973", "om" to "968", "ye" to "967", "iq" to "964",
+        "jo" to "962", "lb" to "961", "sy" to "963", "ps" to "970", "eg" to "20", "sd" to "249", "ly" to "218", "tn" to "216",
+        "dz" to "213", "ma" to "212", "mr" to "222", "tr" to "90", "ir" to "98", "in" to "91", "pk" to "92", "bd" to "880",
+        "lk" to "94", "np" to "977", "ph" to "63", "id" to "62", "my" to "60", "us" to "1", "ca" to "1", "gb" to "44",
+        "fr" to "33", "de" to "49", "it" to "39", "es" to "34", "nl" to "31", "se" to "46", "au" to "61",
+    )
+
+    fun code(iso: String?): String? = CODES[iso?.trim()?.lowercase()]
+
+    /**
+     * "70776067" with "974" → "97470776067". A number written with + or 00, or too long to be a local one,
+     * already carries its country code and is only stripped of the prefix.
+     */
+    fun international(number: String, code: String?): String {
+        val digits = number.filter { it in '0'..'9' }
+        if (number.trim().startsWith("+")) return digits
+        if (digits.startsWith("00")) return digits.removePrefix("00")
+        if (code == null) return digits
+        if (digits.startsWith("0")) return code + digits.trimStart('0')
+        return if (digits.length <= 10) code + digits else digits
+    }
+
+    private val WA_ME = Regex("^(https?://wa\\.me/)(\\+?[0-9]{6,15})(.*)$", RegexOption.IGNORE_CASE)
+    private val WA_PHONE = Regex("^(https?://api\\.whatsapp\\.com/send/?\\?(?:.*&)?phone=)(\\+?[0-9]{6,15})(.*)$", RegexOption.IGNORE_CASE)
+
+    /** The same for a chat link written by the model: https://wa.me/70776067?text=… */
+    fun waLink(url: String, code: String?): String {
+        val m = WA_ME.find(url) ?: WA_PHONE.find(url) ?: return url
+        return m.groupValues[1] + international(m.groupValues[2], code) + m.groupValues[3]
     }
 }

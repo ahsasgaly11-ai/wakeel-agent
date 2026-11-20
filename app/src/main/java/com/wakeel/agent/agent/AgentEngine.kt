@@ -208,7 +208,12 @@ class AgentEngine(
     private fun ownText(run: Run, draft: String): Boolean {
         val d = Text.norm(draft)
         if (d.length < 2) return true
-        return run.typed.any { it == d || it.contains(d) || (it.length >= 2 && d.contains(it)) } || Text.norm(run.task).contains(d)
+        // Typed by this task (the app may have trimmed it or added a mark), or carried by a link it opened.
+        // A field holding MORE than was typed is an old draft with the new text stuck onto it: not this task's text.
+        if (run.typed.any { it == d || it.contains(d) || (it.isNotEmpty() && d.contains(it) && d.length - it.length <= 2) }) return true
+        // Named in the task itself, as whole words
+        val words = " " + Text.norm(run.task).replace(NOT_WORD, " ").trim() + " "
+        return words.contains(" " + d.replace(NOT_WORD, " ").trim() + " ")
     }
 
     /**
@@ -314,6 +319,7 @@ class AgentEngine(
     private companion object {
         /** How long a task waits for a locked screen before giving up. */
         const val PAUSE_LIMIT_MS = 10 * 60_000L
+        val NOT_WORD = Regex("[^\\p{L}\\p{N}]+")
     }
 
     private class Outcome(

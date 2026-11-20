@@ -42,9 +42,13 @@ class AppIndex(private val ctx: Context) {
         .filter { it.priority >= 0 && it.activityInfo.packageName != "com.android.settings" }
         .map { it.activityInfo.packageName }.toSet().also { launchers = it }
 
-    /** Keys are listed by preference: the first key that an installed app answers to wins. */
+    /**
+     * Keys are listed by preference: the first key that an installed app answers to wins, and an app whose
+     * package IS the key wins over one that merely contains it ("com.whatsapp" before "com.whatsapp.w4b").
+     */
     private fun matchKeys(keys: List<String>): App? {
-        for (k in keys) all().firstOrNull { it.norm.contains(k) || it.pkg.contains(k) }?.let { return it }
+        val apps = all()
+        for (k in keys) (apps.firstOrNull { it.pkg == k } ?: apps.firstOrNull { it.norm.contains(k) || it.pkg.contains(k) })?.let { return it }
         return null
     }
 
@@ -66,6 +70,12 @@ class AppIndex(private val ctx: Context) {
         all().firstOrNull { it.norm.startsWith(n) }?.let { return it }
         all().firstOrNull { it.norm.contains(n) }?.let { return it }
         ALIASES.entries.firstOrNull { n.contains(it.key) }?.let { e -> matchKeys(e.value)?.let { return it } }
+        // An English name on a phone that shows the app under its Arabic name ("WhatsApp" → واتساب): go by the package,
+        // and among several take the shortest — the app itself rather than a companion of it
+        val key = n.replace(" ", "")
+        if (key.length >= 4 && key.all { it in 'a'..'z' || it in '0'..'9' }) {
+            all().filter { it.pkg.contains(key) }.minByOrNull { it.pkg.length }?.let { return it }
+        }
         return all().firstOrNull { it.norm.length >= 3 && n.contains(it.norm) }
     }
 
@@ -113,7 +123,9 @@ class AppIndex(private val ctx: Context) {
 
     companion object {
         private val RAW = mapOf(
-            listOf("واتساب", "واتس", "وتساب", "الواتس") to listOf("whatsapp"),
+            // The longer names first: "واتساب الأعمال" must not be taken for plain "واتساب"
+            listOf("واتساب الاعمال", "واتساب للاعمال", "واتساب اعمال", "واتساب بزنس", "واتساب بيزنس", "واتس بزنس", "whatsapp business", "wa business") to listOf("com.whatsapp.w4b"),
+            listOf("واتساب", "واتس", "وتساب", "الواتس", "whatsapp") to listOf("com.whatsapp", "whatsapp"),
             listOf("يوتيوب", "يوتوب", "اليوتيوب") to listOf("youtube"),
             listOf("انستقرام", "انستغرام", "انستجرام", "انستا") to listOf("instagram"),
             listOf("سناب", "سناب شات", "السناب") to listOf("snapchat"),

@@ -5,6 +5,7 @@ import com.wakeel.agent.agent.AppMapStore
 import com.wakeel.agent.agent.Cmd
 import com.wakeel.agent.agent.Commands
 import com.wakeel.agent.agent.Demo
+import com.wakeel.agent.agent.Dial
 import com.wakeel.agent.agent.KnowledgeBase
 import com.wakeel.agent.agent.Learner
 import com.wakeel.agent.agent.LocalRouter
@@ -315,5 +316,25 @@ class LogicTest {
         assertFalse(Safety.isSendLabel("البريد الوارد"))
         assertFalse(Safety.isSendLabel("المزيد"))
         assertFalse(Safety.isSendLabel(""))
+    }
+
+    @Test
+    fun `a local number gets the country code of the SIM in chat links`() {
+        assertEquals("97470776067", Dial.international("70776067", "974"))
+        assertEquals("97470776067", Dial.international("+97470776067", "974"))
+        assertEquals("97470776067", Dial.international("0097470776067", "974"))
+        assertEquals("97470776067", Dial.international("97470776067", "974"))     // already complete
+        assertEquals("966555123456", Dial.international("0555123456", "966"))     // the leading zero of a local number goes
+        assertEquals("70776067", Dial.international("70776067", null))             // no SIM country known: left alone
+        assertEquals("974", Dial.code("QA"))
+        assertNull(Dial.code(""))
+
+        assertEquals("https://wa.me/97470776067?text=hi", Dial.waLink("https://wa.me/70776067?text=hi", "974"))
+        assertEquals("https://wa.me/97470776067", Dial.waLink("https://wa.me/+97470776067", "974"))
+        assertEquals("https://example.com/70776067", Dial.waLink("https://example.com/70776067", "974"))
+
+        val local = (Commands.parse("أرسل واتساب إلى 70776067: هلا", "974") as? Cmd.Url)?.url
+        assertEquals("https://wa.me/97470776067?text=" + Commands.enc("هلا"), local)
+        assertEquals("https://wa.me/97455512345?text=" + Commands.enc("مرحبا بك"), url("أرسل واتساب إلى +97455512345: مرحبا بك"))
     }
 }

@@ -11,6 +11,7 @@ import android.os.SystemClock
 import android.provider.AlarmClock
 import android.view.KeyEvent
 import android.view.accessibility.AccessibilityNodeInfo
+import android.telephony.TelephonyManager
 import com.wakeel.agent.core.DeviceInfo
 import com.wakeel.agent.core.Text
 import com.wakeel.agent.service.AgentAccessibilityService
@@ -37,7 +38,7 @@ class LocalRouter(private val ctx: Context, private val apps: AppIndex, private 
     }
 
     suspend fun route(task: String, svc: AgentAccessibilityService): Result {
-        when (val cmd = Commands.parse(task)) {
+        when (val cmd = Commands.parse(task, dialCode())) {
             is Cmd.Global -> {
                 val action = when (cmd.action) {
                     "back" -> AccessibilityService.GLOBAL_ACTION_BACK
@@ -235,10 +236,25 @@ class LocalRouter(private val ctx: Context, private val apps: AppIndex, private 
         start(Intent("android.settings.APPLICATION_DETAILS_SETTINGS", Uri.parse("package:$pkg")), clean = true)
 
     /** Opens a web link or a known deep link. `tel:` only opens the dialer; nothing is ever sent or called. */
+    /** This phone's country calling code, from its SIM (no permission needed). */
+    private fun dialCode(): String? = runCatching {
+        val tm = ctx.getSystemService(TelephonyManager::class.java)
+        Dial.code(tm.simCountryIso.ifBlank { tm.networkCountryIso })
+    }.getOrNull()
+
     fun openUrl(rawUrl: String): Boolean {
-        val url = normalizeUrl(rawUrl) ?: return false
+        val url = Dial.waLink(normalizeUrl(rawUrl) ?: return false, dialCode())
         val uri = Uri.parse(encodeLoose(url))
         val intent = if (url.startsWith("tel:", ignoreCase = true)) Intent(Intent.ACTION_DIAL, uri) else Intent(Intent.ACTION_VIEW, uri)
+        // WhatsApp and WhatsApp Business both installed: a chat link would stop at "open with…".
+        // The main app is the one meant, so the link goes straight to it.
+        val host = runCatching { uri.host?.lowercase() }.getOrNull()
+        if (host == "wa.me" || host == "api.whatsapp.com" || uri.scheme == "whatsapp") {
+            val pm = ctx.packageManager
+            if (pm.getLaunchIntentForPackage(WHATSAPP) != null && pm.getLaunchIntentForPackage("$WHATSAPP.w4b") != null) {
+                if (start(Intent(intent).setPackage(WHATSAPP))) return true
+            }
+        }
         return start(intent)
     }
 
@@ -257,6 +273,7 @@ class LocalRouter(private val ctx: Context, private val apps: AppIndex, private 
     }.getOrDefault(false)
 
     companion object {
+        private const val WHATSAPP = "com.whatsapp"
         private val IN_WORDS = setOf("في", "من", "داخل", "ب", "علي", "ضمن", "in", "inside", "of").map { Text.norm(it) }.toSet()
         private val APP_WORDS = setOf("تطبيق", "برنامج", "app").map { Text.norm(it) }.toSet()
         private val PAGE_LEAD = setOf("إلى", "الى", "ل", "على", "صفحة", "قسم", "تبويب", "قائمة", "شاشة", "to", "the", "page", "tab", "screen").map { Text.norm(it) }.toSet()
