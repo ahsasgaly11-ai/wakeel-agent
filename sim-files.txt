@@ -1,0 +1,8 @@
+PASS  office files present
+PASS  درجات الصف.xlsx: archive and XML are well formed
+PASS  درجات الصف.xlsx: opens as a workbook ['درجات الصف']
+PASS  عرض دورة الماء.pptx: archive and XML are well formed
+PASS  عرض دورة الماء.pptx: opens as a presentation (6 slides)
+PASS  ملخص دورة الماء.docx: archive and XML are well formed
+PASS  ملخص دورة الماء.docx: opens as a Word document (8 paragraphs, 1 tables)
+FILES: OK

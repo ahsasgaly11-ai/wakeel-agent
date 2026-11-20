@@ -1,0 +1,24 @@
+PASS  office files present
+PASS  empty.docx: archive and XML are well formed
+PASS  empty.docx: opens as a Word document (0 paragraphs, 0 tables)
+PASS  empty.pptx: archive and XML are well formed
+PASS  empty.pptx: opens as a presentation (1 slides)
+PASS  empty.xlsx: archive and XML are well formed
+PASS  empty.xlsx: opens as a workbook ['Sheet1']
+PASS  sample-dark.pptx: archive and XML are well formed
+PASS  sample-dark.pptx: opens as a presentation (7 slides)
+PASS  sample-dark.pptx: seven slides with their text and one table
+PASS  sample-maroon.pptx: archive and XML are well formed
+PASS  sample-maroon.pptx: opens as a presentation (7 slides)
+PASS  sample-maroon.pptx: seven slides with their text and one table
+PASS  sample-teal.pptx: archive and XML are well formed
+PASS  sample-teal.pptx: opens as a presentation (7 slides)
+PASS  sample-teal.pptx: seven slides with their text and one table
+PASS  sample.docx: archive and XML are well formed
+PASS  sample.docx: opens as a Word document (18 paragraphs, 1 tables)
+PASS  sample.docx: title, headings and table are where they should be
+PASS  sample.docx: special characters survive
+PASS  sample.xlsx: archive and XML are well formed
+PASS  sample.xlsx: opens as a workbook ['درجات الصف', 'Notes']
+PASS  sample.xlsx: formulas, numbers, percentages, text codes and right-to-left
+FILES: OK

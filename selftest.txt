@@ -1,0 +1,93 @@
+Wakeel for iPad — self-test
+
+  ▶ أرسل في الصندوق إلى Sara رسالة مرحبا
+  ◀ done · calls=1 · free=0 · أرسلتُ الرسالة.
+PASS  a web task runs from one plan
+PASS  the message really went out on the page
+PASS  the owner was shown the text before it was sent
+PASS  the task was learned as a pattern with two slots
+  ▶ أرسل في الصندوق إلى Omar رسالة كيف حالك
+  ◀ done · calls=0 · free=5 · نفّذتُ المهارة المحفوظة دون استهلاك. الصفحة أمامك في المتصفح.
+PASS  a learned skill replays with new values
+PASS  the replay costs no model call
+  ▶ اكتب الرمز 1234 في حساب الصندوق
+  ◀ done · calls=2 · free=0 · لم أكتب الرمز.
+PASS  a password field is never typed in
+  ▶ اضغط على شيء غير موجود في الصندوق
+  ◀ failed · calls=3 · free=0 · توقّفتُ لأن خطوة واحدة تتكرر والصفحة لا تتغيّر: ضغط على «Nothing here» في sandbox.wakeel. ⏎ ما يفيد الآن: اذكر لي الخطوات بالترتيب وبأسماء الأزرا
+PASS  a repeated step stops the task and is named
+  ▶ أنشئ ملخصاً وعرضاً وجدول درجات عن دورة الماء
+  ◀ done · calls=1 · free=0 · أنشأتُ الملفات الثلاثة.
+PASS  three Office files are created in one plan
+PASS  the files are real archives with content
+PASS  creating files teaches no browsing skill
+  ▶ بعد 4 ثواني كم الساعة
+  ◀ done · calls=0 · free=1 · جُدولت المهمة بعد 4 ثانية. سأنبّهك عند موعدها، وإلغاؤها من الصفحة الرئيسية.
+PASS  a task for later is scheduled, not run
+PASS  the time phrase is taken out of the task
+PASS  the scheduled task starts by itself at its time
+  ▶ أرسل واتساب إلى 70776067: هلا
+  ◀ done · calls=0 · free=1 · فتحتُ محادثة واتساب مع 70776067 والرسالة جاهزة — اضغط إرسال.
+PASS  a WhatsApp message is prepared without the model
+PASS  what the owner does in the browser is recorded
+PASS  the demonstration becomes a skill with a slot
+  ▶ اشترِ من الصندوق مقاس Small
+  ◀ done · calls=0 · free=4 · نفّذتُ المهارة المحفوظة دون استهلاك. الصفحة أمامك في المتصفح.
+PASS  the taught skill replays with another value, free
+PASS  an unfinished demonstration is not saved
+  ▶ افتح حسابي في البنك وحوّل مبلغاً
+  ◀ failed · calls=1 · free=0 · هذا الموقع في قائمة المواقع الممنوعة على الوكيل (online.mybank.example). افتحه بنفسك، أو عدّل القائمة من الإعدادات.
+PASS  a blocked site is refused
+  ▶ حيِّ Noor في الصندوق
+  ◀ done · calls=2 · free=0 · أرسلتُ «هلا».
+PASS  the owner is shown text the task did not write
+PASS  only the real message goes out
+  ▶ انزل في الصندوق واضغط الزر العميق
+  ◀ done · calls=1 · free=0 · ضغطتُ الزر.
+PASS  an element below the visible part is reached
+  ▶ ما عاصمة قطر بحسب صفحة الصندوق
+  ◀ done · calls=2 · free=0 · عاصمة قطر هي **الدوحة**.
+PASS  the full page text reaches the model when asked
+PASS  a plain search is a free local command
+  ▶ انشر الدرس الأول للصف الثالث يوم الأحد
+  ◀ failed · calls=2 · free=0 · الاختصار غير موجود.
+PASS  a Shortcut is not reported as done before the owner says it ran
+PASS  a Shortcut the owner says is missing is marked so
+PASS  the model is told it is missing and no longer offered it
+PASS  the owner's written instructions reach the model
+  ▶ شغّل اختصار نشر الدروس
+  ◀ done · calls=0 · free=1 · اشتغل الاختصار «نشر الدروس» في تطبيق «الاختصارات»، ويكمل عمله هناك.
+PASS  trying it by name records that it works
+  ▶ نشر الدروس
+  ◀ done · calls=0 · free=1 · اشتغل الاختصار «نشر الدروس» في تطبيق «الاختصارات»، ويكمل عمله هناك.
+PASS  a Shortcut known to work is not asked about again
+  · cycle 1: 1 إجراء هذه الدورة · الرصيد 9,999.00 USDT · اليوم -1.00
+  · BTCUSDT buy (82) — فُتحت صفقة شراء BTCUSDT: 17.4064 بسعر 114.9000 (2,000.00 USDT) · وقف 111.4530 · هدف 119.4960 (قُرّب وقف الخسارة إلى الحد 3.0%)
+PASS  a trading cycle is one model request
+PASS  the model's decision opens a position in the paper account
+PASS  a stop beyond the owner's limit is pulled in to it
+PASS  the position is capped at the owner's size
+PASS  the model is shown numbers computed on the device
+  · cycle 2: 1 إجراء هذه الدورة · الرصيد 10,077.96 USDT · اليوم +77.96
+PASS  a position is closed at its target when the market reaches it
+PASS  the profit is in the account, fees deducted
+PASS  a low-confidence decision opens nothing
+PASS  the paper account is kept between launches
+  · live market data: 60 candles, last BTCUSDT close 60982.12
+PASS  live candles are sane
+  · live headlines: Kraken parent's acquisition of Tribe Capital flags new chapter in evolution of crypto exchanges - CNBC | Bitcoin extends declines as Asian tech shares slide: Crypto Markets Today - CoinDesk
+PASS  the keyboard comes up when a field of the app takes the focus
+  · app keyboard 945…1181 of 1210 · system keyboard 0 high · focus=TextEditorTextView app=active key=true screen=834x1210 insets=25 input=0x0 host:
+PASS  it sits at the bottom of the screen
+PASS  the system keyboard takes no room beside it
+PASS  its keys type into the field
+PASS  its delete key deletes
+PASS  its hide key puts it away
+PASS  the keyboard comes up for a field on a web page
+PASS  its keys type into the page
+PASS  its Return key submits the page's form
+PASS  the keyboard comes up for the address bar, on its English letters
+PASS  its Return key opens the address typed with it
+PASS  the keyboard goes away when the field is done
+
+RESULT: OK (53 checks)

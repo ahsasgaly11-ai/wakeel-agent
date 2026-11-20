@@ -1,0 +1,13 @@
+Command line invocation:
+    /Applications/Xcode_16.4.app/Contents/Developer/usr/bin/xcodebuild -list
+
+Resolve Package Graph
+
+
+Resolved source packages:
+  Wakeel: /Users/runner/work/wakeel-agent/wakeel-agent/ipad/Wakeel.swiftpm
+
+Information about workspace "Wakeel":
+    Schemes:
+        Wakeel
+
