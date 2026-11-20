@@ -84,7 +84,7 @@ struct KnowledgeScreen: View {
     @EnvironmentObject var model: AppModel
 
     var body: some View {
-        KnowledgeList(skills: model.skills, shortcuts: model.shortcuts)
+        KnowledgeList(skills: model.skills, shortcuts: model.shortcuts, procedures: model.procedures)
     }
 }
 
@@ -92,9 +92,13 @@ private struct KnowledgeList: View {
     @ObservedObject var skills: Store<Skill>
     @ObservedObject var shortcuts: Store<ShortcutItem>
     @EnvironmentObject var model: AppModel
+    @ObservedObject var procedures: Store<Procedure>
     @State private var name = ""
     @State private var about = ""
     @State private var takesInput = false
+    @State private var title = ""
+    @State private var steps = ""
+    @State private var editing: UUID?
 
     var body: some View {
         NavigationStack {
@@ -123,12 +127,62 @@ private struct KnowledgeList: View {
                 }
 
                 Section {
+                    if procedures.items.isEmpty { Text("لا توجد تعليمات بعد. اكتب هنا خطوات مهمة تكرّرها على موقع، فينفّذها وكيل في متصفحه كما كتبتَها.").foregroundStyle(.secondary) }
+                    ForEach(procedures.items) { p in
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text(p.title).font(.subheadline.weight(.semibold))
+                            Text(p.steps).font(.caption).foregroundStyle(.secondary).lineLimit(3)
+                            Button("تعديل") { editing = p.id; title = p.title; steps = p.steps }.font(.footnote)
+                        }
+                        .padding(.vertical, 2)
+                    }
+                    .onDelete { procedures.items.remove(atOffsets: $0) }
+                    TextField("اسم المهمة (مثال: نشر درس في المنصة)", text: $title)
+                    ZStack(alignment: .topLeading) {
+                        if steps.isEmpty {
+                            Text("الخطوات بالترتيب: العنوان الذي يُفتح، ما يُضغط، وما لا يُفعل…").foregroundStyle(.tertiary).padding(.top, 8).padding(.horizontal, 5)
+                        }
+                        TextEditor(text: $steps).frame(minHeight: 130, maxHeight: 260).scrollContentBackground(.hidden)
+                    }
+                    HStack {
+                        Button(editing == nil ? "حفظ التعليمات" : "حفظ التعديل") {
+                            let item = Procedure(title: title.trimmed, steps: steps.trimmed)
+                            if let id = editing, let i = procedures.items.firstIndex(where: { $0.id == id }) {
+                                procedures.items[i].title = item.title
+                                procedures.items[i].steps = item.steps
+                            } else {
+                                procedures.items.append(item)
+                            }
+                            editing = nil
+                            title = ""
+                            steps = ""
+                        }
+                        .buttonStyle(.borderedProminent).tint(Brand.teal)
+                        .disabled(title.trimmed.isEmpty || steps.trimmed.isEmpty)
+                        if editing != nil {
+                            Button("إلغاء") { editing = nil; title = ""; steps = "" }.buttonStyle(.bordered)
+                        }
+                    }
+                } header: {
+                    Text("تعليماتي")
+                } footer: {
+                    Text("حين تطلب مهمة تناسب أحد هذه العناوين يتبع وكيل خطواتها بالترتيب في متصفحه، بقيم طلبك أنت (أي درس، أي صف، أي يوم). سجّل دخولك إلى الموقع بنفسك من تبويب «المتصفح» أولاً: وكيل لا يكتب كلمات المرور. اسحب لحذف تعليمات.")
+                }
+
+                Section {
                     ForEach(shortcuts.items) { s in
-                        VStack(alignment: .leading, spacing: 3) {
+                        VStack(alignment: .leading, spacing: 4) {
                             Text(s.name).font(.subheadline.weight(.semibold))
                             if !s.about.isEmpty { Text(s.about).font(.caption).foregroundStyle(.secondary) }
-                            if s.takesInput { Text("يستقبل نصاً").font(.caption2).foregroundStyle(Brand.teal) }
+                            HStack(spacing: 6) {
+                                if s.verified == true { Chip(text: "جرّبتَه ويعمل", symbol: "checkmark", color: .green) }
+                                if s.verified == false { Chip(text: "غير موجود في «الاختصارات»", symbol: "xmark", color: Brand.ruby) }
+                                if s.verified == nil { Chip(text: "لم يُجرَّب بعد", symbol: "questionmark", color: .orange) }
+                                if s.takesInput { Chip(text: "يستقبل نصاً", symbol: "text.cursor") }
+                            }
+                            Button("جرّبه") { model.compose("شغّل اختصار \(s.name)") }.font(.footnote)
                         }
+                        .padding(.vertical, 2)
                     }
                     .onDelete { shortcuts.items.remove(atOffsets: $0) }
                     TextField("اسم الاختصار كما هو في تطبيق «الاختصارات»", text: $name)
@@ -144,7 +198,7 @@ private struct KnowledgeList: View {
                 } header: {
                     Text("اختصاراتي")
                 } footer: {
-                    Text("الاختصارات هي طريق وكيل إلى التطبيقات الأخرى: جهّز الاختصار في تطبيق «الاختصارات» وسجّل اسمه هنا، ثم قل «شغّل اختصار كذا» أو دع وكيل يختاره حين يناسب المهمة.")
+                    Text("هذا السطر لا ينشئ اختصاراً: اصنع الاختصار أولاً في تطبيق «الاختصارات»، ثم سجّل هنا اسمه حرفاً بحرف واضغط «جرّبه». وكيل لا يرى ما يجري داخل «الاختصارات»، فيسألك مرة واحدة هل اشتغل. لمهمة على موقع (مثل نشر درس) استعمل «تعليماتي» أعلاه لا الاختصارات.")
                 }
             }
             .navigationTitle("المعرفة")

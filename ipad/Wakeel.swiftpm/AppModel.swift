@@ -9,6 +9,7 @@ final class AppModel: ObservableObject {
     let history = Store<TaskRecord>("history")
     let skills = Store<Skill>("skills")
     let shortcuts = Store<ShortcutItem>("shortcuts")
+    let procedures = Store<Procedure>("procedures")
     let browser: BrowserController
     let engine: Engine
     let scheduler: Scheduler
@@ -34,6 +35,7 @@ final class AppModel: ObservableObject {
         let teacher = self.teacher
         engine.schedule = { task, at in scheduler.add(task, at: at) }
         engine.isTeaching = { teacher.active }
+        engine.procedures = procedures
         let engine = self.engine
         keyboard.busy = { engine.isRunning }
         browser.onExternal = { url in UIApplication.shared.open(url) }

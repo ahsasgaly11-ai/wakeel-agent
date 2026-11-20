@@ -52,6 +52,8 @@ final class Engine: ObservableObject {
     }
     /// Self-test: answers questions in the owner's place.
     var autoAnswer: ((Question) -> Bool?)?
+    /// The owner's written instructions for tasks they repeat.
+    var procedures: Store<Procedure>?
 
     private var job: Task<Void, Never>?
     private var confirmGate: CheckedContinuation<Bool?, Never>?
@@ -208,6 +210,24 @@ final class Engine: ObservableObject {
         return ok
     }
 
+    static func missingShortcut(_ name: String) -> String {
+        "الاختصار «\(name)» غير موجود في تطبيق «الاختصارات» بهذا الاسم.\n" +
+            "تسجيل اسمه في «المعرفة» لا ينشئه: اصنعه في تطبيق «الاختصارات» بالاسم نفسه حرفياً ثم جرّبه من «المعرفة»، أو احذف سطره من هناك.\n" +
+            "وإن كانت المهمة على موقع، فاكتب خطواتها في «المعرفة ← تعليماتي» فأنفّذها في المتصفح."
+    }
+
+    /// The Shortcuts app was asked to run a Shortcut. Whether it exists there, and what it did, cannot be seen
+    /// from this app: the owner is asked once, and the answer is remembered with the Shortcut.
+    private func shortcutWorked(_ run: Run, name: String, item: ShortcutItem?) async throws -> Bool {
+        if item?.verified == true { return true }
+        log(run, .warn, "طلبتُ تشغيل الاختصار «\(name)» — لا أرى من هنا هل هو موجود وهل نجح")
+        let q = Question(title: "هل اشتغل الاختصار؟", text: "طلبتُ من تطبيق «الاختصارات» تشغيل «\(name)». لا أرى من هنا ما حدث هناك: هل اشتغل؟", yes: "نعم، اشتغل", no: "لا، لم يُعثر عليه")
+        guard let worked = await choose(run, q) else { throw Stop(status: .stopped, message: "لم يصل ردّك: هل اشتغل الاختصار «\(name)»؟") }
+        if let id = item?.id, let i = shortcuts.items.firstIndex(where: { $0.id == id }) { shortcuts.items[i].verified = worked }
+        log(run, worked ? .info : .warn, worked ? "قلتَ إنه اشتغل" : "قلتَ إنه غير موجود — لن أختاره من تلقاء نفسي")
+        return worked
+    }
+
     private func ask(_ run: Run, _ question: String) async -> String? {
         if autoAnswer != nil { return nil }
         log(run, .warn, "سؤال: \(question)")
@@ -274,7 +294,20 @@ final class Engine: ObservableObject {
             case .external(let url, let say):
                 log(run, .local, "فتح رابط خارجي — دون استهلاك")
                 run.localSteps += 1
-                if await opener(url) { throw Stop(status: .done, message: say) }
+                if await opener(url) {
+                    if url.hasPrefix("shortcuts://run-shortcut") {
+                        let item = shortcuts.items.first { s in
+                            let base = Commands.shortcutURL(s.name, input: nil)
+                            return url == base || url.hasPrefix(base + "&")
+                        }
+                        let name = item?.name ?? (URLComponents(string: url)?.queryItems?.first { $0.name == "name" }?.value ?? "")
+                        if try await shortcutWorked(run, name: name, item: item) {
+                            throw Stop(status: .done, message: "اشتغل الاختصار «\(name)» في تطبيق «الاختصارات»، ويكمل عمله هناك.")
+                        }
+                        throw Stop(status: .failed, message: Engine.missingShortcut(name))
+                    }
+                    throw Stop(status: .done, message: say)
+                }
                 throw Stop(status: .failed, message: "لم أستطع فتح الرابط: لا يوجد على هذا الجهاز تطبيق يفتحه.")
             }
         }
@@ -337,8 +370,14 @@ final class Engine: ObservableObject {
             if !texts.isEmpty { user += "ATTACHMENTS:\n" + texts.joined(separator: "\n\n") + "\n" }
             let pictures = run.attachments.filter { $0.image != nil }
             if !pictures.isEmpty { user += "ATTACHED PICTURES: " + pictures.map { $0.name }.joined(separator: ", ") + (step == 1 ? " (shown)" : " (shown earlier; rely on MEMO)") + "\n" }
-            if !shortcuts.items.isEmpty {
-                user += "SHORTCUTS:\n" + shortcuts.items.map { "- \($0.name)\($0.about.isEmpty ? "" : " — " + $0.about)\($0.takesInput ? " (takes text)" : "")" }.joined(separator: "\n") + "\n"
+            if let own = procedures?.items, !own.isEmpty {
+                user += "OWNER'S INSTRUCTIONS (the owner's own way of doing tasks they repeat):\n" +
+                    own.prefix(8).map { "## \($0.title)\n\($0.steps.take(2000))" }.joined(separator: "\n") + "\n"
+            }
+            // A Shortcut the owner said does not exist is not offered again until they try it themselves
+            let usable = shortcuts.items.filter { $0.verified != false }
+            if !usable.isEmpty {
+                user += "SHORTCUTS:\n" + usable.map { "- \($0.name)\($0.about.isEmpty ? "" : " — " + $0.about)\($0.takesInput ? " (takes text)" : "")" }.joined(separator: "\n") + "\n"
             }
             if !run.files.isEmpty { user += "FILES CREATED: " + run.files.joined(separator: ", ") + "\n" }
             if !run.memo.isEmpty { user += "MEMO: \(run.memo.take(3000))\n" }
@@ -677,8 +716,14 @@ final class Engine: ObservableObject {
             }
             if !(await confirm(run, needed: true, "تشغيل الاختصار «\(item.name)»")) { return Outcome(line: "run_shortcut ✗ DENIED by owner — do not retry", abort: true) }
             let input = a.name != nil ? a.text : nil
+            if item.verified == false {
+                return Outcome(line: "run_shortcut ✗ the owner said \"\(item.name)\" does not exist in the Shortcuts app — do the task another way", abort: true)
+            }
             if await opener(Commands.shortcutURL(item.name, input: input)) {
-                throw Stop(status: .done, message: "شغّلتُ الاختصار «\(item.name)». يكمل عمله في تطبيق الاختصارات.")
+                if try await shortcutWorked(run, name: item.name, item: item) {
+                    throw Stop(status: .done, message: "اشتغل الاختصار «\(item.name)» في تطبيق «الاختصارات»، ويكمل عمله هناك.")
+                }
+                return Outcome(line: "run_shortcut ✗ the owner says \"\(item.name)\" does NOT exist in the Shortcuts app. Never use it again. Do the task yourself in the browser (follow OWNER'S INSTRUCTIONS if one fits), or fail and say the Shortcut is missing", abort: true)
             }
             return Outcome(line: "run_shortcut ✗ could not open the Shortcuts app", abort: true)
 

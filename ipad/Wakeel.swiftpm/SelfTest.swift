@@ -75,6 +75,7 @@ enum SelfTest {
         m.skills.items = []
         m.history.items = []
         m.shortcuts.items = []
+        m.procedures.items = []
         m.scheduler.store.items = []
         let escalate = m.settings.escalate
         m.settings.escalate = false          // the tests script one model; a second, stronger one would need plans of its own
@@ -83,9 +84,11 @@ enum SelfTest {
         m.engine.opener = { link in opened.append(link); return true }
         var refuseOldText = false
         var asked: [String] = []
+        var shortcutExists = false
         m.engine.autoAnswer = { q in
             asked.append(q.text)
             if q.title == "نص قديم في حقل الكتابة" { return !refuseOldText }
+            if q.title == "هل اشتغل الاختصار؟" { return shortcutExists }
             return true
         }
         let open: JSON = ["type": "open_url", "text": sandbox]
@@ -228,6 +231,29 @@ enum SelfTest {
         m.settings.searchEngine = "google"
         let cmd = Commands.parse("ابحث عن قهوة عربية", search: m.settings.searchURL)
         check("a plain search is a free local command", cmd == .browse(url: "https://www.google.com/search?q=" + Commands.enc("قهوة عربية"), say: "هذه نتائج البحث عن «قهوة عربية»."), "\(String(describing: cmd))")
+
+        // 14b — a Shortcut that is only a name: the app cannot see into the Shortcuts app, so it must not say "done"
+        m.shortcuts.items = [ShortcutItem(name: "نشر الدروس", about: "ينشر درساً في المنصة")]
+        m.procedures.items = [Procedure(title: "نشر درس في المنصة", steps: "افتح قائمة دروس الصف ثم اضغط تعديل واختر التاريخ من التقويم ولا تكتبه بيدك")]
+        opened = []
+        asked = []
+        shortcutExists = false
+        fake.plan([["type": "run_shortcut", "name": "نشر الدروس"]])
+        fake.plan([["type": "fail", "text": "الاختصار غير موجود."]])
+        r = await runTask(m, "انشر الدرس الأول للصف الثالث يوم الأحد")
+        check("a Shortcut is not reported as done before the owner says it ran", r?.status == .failed && asked.contains { $0.contains("هل اشتغل") } && opened.count == 1, "\(r?.status.rawValue ?? "nil") asked=\(asked.count) opened=\(opened.count)")
+        check("a Shortcut the owner says is missing is marked so", m.shortcuts.items.first?.verified == false)
+        check("the model is told it is missing and no longer offered it", fake.lastUser.contains("does NOT exist") && !fake.lastUser.contains("SHORTCUTS:"), fake.lastUser.suffix(300).description)
+        check("the owner's written instructions reach the model", fake.lastUser.contains("OWNER'S INSTRUCTIONS") && fake.lastUser.contains("ولا تكتبه بيدك") && fake.lastUser.contains("NOW: "))
+        // The owner makes the Shortcut and tries it by name: now it is known to work, and is not asked about again
+        shortcutExists = true
+        r = await runTask(m, "شغّل اختصار نشر الدروس")
+        check("trying it by name records that it works", r?.status == .done && m.shortcuts.items.first?.verified == true, r?.result ?? "nil")
+        asked = []
+        r = await runTask(m, "نشر الدروس")
+        check("a Shortcut known to work is not asked about again", r?.status == .done && !asked.contains { $0.contains("هل اشتغل") }, "asked=\(asked.count)")
+        m.shortcuts.items = []
+        m.procedures.items = []
         m.settings.escalate = escalate
 
         // 15 — the app's own keyboard types into the app's own fields

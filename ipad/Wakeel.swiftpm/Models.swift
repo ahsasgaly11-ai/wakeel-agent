@@ -88,6 +88,17 @@ struct ShortcutItem: Codable, Identifiable {
     /// When to use it, in the owner's words — this is all the model knows about it.
     var about: String = ""
     var takesInput = false
+    /// What the owner said after it was run: true = it worked, false = the Shortcuts app does not have it.
+    /// This app cannot see into the Shortcuts app, so the owner is the only witness.
+    var verified: Bool?
+}
+
+/// A task the owner repeats, written in the owner's own words: where to go and what to press, in order.
+/// The model follows it in the browser instead of finding its own way.
+struct Procedure: Codable, Identifiable {
+    var id = UUID()
+    var title: String
+    var steps: String
 }
 
 /// A list kept in a JSON file in the app's own folder.
