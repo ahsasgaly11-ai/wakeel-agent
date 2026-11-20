@@ -16,7 +16,7 @@ note "$(head -1 "$OUT/tools.txt") · $(sed -n 2p "$OUT/tools.txt")"
 note ""
 
 # ---- 1. logic tests: the app's own source files, without a screen
-CORE="TextTools Schedule Commands Models Zip Docx Xlsx Pptx Skills Prompt"
+CORE="TextTools Schedule Commands Models Zip Docx Xlsx Pptx Skills Prompt LLM SettingsStore"
 SRC=""; for f in $CORE; do SRC="$SRC $APP/$f.swift"; done
 swiftc -o "$OUT/logic" $SRC "$ROOT/ipad/Tests/main.swift" > "$OUT/logic-build.txt" 2>&1; rc=$?
 if [ $rc -eq 0 ]; then "$OUT/logic" "$OUT/files" > "$OUT/logic.txt" 2>&1; rc=$?; else cp "$OUT/logic-build.txt" "$OUT/logic.txt"; fi
