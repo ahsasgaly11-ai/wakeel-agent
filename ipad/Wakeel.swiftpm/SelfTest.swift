@@ -277,6 +277,21 @@ enum SelfTest {
         m.keyboard.hide()
         try? await Task.sleep(nanoseconds: 400_000_000)
 
+        // 17 — and into a one-line field of the app: the address bar, where Return opens the page
+        for _ in 0..<5 where !m.keyboard.visible {
+            m.focusAddress += 1
+            try? await Task.sleep(nanoseconds: 900_000_000)
+        }
+        check("the keyboard comes up for the address bar, on its English letters", m.keyboard.visible && m.keyboard.layer == .english, FocusHelp.report)
+        for ch in sandbox { m.keyboard.insert(String(ch)) }
+        try? await Task.sleep(nanoseconds: 300_000_000)
+        m.keyboard.enter()
+        try? await Task.sleep(nanoseconds: 1_500_000_000)
+        st = await status(m)
+        check("its Return key opens the address typed with it", st != "searched: قهو" && m.browser.url.hasPrefix("https://sandbox.wakeel"), "status «\(st)» url «\(m.browser.url)»")
+        check("the keyboard goes away when the field is done", !m.keyboard.visible)
+        m.keyboard.hide()
+
         lines.append("")
         lines.append(failed == 0 ? "RESULT: OK (\(lines.filter { $0.hasPrefix("PASS") }.count) checks)" : "RESULT: FAILED (\(failed) of \(lines.filter { $0.hasPrefix("PASS") || $0.hasPrefix("FAIL") }.count))")
         report()

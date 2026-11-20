@@ -21,6 +21,8 @@ final class AppModel: ObservableObject {
     @Published var draft = ""
     /// Raised to put the cursor in the task field.
     @Published var focusComposer = 0
+    /// Raised to put the cursor in the browser's address bar.
+    @Published var focusAddress = 0
 
     init() {
         browser = BrowserController(mobile: settings.mobileSites)

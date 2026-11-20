@@ -46,6 +46,18 @@ enum FocusHelp {
         if let w = window, let t = textView(in: w) { t.becomeFirstResponder() }
     }
 
+    private static func textField(in view: UIView) -> UITextField? {
+        if let t = view as? UITextField, t.isEnabled, !t.isHidden, t.window != nil { return t }
+        for sub in view.subviews { if let t = textField(in: sub) { return t } }
+        return nil
+    }
+
+    /// The same for the screen's first one-line field.
+    static func ensureField() {
+        if UIResponder.wkFirst() is UITextField { return }
+        if let w = window, let t = textField(in: w) { t.becomeFirstResponder() }
+    }
+
     /// For the self-test's report: what holds the focus now.
     static var report: String {
         let r = UIResponder.wkFirst()
@@ -125,6 +137,9 @@ final class KeyboardHub: ObservableObject {
             if tf.isSecureTextEntry || [.URL, .webSearch, .emailAddress, .asciiCapable].contains(tf.keyboardType) { show(.english) }
             else if [.decimalPad, .numberPad, .numbersAndPunctuation, .phonePad].contains(tf.keyboardType) { layer = .symbols }
         } else if let tv = field as? UITextView {
+            // With no system keyboard there is no typing language to place the cursor of an empty field by:
+            // in the Arabic interface it starts on the right, where the first letter will appear
+            if tv.effectiveUserInterfaceLayoutDirection == .rightToLeft && tv.textAlignment == .natural { tv.textAlignment = .right }
             tv.inputAssistantItem.leadingBarButtonGroups = []
             tv.inputAssistantItem.trailingBarButtonGroups = []
             if tv.inputView == nil { tv.inputView = NoSystemKeyboard.make(); tv.reloadInputViews() }

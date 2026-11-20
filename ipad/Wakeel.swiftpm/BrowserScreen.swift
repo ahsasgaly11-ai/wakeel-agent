@@ -36,6 +36,11 @@ struct BrowserScreen: View {
         }
         .onReceive(clock) { _ in browser.refresh() }
         .onChange(of: browser.url) { if !editing { address = browser.url } }
+        .onChange(of: model.focusAddress) {
+            address = ""
+            editing = true
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) { FocusHelp.ensureField() }
+        }
         .alert(item: $browser.dialog) { d in
             if d.isConfirm {
                 return Alert(title: Text("الصفحة تسأل"), message: Text(d.message), primaryButton: .default(Text("موافق")) { d.answer(true) }, secondaryButton: .cancel(Text("إلغاء")) { d.answer(false) })
