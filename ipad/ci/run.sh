@@ -16,7 +16,7 @@ note "$(head -1 "$OUT/tools.txt") · $(sed -n 2p "$OUT/tools.txt")"
 note ""
 
 # ---- 1. logic tests: the app's own source files, without a screen
-CORE="TextTools Schedule Commands Models Zip Docx Xlsx Pptx Skills Prompt LLM SettingsStore"
+CORE="TextTools Schedule Commands Models Zip Docx Xlsx Pptx Skills Prompt LLM SettingsStore Trade"
 SRC=""; for f in $CORE; do SRC="$SRC $APP/$f.swift"; done
 swiftc -o "$OUT/logic" $SRC "$ROOT/ipad/Tests/main.swift" > "$OUT/logic-build.txt" 2>&1; rc=$?
 if [ $rc -eq 0 ]; then "$OUT/logic" "$OUT/files" > "$OUT/logic.txt" 2>&1; rc=$?; else cp "$OUT/logic-build.txt" "$OUT/logic.txt"; fi
@@ -78,7 +78,7 @@ print(pads[-1][1]['udid'] if pads else '')")"
   ls "$HOME/Library/Logs/DiagnosticReports" 2>/dev/null | grep -i wakeel > "$OUT/crashes.txt"
   [ -s "$OUT/crashes.txt" ] && { note "FAIL  the app crashed: $(head -3 "$OUT/crashes.txt" | xargs)"; FAILED=1; cp "$HOME/Library/Logs/DiagnosticReports/"*akeel* "$OUT/" 2>/dev/null; }
 
-  for TAB in 0 1 2 3 4; do
+  for TAB in 0 1 2 3 4 5; do
     xcrun simctl terminate "$UDID" "$BID" > /dev/null 2>&1
     xcrun simctl launch "$UDID" "$BID" -demo -tab "$TAB" $LANG_ARGS > /dev/null 2>&1
     sleep 7

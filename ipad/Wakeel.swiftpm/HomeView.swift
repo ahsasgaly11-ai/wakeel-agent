@@ -25,6 +25,7 @@ struct RootView: View {
             BrowserScreen().tabItem { Label("المتصفح", systemImage: "safari") }.tag(1)
             FilesScreen().tabItem { Label("الملفات", systemImage: "doc.on.doc") }.tag(2)
             KnowledgeScreen().tabItem { Label("المعرفة", systemImage: "graduationcap") }.tag(3)
+            TradeScreen().tabItem { Label("التداول", systemImage: "chart.line.uptrend.xyaxis") }.tag(5)
             SettingsScreen().tabItem { Label("الإعدادات", systemImage: "gearshape") }.tag(4)
         }
         .tint(Brand.teal)

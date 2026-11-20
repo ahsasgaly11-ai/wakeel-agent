@@ -172,5 +172,145 @@ do {
 }
 same(Xlsx.column(0) + Xlsx.column(25) + Xlsx.column(26) + Xlsx.column(701), "AZAAZZ", "column letters")
 
+// ---------------------------------------------------------------- trading mode
+func near(_ a: Double?, _ b: Double, _ what: String, _ eps: Double = 1e-9) { expect(a != nil && abs(a! - b) <= eps, what, "got \(String(describing: a)), expected \(b)") }
+func bar(_ t: Int64, _ o: Double, _ h: Double, _ l: Double, _ c: Double, _ v: Double = 10) -> Candle { Candle(time: t, open: o, high: h, low: l, close: c, volume: v) }
+
+near(Indicators.ema([1, 2, 3, 4, 5], 3), 4, "EMA")
+expect(Indicators.ema([1, 2], 3) == nil, "EMA needs enough values")
+near(Indicators.rsi((1...30).map(Double.init)), 100, "RSI of a steady climb")
+near(Indicators.rsi(Array(repeating: 7, count: 30)), 50, "RSI of a flat line")
+let book = [44.34, 44.09, 44.15, 43.61, 44.33, 44.83, 45.10, 45.42, 45.84, 46.08, 45.89, 46.03, 45.61, 46.28, 46.28]
+near(Indicators.rsi(book), 70.5, "RSI of the textbook series", 0.2)
+expect(Indicators.rsi(Array(book.prefix(14))) == nil, "RSI needs fifteen closes")
+near(Indicators.atr((0..<30).map { bar(Int64($0) * 3_600_000, 100, 101, 99, 100) }), 2, "ATR")
+near(Indicators.bollinger(Array(repeating: 5, count: 20))?.low, 5, "Bollinger of a flat line")
+expect(Indicators.macdHist((1...30).map(Double.init)) == nil, "MACD needs history")
+near(Indicators.macdHist((1...200).map(Double.init)), 0, "MACD histogram of a steady climb", 1e-6)
+
+let klines = MarketText.parseKlines(#"[[1499644800000,"0.016","0.80","0.015","0.0157","148976.1",1499648399999,"2434.19",308,"1756.8","28.4","0"],[1499040000000,"0.0163","0.8","0.0157","0.0158","100.5",1499043599999,"1.0"]]"#)
+same(klines.count, 2, "two candles read")
+same(klines.first?.time, 1499040000000, "candles sorted by time")
+near(klines.first?.close, 0.0158, "close", 1e-12)
+near(klines.last?.high, 0.80, "high", 1e-12)
+near(klines.last?.volume, 148976.1, "volume", 1e-6)
+expect(MarketText.parseKlines(#"{"code":-1121,"msg":"Invalid symbol."}"#).isEmpty, "an error reply gives no candles")
+same(MarketText.parseRss("<rss><channel><title>feed</title><item><title>Bitcoin climbs &amp; holds - Site</title><link>x</link></item><item><title><![CDATA[Ether slips]]></title></item></channel></rss>"),
+     ["Bitcoin climbs & holds - Site", "Ether slips"], "headlines")
+same(MarketText.symbols("btc/usdt، ETHUSDT xx btcusdt"), ["BTCUSDT", "ETHUSDT"], "symbols cleaned")
+same(Fmt.money(12345.678), "12,345.68", "money")
+same(Fmt.signed(-42.02), "-42.02", "signed loss")
+same(Fmt.signed(1234.5), "+1,234.50", "signed gain")
+
+let lim = Limits()
+var acct = Account(10_000)
+var res = Paper.open(&acct, lim, "BTCUSDT", .long, 100, sl: 98, tp: 104, atr: nil, now: 1000, reason: "سبب", equity: 10_000)
+expect(res.changed, "a trade opens", res.text)
+near(acct.positions.first?.qty, 20, "the position cap decides the size")
+near(acct.positions.first?.sl, 98, "the stop as given")
+near(acct.cash, 9_999, "entry fee")
+expect(!Paper.open(&acct, lim, "BTCUSDT", .long, 100, sl: 98, tp: 104, atr: nil, now: 1000, reason: "", equity: 10_000).changed, "one position per symbol")
+near(Paper.equity(acct, ["BTCUSDT": 102]), 10_039, "equity with an open profit")
+let closedWin = Paper.close(&acct, lim, "BTCUSDT", 104, now: 5, why: "agent")
+near(closedWin?.pnl, 77.96, "profit net of both fees")
+near(acct.cash, 10_077.96, "cash after the close")
+same(Paper.stats(acct).wins, 1, "one winning trade")
+
+var small = Account(1_000)
+_ = Paper.open(&small, lim, "ETHUSDT", .long, 100, sl: 99, tp: nil, atr: nil, now: 0, reason: "", equity: 1_000)
+near(small.positions.first?.qty, 10, "the risk rule decides the size")
+near(small.positions.first?.tp, 102, "a missing target is twice the stop distance")
+
+acct = Account(10_000)
+res = Paper.open(&acct, lim, "BTCUSDT", .long, 100, sl: 90, tp: nil, atr: nil, now: 0, reason: "", equity: 10_000)
+near(acct.positions.first?.sl, 97, "a distant stop is pulled in")
+expect(res.text.contains("قُرّب"), "and the owner is told", res.text)
+acct = Account(10_000)
+_ = Paper.open(&acct, lim, "BTCUSDT", .long, 100, sl: nil, tp: nil, atr: 1, now: 0, reason: "", equity: 10_000)
+near(acct.positions.first?.sl, 98.5, "a missing stop is set from ATR")
+near(acct.positions.first?.tp, 103, "and the target from it")
+acct = Account(10_000)
+res = Paper.open(&acct, lim, "BTCUSDT", .long, 100, sl: 105, tp: 95, atr: nil, now: 0, reason: "", equity: 10_000)
+near(acct.positions.first?.sl, 97, "a stop on the wrong side is replaced")
+near(acct.positions.first?.tp, 106, "a target on the wrong side is replaced")
+expect(res.text.contains("تلقائياً"), "the automatic stop is reported")
+acct = Account(10_000)
+_ = Paper.open(&acct, lim, "BTCUSDT", .short, 100, sl: 102, tp: 96, atr: nil, now: 0, reason: "", equity: 10_000)
+same(acct.positions.first?.side, .short, "a short opens")
+near(Paper.close(&acct, lim, "BTCUSDT", 102, now: 5, why: "sl")?.pnl, -42.02, "a short stopped out")
+var noShort = Limits()
+noShort.allowShort = false
+acct = Account(10_000)
+expect(!Paper.open(&acct, noShort, "BTCUSDT", .short, 100, sl: 102, tp: 96, atr: nil, now: 0, reason: "", equity: 10_000).changed, "shorts can be switched off")
+
+let hourMs: Int64 = 3_600_000
+let t0 = 100 * hourMs
+func freshLong() -> Account {
+    var a = Account(10_000)
+    _ = Paper.open(&a, lim, "BTCUSDT", .long, 100, sl: 98, tp: 104, atr: nil, now: t0 + 60_000, reason: "", equity: 10_000)
+    return a
+}
+let quiet = [bar(t0, 95, 101, 90, 100), bar(t0 + hourMs, 100, 103, 99, 102), bar(t0 + 2 * hourMs, 102, 103.5, 101, 103)]
+acct = freshLong()
+expect(Paper.sweep(&acct, lim, "BTCUSDT", quiet, now: t0 + 2 * hourMs) == nil, "the entry candle's earlier dip is not a stop-out")
+same(acct.positions.first?.checkedAt, t0 + hourMs, "finished candles are not looked at twice")
+acct = freshLong()
+let hitTarget = Paper.sweep(&acct, lim, "BTCUSDT", quiet + [bar(t0 + 3 * hourMs, 103, 104.5, 102.5, 104.2)], now: t0 + 3 * hourMs)
+same(hitTarget?.why, "tp", "the target is found")
+near(hitTarget?.exit, 104, "at the target's price")
+acct = freshLong()
+let hitStop = Paper.sweep(&acct, lim, "BTCUSDT", [bar(t0, 95, 101, 90, 100), bar(t0 + hourMs, 100, 105, 97, 101)], now: t0 + hourMs)
+same(hitStop?.why, "sl", "a candle that spans both counts as the stop")
+expect((hitStop?.pnl ?? 0) < 0, "and is a loss")
+acct = freshLong()
+same(Paper.sweep(&acct, lim, "BTCUSDT", [bar(t0, 100, 101, 96, 97)], now: t0)?.why, "sl", "the price now under the stop closes the trade")
+
+var two = Limits()
+two.maxTradesPerDay = 2
+acct = Account(10_000)
+Paper.rollDay(&acct, "2026-11-20", 10_000)
+expect(Paper.open(&acct, two, "AAAUSDT", .long, 100, sl: 98, tp: nil, atr: nil, now: 0, reason: "", equity: 10_000).changed
+        && Paper.open(&acct, two, "BBBUSDT", .long, 100, sl: 98, tp: nil, atr: nil, now: 0, reason: "", equity: 10_000).changed, "two trades in a day")
+res = Paper.open(&acct, two, "CCCUSDT", .long, 100, sl: 98, tp: nil, atr: nil, now: 0, reason: "", equity: 10_000)
+expect(!res.changed && res.text.contains("حد الصفقات"), "the third is refused", res.text)
+expect(Paper.apply(&acct, two, Call(symbol: "AAAUSDT", action: "close", sl: nil, tp: nil, confidence: 0, reason: ""), price: 101, atr: nil, now: 1, equity: 10_000).changed, "closing is always allowed")
+Paper.rollDay(&acct, "2026-11-21", 10_000)
+same(acct.tradesToday, 0, "a new day starts clean")
+acct = Account(10_000)
+Paper.rollDay(&acct, "2026-11-20", 10_000)
+res = Paper.open(&acct, lim, "AAAUSDT", .long, 100, sl: 98, tp: nil, atr: nil, now: 0, reason: "", equity: 9_600)
+expect(!res.changed && res.text.contains("خسارة اليوم"), "the daily loss limit stops new trades", res.text)
+
+acct = Account(10_000)
+func decide(_ action: String, _ conf: Int, _ price: Double = 100) -> Bool {
+    Paper.apply(&acct, lim, Call(symbol: "BTCUSDT", action: action, sl: action == "sell" ? 103 : 98, tp: action == "sell" ? 97 : 104, confidence: conf, reason: "سبب"), price: price, atr: nil, now: 0, equity: 10_000).changed
+}
+expect(!decide("buy", 40), "low confidence opens nothing")
+expect(!decide("hold", 90) && !decide("close", 90), "hold and an empty close change nothing")
+expect(decide("BUY", 80), "a confident buy opens a long")
+expect(!decide("buy", 80, 101), "buying again leaves the position alone")
+expect(decide("sell", 80, 101) && acct.positions.isEmpty && acct.closed.first?.why == "agent", "sell while long closes it, without flipping")
+expect(!decide("dance", 99), "an unknown action does nothing")
+
+let climb = (0..<150).map { i -> Candle in
+    let c = 100.0 * (1 + 0.001 * Double(i))
+    return bar(Int64(i) * hourMs, c * 0.999, c * 1.002, c * 0.998, c, 50)
+}
+let brief = Analysis.brief("BTCUSDT", "1h", climb, "4h", Array(climb.suffix(80)))
+same(brief?.higherTrend, "up", "the higher trend")
+expect((brief?.rsi ?? 0) > 70 && (brief?.ema20 ?? 0) > (brief?.ema50 ?? 1e9) && (brief?.price ?? 0) > (brief?.ema20 ?? 1e9), "a climb reads as a climb")
+near(brief?.change24h, 2.13, "24-hour change", 0.05)
+expect(Analysis.brief("BTCUSDT", "1h", Array(climb.prefix(20)), "4h", climb) == nil, "too little history gives no brief")
+if let b = brief {
+    acct = Account(10_000)
+    Paper.rollDay(&acct, "d", 10_000)
+    _ = Paper.open(&acct, lim, "BTCUSDT", .long, b.price, sl: nil, tp: nil, atr: b.atr, now: 0, reason: "اتجاه صاعد", equity: 10_000)
+    let shown = TradeText.user(now: "Friday 2026-11-20 17:40", acct, lim, ["BTCUSDT": b.price], [b], ["Bitcoin climbs"], nowMs: 60_000)
+    for part in ["NOW: Friday 2026-11-20", "ACCOUNT: equity", "OPEN POSITIONS:", "BTCUSDT LONG", "MARKET:", "RSI14", "EMA20", "ATR14", "4h trend: up", "HEADLINES", "Bitcoin climbs", "trades today 1/6", "daily loss limit 3.0%"] {
+        expect(shown.contains(part), "the model is shown «\(part)»", shown)
+    }
+}
+expect(TradeText.system.contains("PAPER") && TradeText.system.contains("hold") && (J.parse(TradeText.toolSchema) as? JSON) != nil, "the trading prompt and its tool")
+
 print(failures == 0 ? "LOGIC: OK (\(passed) checks)" : "LOGIC: FAILED (\(failures) failed, \(passed) passed)")
 exit(failures == 0 ? 0 : 1)

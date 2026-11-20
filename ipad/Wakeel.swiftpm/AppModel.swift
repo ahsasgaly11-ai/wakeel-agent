@@ -15,8 +15,9 @@ final class AppModel: ObservableObject {
     let scheduler: Scheduler
     let teacher: Teacher
     let keyboard: KeyboardHub
+    let trader: Trader
 
-    /// 0 home, 1 browser, 2 files, 3 knowledge, 4 settings
+    /// 0 home, 1 browser, 2 files, 3 knowledge, 4 settings, 5 trading
     @Published var tab = 0
     /// The task being written on the home screen (other screens may prefill it).
     @Published var draft = ""
@@ -31,6 +32,7 @@ final class AppModel: ObservableObject {
         scheduler = Scheduler(engine: engine, history: history)
         teacher = Teacher(browser: browser, skills: skills)
         keyboard = KeyboardHub(browser: browser, settings: settings)
+        trader = Trader(settings: settings)
         let scheduler = self.scheduler
         let teacher = self.teacher
         engine.schedule = { task, at in scheduler.add(task, at: at) }

@@ -15,6 +15,7 @@ struct WakeelApp: App {
                 .environmentObject(model.teacher)
                 .environmentObject(model.scheduler)
                 .environmentObject(model.keyboard)
+                .environmentObject(model.trader)
                 .task { await launch() }
                 .onChange(of: phase) { if phase == .active { model.scheduler.tick() } }
         }

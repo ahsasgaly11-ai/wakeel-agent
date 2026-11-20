@@ -100,6 +100,30 @@ final class SettingsStore: ObservableObject {
     /// teal, maroon, navy, dark or sand — the look of presentations when the task names none
     var deckTheme: String { get { str("deck_theme", "teal") } set { put("deck_theme", newValue) } }
 
+    // MARK: trading mode (a paper account inside the app; never real money)
+    /// The agent runs a cycle by itself every `tradeEveryMin` minutes while the app is open.
+    var tradeAuto: Bool { get { bool("trade_auto", false) } set { put("trade_auto", newValue) } }
+    var tradeEveryMin: Int { get { Int(num("trade_every", 60)) } set { put("trade_every", Double(min(1440, max(15, newValue)))) } }
+    var tradeSymbols: String { get { str("trade_symbols", "BTCUSDT, ETHUSDT") } set { put("trade_symbols", newValue) } }
+    /// Candle size the decisions are made on: 15m, 1h or 4h.
+    var tradeInterval: String { get { str("trade_interval", "1h") } set { put("trade_interval", newValue) } }
+    var tradeNews: Bool { get { bool("trade_news", true) } set { put("trade_news", newValue) } }
+    /// Decide with the stronger model (dearer; one request per cycle either way).
+    var tradeStrong: Bool { get { bool("trade_strong", false) } set { put("trade_strong", newValue) } }
+    var tradeStart: Double { get { num("trade_start", 10_000) } set { put("trade_start", min(10_000_000, max(100, newValue))) } }
+    var tradeMaxPosition: Double { get { num("trade_max_pos", 2_000) } set { put("trade_max_pos", max(10, newValue)) } }
+    var tradeRiskPct: Double { get { num("trade_risk", 1) } set { put("trade_risk", min(5, max(0.1, newValue))) } }
+    var tradeMaxSlPct: Double { get { num("trade_max_sl", 3) } set { put("trade_max_sl", min(15, max(0.2, newValue))) } }
+    var tradeMaxPerDay: Int { get { Int(num("trade_per_day", 6)) } set { put("trade_per_day", Double(min(50, max(1, newValue)))) } }
+    var tradeDailyLossPct: Double { get { num("trade_day_loss", 3) } set { put("trade_day_loss", min(50, max(0.5, newValue))) } }
+    var tradeMinConfidence: Int { get { Int(num("trade_min_conf", 60)) } set { put("trade_min_conf", Double(min(100, max(0, newValue)))) } }
+    var tradeShort: Bool { get { bool("trade_short", true) } set { put("trade_short", newValue) } }
+
+    var tradeLimits: Limits {
+        Limits(startBalance: tradeStart, maxPositionUsd: tradeMaxPosition, riskPct: tradeRiskPct, maxSlPct: tradeMaxSlPct,
+               maxTradesPerDay: tradeMaxPerDay, dailyLossPct: tradeDailyLossPct, minConfidence: tradeMinConfidence, allowShort: tradeShort)
+    }
+
     var searchURL: String {
         switch searchEngine {
         case "duckduckgo": return "https://duckduckgo.com/?q="

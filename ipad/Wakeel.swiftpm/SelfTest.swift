@@ -22,6 +22,33 @@ final class FakeModel: LlmClient {
     }
 }
 
+/// A market that goes where the self-test says: a steady climb, then (when told) a jump.
+final class ScriptedMarket: MarketSource {
+    var jump = 0.0
+    var hoursLater = 0
+
+    func candles(_ symbol: String, _ interval: String, _ limit: Int) async throws -> [Candle] {
+        let step = Int64(Analysis.minutes(interval)) * 60_000
+        let end = Int64(Date().timeIntervalSince1970 * 1000) / step * step
+        var out: [Candle] = []
+        for i in 0..<limit {
+            let c = 100.0 * (1 + 0.001 * Double(i))
+            out.append(Candle(time: end - Int64(limit - 1 - i) * step, open: c * 0.999, high: c * 1.002, low: c * 0.998, close: c, volume: 50))
+        }
+        var last = out[out.count - 1].close
+        if hoursLater > 0 {
+            for k in 1...hoursLater {
+                let c = last * (1 + jump / Double(hoursLater))
+                out.append(Candle(time: end + Int64(k) * step, open: last, high: max(last, c) * 1.001, low: min(last, c) * 0.999, close: c, volume: 80))
+                last = c
+            }
+        }
+        return out
+    }
+
+    func headlines(_ query: String) async throws -> [String] { ["Bitcoin climbs as markets steady - Example News"] }
+}
+
 /// The app testing itself on a real device or simulator: the real browser, real pages, real files —
 /// only the model is scripted. Started with the `-selftest` launch argument; writes its report to
 /// Documents/selftest.txt.
@@ -254,6 +281,52 @@ enum SelfTest {
         check("a Shortcut known to work is not asked about again", r?.status == .done && !asked.contains { $0.contains("هل اشتغل") }, "asked=\(asked.count)")
         m.shortcuts.items = []
         m.procedures.items = []
+
+        // 14c — the trading mode: analysis, decision and execution in the paper account, inside the owner's limits
+        let market = ScriptedMarket()
+        Market.override = market
+        let wasAuto = m.settings.tradeAuto
+        m.settings.tradeAuto = false
+        m.settings.tradeSymbols = "BTCUSDT"
+        m.settings.tradeInterval = "1h"
+        m.settings.tradeNews = true
+        m.settings.tradeStart = 10_000
+        m.trader.reset()
+        let entry = 100.0 * (1 + 0.001 * 149)
+        fake.plans = [["outlook": "السوق في اتجاه صاعد",
+                       "decisions": [["symbol": "BTCUSDT", "action": "buy", "sl": entry * 0.80, "tp": entry * 1.04, "confidence": 82, "reason": "السعر فوق المتوسطين والاتجاه الأعلى صاعد"] as JSON]]]
+        calls = fake.calls
+        var line = await m.trader.cycle()
+        lines.append("  · cycle 1: \(line)")
+        for j in m.trader.book.journal.prefix(2) { lines.append("  · \(j.symbol) \(j.action) (\(j.confidence)) — \(j.outcome)") }
+        let pos = m.trader.book.account.positions.first
+        check("a trading cycle is one model request", fake.calls - calls == 1, "\(fake.calls - calls)")
+        check("the model's decision opens a position in the paper account", pos?.side == .long && abs((pos?.entry ?? 0) - entry) < 1e-9, line)
+        check("a stop beyond the owner's limit is pulled in to it", abs((pos?.sl ?? 0) - entry * 0.97) < 1e-6, "\(pos?.sl ?? 0)")
+        check("the position is capped at the owner's size", abs((pos?.qty ?? 0) * entry - 2000) < 1e-6, "\((pos?.qty ?? 0) * entry)")
+        let shownToModel = fake.lastUser
+        check("the model is shown numbers computed on the device",
+              ["ACCOUNT: equity 10,000.00", "MARKET:", "BTCUSDT (1h) price", "RSI14", "4h trend: up", "HEADLINES", "Bitcoin climbs"].allSatisfy { shownToModel.contains($0) },
+              String(shownToModel.prefix(600)))
+        // Hours later the market is 6% higher: the target was reached, whatever the model says now
+        market.hoursLater = 3
+        market.jump = 0.06
+        fake.plans = [["outlook": "", "decisions": [["symbol": "BTCUSDT", "action": "hold", "confidence": 50, "reason": "انتظار"] as JSON]]]
+        line = await m.trader.cycle()
+        lines.append("  · cycle 2: \(line)")
+        let won = m.trader.book.account.closed.first
+        check("a position is closed at its target when the market reaches it", m.trader.book.account.positions.isEmpty && won?.why == "tp" && abs((won?.exit ?? 0) - entry * 1.04) < 1e-6, "\(won?.why ?? "none") \(won?.exit ?? 0)")
+        check("the profit is in the account, fees deducted", (won?.pnl ?? 0) > 70 && (won?.pnl ?? 0) < 80 && m.trader.equity > 10_070, "\(won?.pnl ?? 0)")
+        // A decision below the owner's minimum confidence opens nothing
+        fake.plans = [["outlook": "", "decisions": [["symbol": "BTCUSDT", "action": "sell", "confidence": 30, "reason": "ظن"] as JSON]]]
+        _ = await m.trader.cycle()
+        check("a low-confidence decision opens nothing", m.trader.book.account.positions.isEmpty && (m.trader.book.journal.first?.outcome.contains("أقل من الحد") ?? false))
+        // The account survives a restart
+        let again = Trader(settings: m.settings)
+        check("the paper account is kept between launches", again.book.account.closed.count == 1 && abs(again.book.account.cash - m.trader.book.account.cash) < 1e-9 && again.book.journal.count >= 3)
+        Market.override = nil
+        fake.plans = []
+        m.settings.tradeAuto = wasAuto
         m.settings.escalate = escalate
 
         // 15 — the app's own keyboard types into the app's own fields
@@ -355,6 +428,26 @@ enum SelfTest {
         m.engine.last = m.history.items.first
         m.scheduler.store.items = [Scheduled(task: "ابحث عن أخبار التعليم في قطر ولخّصها", at: now.addingTimeInterval(1800))]
         await m.browser.load(sandbox)
+
+        // The trading tab with something in it: one closed trade and one open position, on a scripted market
+        let market = ScriptedMarket()
+        let fake = FakeModel()
+        Market.override = market
+        LLM.override = fake
+        m.settings.tradeAuto = false
+        m.settings.tradeSymbols = "BTCUSDT, ETHUSDT"
+        m.trader.reset()
+        let buy: JSON = ["symbol": "BTCUSDT", "action": "buy", "sl": 112.0, "tp": 118.0, "confidence": 78, "reason": "السعر فوق المتوسطين 20 و50 والاتجاه على 4 ساعات صاعد، والزخم إيجابي."]
+        let wait: JSON = ["symbol": "ETHUSDT", "action": "hold", "confidence": 40, "reason": "لا إشارة واضحة: ننتظر تراجعاً نحو المتوسط."]
+        fake.plans = [["outlook": "السوق في اتجاه صاعد هادئ.", "decisions": [buy, wait]]]
+        await m.trader.cycle()
+        market.hoursLater = 3
+        market.jump = 0.05
+        let sell: JSON = ["symbol": "ETHUSDT", "action": "sell", "sl": 124.0, "tp": 112.0, "confidence": 66, "reason": "صعود سريع أبعد من ضعفَي ATR مع RSI مرتفع: بيع قصير بوقف قريب."]
+        fake.plans = [["outlook": "صعود قوي؛ الحذر من المطاردة.", "decisions": [["symbol": "BTCUSDT", "action": "hold", "confidence": 50, "reason": "الهدف تحقق."] as JSON, sell]]]
+        await m.trader.cycle()
+        Market.override = nil
+        LLM.override = nil
     }
 
     /// The pretend site the tests run on.
