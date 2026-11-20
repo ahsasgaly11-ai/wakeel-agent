@@ -347,6 +347,89 @@ enum PageScript {
   }, true);
   W.rec = function (on) { W.recording = !!on; return W.recording; };
 
+  // ---- the app's own keyboard typing into the page, in the owner's place
+  function focused() {
+    let el = document.activeElement;
+    while (el && el.shadowRoot && el.shadowRoot.activeElement) el = el.shadowRoot.activeElement;
+    if (el && el.tagName === 'IFRAME') { try { el = el.contentDocument.activeElement; } catch (e) {} }
+    return el && isEdit(el) ? el : null;
+  }
+  function setValue(el, v) {
+    const proto = el.tagName === 'INPUT' ? HTMLInputElement.prototype : HTMLTextAreaElement.prototype;
+    Object.getOwnPropertyDescriptor(proto, 'value').set.call(el, v);
+  }
+  function keyEvent(el, type, key) {
+    const code = key === 'Enter' ? 13 : key === 'Backspace' ? 8 : (key.length === 1 ? key.toUpperCase().charCodeAt(0) : 0);
+    return el.dispatchEvent(new KeyboardEvent(type, { key: key, code: key.length === 1 ? '' : key, keyCode: code, which: code, bubbles: true, cancelable: true }));
+  }
+  W.key = function (text) {
+    const el = focused();
+    if (!el) return false;
+    const first = Array.from(text)[0] || '';
+    keyEvent(el, 'keydown', first);
+    if (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA') {
+      const v = String(el.value);
+      let s = null, e = null;
+      try { s = el.selectionStart; e = el.selectionEnd; } catch (x) {}
+      if (s === null || e === null) { s = v.length; e = v.length; }       // e-mail and number fields hide the caret
+      setValue(el, v.slice(0, s) + text + v.slice(e));
+      try { el.setSelectionRange(s + text.length, s + text.length); } catch (x) {}
+      el.dispatchEvent(new InputEvent('input', { bubbles: true, inputType: 'insertText', data: text }));
+    } else {
+      let done = false;
+      try { done = document.execCommand('insertText', false, text); } catch (x) {}
+      if (!done) { el.textContent = (el.textContent || '') + text; el.dispatchEvent(new InputEvent('input', { bubbles: true, inputType: 'insertText', data: text })); }
+    }
+    keyEvent(el, 'keyup', first);
+    return true;
+  };
+  W.del = function () {
+    const el = focused();
+    if (!el) return false;
+    if (!keyEvent(el, 'keydown', 'Backspace')) return true;
+    if (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA') {
+      const v = String(el.value);
+      let s = null, e = null;
+      try { s = el.selectionStart; e = el.selectionEnd; } catch (x) {}
+      if (s === null || e === null) { s = v.length; e = v.length; }
+      if (s === e) {
+        if (s === 0) return true;
+        // one whole character, also when it is stored as a pair
+        const cut = s >= 2 && v.charCodeAt(s - 1) >= 0xDC00 && v.charCodeAt(s - 1) <= 0xDFFF ? 2 : 1;
+        s -= cut;
+      }
+      setValue(el, v.slice(0, s) + v.slice(e));
+      try { el.setSelectionRange(s, s); } catch (x) {}
+      el.dispatchEvent(new InputEvent('input', { bubbles: true, inputType: 'deleteContentBackward' }));
+    } else {
+      let done = false;
+      try { done = document.execCommand('delete', false, null); } catch (x) {}
+      if (!done) { const t = Array.from(el.textContent || ''); t.pop(); el.textContent = t.join(''); el.dispatchEvent(new InputEvent('input', { bubbles: true, inputType: 'deleteContentBackward' })); }
+    }
+    keyEvent(el, 'keyup', 'Backspace');
+    return true;
+  };
+  W.enterKey = function () {
+    const el = focused();
+    if (!el) return false;
+    if (el.tagName === 'INPUT') return W.enter(0) === 'ok';
+    // A message box or a text area: the page decides (send, or a new line)
+    const go = keyEvent(el, 'keydown', 'Enter');
+    el.dispatchEvent(new KeyboardEvent('keypress', { key: 'Enter', keyCode: 13, which: 13, bubbles: true, cancelable: true }));
+    if (go) {
+      if (el.tagName === 'TEXTAREA') W.key('\n');
+      else { try { document.execCommand('insertLineBreak', false, null); } catch (x) {} }
+    }
+    keyEvent(el, 'keyup', 'Enter');
+    return true;
+  };
+  document.addEventListener('focusin', function (e) {
+    if (e.target instanceof Element && isEdit(e.target)) post({ k: 'focus', on: true, secure: (e.target.type || '').toLowerCase() === 'password', kind: (e.target.type || e.target.inputMode || '').toLowerCase() });
+  }, true);
+  document.addEventListener('focusout', function (e) {
+    if (e.target instanceof Element && isEdit(e.target)) post({ k: 'focus', on: false });
+  }, true);
+
   window.__wk = W;
 })();
 """#

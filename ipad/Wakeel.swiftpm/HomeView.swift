@@ -6,8 +6,18 @@ import UniformTypeIdentifiers
 struct RootView: View {
     @EnvironmentObject var model: AppModel
     @EnvironmentObject var engine: Engine
+    @EnvironmentObject var keyboard: KeyboardHub
 
     var body: some View {
+        VStack(spacing: 0) {
+            tabs
+            if keyboard.visible { KeyboardView().transition(.move(edge: .bottom)) }
+        }
+        .environment(\.layoutDirection, .rightToLeft)
+        .onChange(of: engine.showBrowser) { model.tab = 1 }
+    }
+
+    private var tabs: some View {
         TabView(selection: $model.tab) {
             HomeView().tabItem { Label("الرئيسية", systemImage: "sparkles") }.tag(0)
             BrowserScreen().tabItem { Label("المتصفح", systemImage: "safari") }.tag(1)
@@ -16,8 +26,6 @@ struct RootView: View {
             SettingsScreen().tabItem { Label("الإعدادات", systemImage: "gearshape") }.tag(4)
         }
         .tint(Brand.teal)
-        .environment(\.layoutDirection, .rightToLeft)
-        .onChange(of: engine.showBrowser) { model.tab = 1 }
     }
 }
 
@@ -213,6 +221,7 @@ struct HomeView: View {
             .fileImporter(isPresented: $picking, allowedContentTypes: [.pdf, .plainText, .image, .commaSeparatedText, .json, .html], allowsMultipleSelection: true) { result in
                 if case .success(let urls) = result { attachments += urls.compactMap { AttachmentLoader.load($0) } }
             }
+            .onChange(of: model.focusComposer) { typing = true }
             .onChange(of: photo) {
                 guard let item = photo else { return }
                 photo = nil

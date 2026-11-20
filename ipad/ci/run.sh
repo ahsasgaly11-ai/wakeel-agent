@@ -84,6 +84,11 @@ print(pads[-1][1]['udid'] if pads else '')")"
     sleep 7
     xcrun simctl io "$UDID" screenshot "$OUT/tab$TAB.png" > /dev/null 2>&1
   done
+  for KB in "" "-english"; do
+    xcrun simctl terminate "$UDID" "$BID" > /dev/null 2>&1
+    xcrun simctl launch "$UDID" "$BID" -demo -tab 0 -keyboard $KB $LANG_ARGS > /dev/null 2>&1; sleep 9
+    xcrun simctl io "$UDID" screenshot "$OUT/keyboard$KB.png" > /dev/null 2>&1
+  done
   xcrun simctl ui "$UDID" appearance dark > /dev/null 2>&1
   xcrun simctl terminate "$UDID" "$BID" > /dev/null 2>&1
   xcrun simctl launch "$UDID" "$BID" -demo -tab 0 $LANG_ARGS > /dev/null 2>&1; sleep 7

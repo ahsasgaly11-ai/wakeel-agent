@@ -227,6 +227,7 @@ struct SettingsScreen: View {
                     Toggle("حفظ مهام التصفح الناجحة كمهارات", isOn: bind(\.autoLearn))
                     Toggle("إرسال لقطة للصفحة عند التعثّر", isOn: bind(\.allowScreenshots))
                     Toggle("نسخة الجوال من المواقع (بعد إعادة فتح التطبيق)", isOn: bind(\.mobileSites))
+                    Toggle("لوحة مفاتيح داخل التطبيق (حين لا تظهر لوحة النظام)", isOn: bind(\.inAppKeyboard))
                     Picker("محرك البحث", selection: bind(\.searchEngine)) {
                         Text("Google").tag("google")
                         Text("DuckDuckGo").tag("duckduckgo")

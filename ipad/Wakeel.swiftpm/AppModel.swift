@@ -13,21 +13,27 @@ final class AppModel: ObservableObject {
     let engine: Engine
     let scheduler: Scheduler
     let teacher: Teacher
+    let keyboard: KeyboardHub
 
     /// 0 home, 1 browser, 2 files, 3 knowledge, 4 settings
     @Published var tab = 0
     /// The task being written on the home screen (other screens may prefill it).
     @Published var draft = ""
+    /// Raised to put the cursor in the task field.
+    @Published var focusComposer = 0
 
     init() {
         browser = BrowserController(mobile: settings.mobileSites)
         engine = Engine(settings: settings, browser: browser, history: history, skills: skills, shortcuts: shortcuts)
         scheduler = Scheduler(engine: engine, history: history)
         teacher = Teacher(browser: browser, skills: skills)
+        keyboard = KeyboardHub(browser: browser, settings: settings)
         let scheduler = self.scheduler
         let teacher = self.teacher
         engine.schedule = { task, at in scheduler.add(task, at: at) }
         engine.isTeaching = { teacher.active }
+        let engine = self.engine
+        keyboard.busy = { engine.isRunning }
         browser.onExternal = { url in UIApplication.shared.open(url) }
     }
 

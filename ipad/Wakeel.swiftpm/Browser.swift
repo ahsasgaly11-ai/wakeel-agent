@@ -67,6 +67,8 @@ final class BrowserController: NSObject, ObservableObject, WKNavigationDelegate,
 
     /// Called with what the owner does while teaching a task.
     var onRecord: ((JSON) -> Void)?
+    /// Called when a field on the page gains or loses the focus (on, isPassword): the app's keyboard follows it.
+    var onFocus: ((Bool, Bool) -> Void)?
     /// Called when a page asks to open another app (tel:, mailto:, an app's own link).
     var onExternal: ((URL) -> Void)?
     /// Self-test: page dialogs are accepted without asking.
@@ -238,7 +240,11 @@ final class BrowserController: NSObject, ObservableObject, WKNavigationDelegate,
 
     func userContentController(_ userContentController: WKUserContentController, didReceive message: WKScriptMessage) {
         guard let body = message.body as? String, let o = J.parse(body) as? JSON else { return }
-        onRecord?(o)
+        if J.str(o["k"]) == "focus" {
+            onFocus?((o["on"] as? Bool) ?? false, (o["secure"] as? Bool) ?? false)
+        } else {
+            onRecord?(o)
+        }
     }
 
     // MARK: - WKNavigationDelegate

@@ -91,6 +91,8 @@ final class SettingsStore: ObservableObject {
     var allowScreenshots: Bool { get { bool("screenshots", true) } set { put("screenshots", newValue) } }
     var autoLearn: Bool { get { bool("auto_learn", true) } set { put("auto_learn", newValue) } }
     var mobileSites: Bool { get { bool("mobile_sites", false) } set { put("mobile_sites", newValue) } }
+    /// The app's own keyboard, for when the system one does not come up (apps run from Swift Playgrounds).
+    var inAppKeyboard: Bool { get { bool("in_app_keyboard", true) } set { put("in_app_keyboard", newValue) } }
     /// google, duckduckgo or bing
     var searchEngine: String { get { str("search", "google") } set { put("search", newValue) } }
     var blockedSites: String { get { str("blocked_sites", Safety.defaultBlocked) } set { put("blocked_sites", newValue) } }

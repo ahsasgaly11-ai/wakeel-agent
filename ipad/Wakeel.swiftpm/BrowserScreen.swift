@@ -11,11 +11,13 @@ struct BrowserScreen: View {
     @State private var askPhrase = false
     @State private var phrase = ""
     @FocusState private var editing: Bool
+    @FocusState private var phrasing: Bool
     private let clock = Timer.publish(every: 1, on: .main, in: .common).autoconnect()
 
     var body: some View {
         VStack(spacing: 0) {
             bar
+            if askPhrase { phraseBar }
             if teacher.active { teachBar }
             ZStack {
                 BrowserSurface(browser: browser)
@@ -40,16 +42,29 @@ struct BrowserScreen: View {
             }
             return Alert(title: Text("رسالة من الصفحة"), message: Text(d.message), dismissButton: .default(Text("حسناً")) { d.answer(true) })
         }
-        .alert("علّمني مهمة", isPresented: $askPhrase) {
-            TextField("الجملة التي ستقولها لاحقاً", text: $phrase)
-            Button("ابدأ التسجيل") {
-                let p = phrase.trimmed
-                if !p.isEmpty { Task { await teacher.start(p) } }
+    }
+
+    private var phraseBar: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("علّمني مهمة").font(.subheadline.weight(.semibold))
+            Text("اكتب الجملة التي ستقولها لاحقاً، ثم نفّذ المهمة بيدك في هذا المتصفح مرة واحدة واضغط «حفظ المهارة». ما تكتبه في الصفحة ويرد في جملتك يصير متغيّراً.")
+                .font(.caption).foregroundStyle(.secondary)
+            HStack {
+                TextField("مثال: ابحث في المتجر عن قهوة", text: $phrase).textFieldStyle(.roundedBorder).focused($phrasing).onSubmit { startTeaching() }
+                Button("ابدأ التسجيل") { startTeaching() }.buttonStyle(.borderedProminent).tint(Brand.ruby).disabled(phrase.trimmed.isEmpty)
+                Button("إلغاء", role: .cancel) { askPhrase = false; phrasing = false }.buttonStyle(.bordered)
             }
-            Button("إلغاء", role: .cancel) {}
-        } message: {
-            Text("اكتب الجملة، ثم نفّذ المهمة بيدك في هذا المتصفح مرة واحدة واضغط «حفظ المهارة». ما تكتبه في الصفحة ويرد في جملتك يصير متغيّراً.")
         }
+        .padding(12)
+        .background(Brand.ruby.opacity(0.10))
+    }
+
+    private func startTeaching() {
+        let p = phrase.trimmed
+        if p.isEmpty { return }
+        askPhrase = false
+        phrasing = false
+        Task { await teacher.start(p) }
     }
 
     private var bar: some View {
@@ -70,7 +85,7 @@ struct BrowserScreen: View {
                 .focused($editing)
                 .onSubmit { go() }
             if browser.loading { ProgressView() }
-            Button { phrase = ""; askPhrase = true } label: { Label("علّمني", systemImage: "graduationcap.fill") }
+            Button { phrase = ""; askPhrase = true; phrasing = true } label: { Label("علّمني", systemImage: "graduationcap.fill") }
                 .buttonStyle(.bordered)
                 .disabled(teacher.active || engine.isRunning)
         }

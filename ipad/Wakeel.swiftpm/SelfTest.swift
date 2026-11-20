@@ -230,6 +230,44 @@ enum SelfTest {
         check("a plain search is a free local command", cmd == .browse(url: "https://www.google.com/search?q=" + Commands.enc("قهوة عربية"), say: "هذه نتائج البحث عن «قهوة عربية»."), "\(String(describing: cmd))")
         m.settings.escalate = escalate
 
+        // 15 — the app's own keyboard types into the app's own fields
+        m.settings.inAppKeyboard = true
+        m.tab = 0
+        m.draft = ""
+        try? await Task.sleep(nanoseconds: 700_000_000)
+        m.focusComposer += 1
+        try? await Task.sleep(nanoseconds: 900_000_000)
+        check("the keyboard comes up when a field of the app takes the focus", m.keyboard.visible)
+        for piece in ["مرحبا", " ", "A", "1"] { m.keyboard.insert(piece) }
+        try? await Task.sleep(nanoseconds: 300_000_000)
+        check("its keys type into the field", m.draft == "مرحبا A1", "«\(m.draft)»")
+        m.keyboard.backspace()
+        m.keyboard.backspace()
+        try? await Task.sleep(nanoseconds: 300_000_000)
+        check("its delete key deletes", m.draft == "مرحبا ", "«\(m.draft)»")
+        m.keyboard.hide()
+        try? await Task.sleep(nanoseconds: 500_000_000)
+        check("its hide key puts it away", !m.keyboard.visible)
+        m.draft = ""
+
+        // 16 — and into a field on a web page, where the owner signs in and searches
+        m.tab = 1
+        await m.browser.load(sandbox)
+        _ = await m.browser.js("document.getElementById('q').focus(); 1")
+        try? await Task.sleep(nanoseconds: 600_000_000)
+        check("the keyboard comes up for a field on a web page", m.keyboard.visible)
+        for piece in ["ق", "ه", "و", "ة"] { m.keyboard.insert(piece) }
+        m.keyboard.backspace()
+        try? await Task.sleep(nanoseconds: 400_000_000)
+        let typedInPage = (await m.browser.js("document.getElementById('q').value") as? String) ?? ""
+        check("its keys type into the page", typedInPage == "قهو", "«\(typedInPage)»")
+        m.keyboard.enter()
+        try? await Task.sleep(nanoseconds: 600_000_000)
+        st = await status(m)
+        check("its Return key submits the page's form", st == "searched: قهو", st)
+        m.keyboard.hide()
+        try? await Task.sleep(nanoseconds: 400_000_000)
+
         lines.append("")
         lines.append(failed == 0 ? "RESULT: OK (\(lines.filter { $0.hasPrefix("PASS") }.count) checks)" : "RESULT: FAILED (\(failed) of \(lines.filter { $0.hasPrefix("PASS") || $0.hasPrefix("FAIL") }.count))")
         report()
