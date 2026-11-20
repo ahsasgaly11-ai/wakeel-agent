@@ -171,6 +171,7 @@ class DeviceTest {
 
     private var confirmed = false
     private var confirmCount = 0
+    private val questions = ArrayList<String>()
 
     private fun svc(): AgentAccessibilityService =
         AgentAccessibilityService.instance ?: throw AssertionError("the accessibility service is not connected")
@@ -220,16 +221,25 @@ class DeviceTest {
         Thread.sleep(400)
     }
 
-    private fun await(before: Long?, what: String, allow: Boolean, timeoutMs: Long, always: Boolean = false): TaskRecord {
+    /** [answer] decides each question from its text; without it every question gets [allow]. */
+    private fun await(
+        before: Long?, what: String, allow: Boolean, timeoutMs: Long, always: Boolean = false, answer: ((String) -> Boolean)? = null,
+    ): TaskRecord {
         confirmed = false
         confirmCount = 0
+        questions.clear()
         var asking = false
         val finished = waitUntil(timeoutMs, 150) {
-            if (Hub.engine.state.value is EngineState.Confirm) {
-                if (!asking) confirmCount++
+            val st = Hub.engine.state.value
+            if (st is EngineState.Confirm) {
+                if (!asking) {
+                    confirmCount++
+                    questions += st.question
+                    note("     ? ${st.question.replace("\n", " ⏎ ")}  [${st.yes} / ${st.no}]")
+                }
                 asking = true
                 confirmed = true
-                Hub.engine.answerConfirm(allow, always)
+                Hub.engine.answerConfirm(answer?.invoke(st.question) ?: allow, always)
             } else {
                 asking = false
             }
@@ -247,11 +257,13 @@ class DeviceTest {
         return rec
     }
 
-    private fun run(task: String, allow: Boolean = true, timeoutMs: Long = 120_000, always: Boolean = false): TaskRecord {
+    private fun run(
+        task: String, allow: Boolean = true, timeoutMs: Long = 120_000, always: Boolean = false, answer: ((String) -> Boolean)? = null,
+    ): TaskRecord {
         val before = Hub.history.records.value.firstOrNull()?.id
         note("▶ TASK: $task")
         Hub.engine.start(task)
-        return await(before, task, allow, timeoutMs, always)
+        return await(before, task, allow, timeoutMs, always, answer)
     }
 
     private fun plan(actions: String, sensitive: Boolean = false): String =
@@ -636,6 +648,78 @@ class DeviceTest {
         assertTrue("the owner is not told which step kept repeating: ${r.result}", r.result.contains("Balance: 100 USDT"))
         assertTrue("the owner is not told where it happened: ${r.result}", r.result.contains("Sandbox"))
         assertTrue("no way forward is offered: ${r.result}", r.result.contains("علّمني مهمة"))
+    }
+
+    @Test
+    fun t22_aTaskForLaterWaitsForItsTime() {
+        Hub.scheduler.clear()
+        // "after 8 seconds": the owner is asked once, and the task is kept on the phone — the model is not involved
+        val asked = FakeModel.calls
+        val r = run("بعد 8 ثواني اعرض محفظة Sandbox")
+        assertEquals(TaskStatus.DONE, r.status)
+        assertEquals("scheduling must not call the model", asked, FakeModel.calls)
+        assertTrue("the owner was not asked whether to schedule", questions.any { it.contains("اعرض محفظة Sandbox") })
+        assertTrue("unexpected answer: ${r.result}", r.result.contains("جُدولت"))
+        val item = Hub.scheduler.items.value.single()
+        assertEquals("the time phrase must be taken out of the task", "اعرض محفظة Sandbox", item.task)
+        assertTrue("the time is wrong: ${item.at - System.currentTimeMillis()} ms from now", item.at - System.currentTimeMillis() in 2_000L..9_000L)
+
+        // Nothing happens until then; at its time the task starts by itself and runs like any other
+        FakeModel.plans += plan("""[{"type":"open_app","text":"Sandbox"},{"type":"tap","find":"Wallet"},{"type":"done","text":"عرضتُ المحفظة في موعدها."}]""")
+        val fired = await(r.id, "the scheduled task", true, 60_000)
+        dump("after the scheduled task")
+        assertEquals(TaskStatus.DONE, fired.status)
+        assertEquals("اعرض محفظة Sandbox", fired.task)
+        assertTrue("it started ${item.at - fired.startedAt} ms before its time", fired.startedAt >= item.at - 500)
+        assertTrue("the run does not say it was scheduled", fired.logs.any { it.text.contains("مجدولة") })
+        assertNotNull("the Wallet page is not showing", find("Buy BTC"))
+        assertTrue("a task that ran must leave the list", Hub.scheduler.items.value.isEmpty())
+
+        // "Run now": the whole task goes ahead at once, and nothing is kept for later
+        goHome()
+        FakeModel.plans += plan("""[{"type":"open_app","text":"Sandbox"},{"type":"tap","find":"Profile"},{"type":"done","text":"فتحتُ الملف الشخصي."}]""")
+        val now = run("بعد ساعة افتح ملف Sandbox الشخصي", allow = false)
+        assertEquals(TaskStatus.DONE, now.status)
+        assertNotNull("the task did not run at once", byId("bio"))
+        assertTrue(Hub.scheduler.items.value.isEmpty())
+
+        // A scheduled task can be cancelled
+        val later = Hub.scheduler.add("افتح الكاميرا", System.currentTimeMillis() + 3600_000)
+        assertEquals(1, Hub.scheduler.items.value.size)
+        Hub.scheduler.cancel(later.id)
+        assertTrue(Hub.scheduler.items.value.isEmpty())
+    }
+
+    @Test
+    fun t23_anOldDraftIsNeverSentUnasked() {
+        // What happened on a real phone: an unsent text was still in the chat's input field,
+        // and a later task pressed Send on it instead of writing its own message.
+        FakeModel.plans += plan(
+            """[{"type":"open_app","text":"Sandbox"},{"type":"tap","find":"Contacts"},{"type":"tap","find":"Noor"},
+                {"type":"type","find":"Message","text":"مسودة قديمة"},{"type":"done","text":"كتبتُها ولم أرسلها."}]"""
+        )
+        assertEquals(TaskStatus.DONE, run("اكتب مسودة قديمة عند Noor في Sandbox دون إرسال").status)
+
+        goHome()
+        // A new task. The model finds the field already filled and presses Send…
+        FakeModel.plans += plan(
+            """[{"type":"open_app","text":"Sandbox"},{"type":"tap","find":"Contacts"},{"type":"tap","find":"Noor"},
+                {"type":"tap","find":"Send"},{"type":"done","text":"أرسلتُ الرسالة."}]""",
+            sensitive = true,
+        )
+        // …and, once told that it is not its text, writes the real message.
+        FakeModel.plans += plan(
+            """[{"type":"type","find":"Message","text":"هلا"},{"type":"tap","find":"Send"},{"type":"done","text":"أرسلتُ «هلا»."}]""",
+            sensitive = true,
+        )
+        val r = run("حيِّ Noor داخل Sandbox", answer = { q -> !q.contains("لم أكتبه") })
+        dump("after the old draft was refused")
+        assertTrue("the owner was not shown the old draft", questions.any { it.contains("لم أكتبه") && it.contains("مسودة قديمة") })
+        assertTrue("the approval must show the text that goes out", questions.any { it.contains("النص: «هلا»") })
+        assertTrue("the model was not told why nothing was sent", r.logs.any { it.text.contains("لم يُرسل النص القديم") })
+        assertEquals(TaskStatus.DONE, r.status)
+        assertEquals("only the real message may go out", "messages sent to Noor: 1", byId("sent_count")?.label)
+        assertEquals("sent: هلا to Noor", status())
     }
 
     @Test

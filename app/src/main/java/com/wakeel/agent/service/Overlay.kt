@@ -48,6 +48,8 @@ class Overlay(private val svc: AgentAccessibilityService) {
     private var questionTv: TextView? = null
     private var confirmRow: LinearLayout? = null
     private var alwaysBtn: TextView? = null
+    private var yesBtn: TextView? = null
+    private var noBtn: TextView? = null
     private var mainBtn: TextView? = null
     private var stopBtn: TextView? = null
 
@@ -231,8 +233,10 @@ class Overlay(private val svc: AgentAccessibilityService) {
             orientation = LinearLayout.HORIZONTAL
             visibility = View.GONE
             setPadding(0, dp(12), 0, 0)
-            addView(pill("سماح", 0xFF1FA97C.toInt()) { Hub.engine.answerConfirm(true) }, weightLp(end = dp(8)))
-            addView(pill("رفض", 0xFFE5484D.toInt()) { Hub.engine.answerConfirm(false) }, weightLp())
+            yesBtn = pill("سماح", 0xFF1FA97C.toInt()) { Hub.engine.answerConfirm(true) }
+            noBtn = pill("رفض", 0xFFE5484D.toInt()) { Hub.engine.answerConfirm(false) }
+            addView(yesBtn, weightLp(end = dp(8)))
+            addView(noBtn, weightLp())
         }
         p.addView(confirmRow)
 
@@ -291,6 +295,7 @@ class Overlay(private val svc: AgentAccessibilityService) {
         panel = null
         statusTv = null; questionTv = null; confirmRow = null; mainBtn = null; stopBtn = null
         alwaysBtn = null
+        yesBtn = null; noBtn = null
         recStatusTv = null
         openedToAsk = false
     }
@@ -475,7 +480,7 @@ class Overlay(private val svc: AgentAccessibilityService) {
         statusTv?.text = when (s) {
             is EngineState.Idle -> result?.let { "آخر نتيجة: ${it.lines().first().take(90)}\nاضغط هنا لعرضها كاملة" } ?: "جاهز."
             is EngineState.Running -> "الخطوة ${s.step}/${s.max} — ${s.line}"
-            is EngineState.Confirm -> "بانتظار موافقتك قبل المتابعة"
+            is EngineState.Confirm -> if (s.yes == "سماح") "بانتظار موافقتك قبل المتابعة" else s.title
             is EngineState.Ask -> "الوكيل يحتاج معلومة منك"
         }
         questionTv?.apply {
@@ -484,6 +489,10 @@ class Overlay(private val svc: AgentAccessibilityService) {
             visibility = if (q != null) View.VISIBLE else View.GONE
         }
         confirmRow?.visibility = if (s is EngineState.Confirm) View.VISIBLE else View.GONE
+        if (s is EngineState.Confirm) {
+            yesBtn?.text = s.yes
+            noBtn?.text = s.no
+        }
         alwaysBtn?.visibility = if (s is EngineState.Confirm && s.canAlways) View.VISIBLE else View.GONE
         mainBtn?.visibility = if (s is EngineState.Idle || s is EngineState.Ask) View.VISIBLE else View.GONE
         mainBtn?.text = if (s is EngineState.Ask) "اكتب الرد" else "مهمة جديدة"

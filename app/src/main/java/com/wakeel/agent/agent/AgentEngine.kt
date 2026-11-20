@@ -51,8 +51,14 @@ import kotlinx.coroutines.withTimeout
 sealed interface EngineState {
     data object Idle : EngineState
     data class Running(val line: String, val step: Int, val max: Int) : EngineState
-    /** [canAlways]: the step belongs to a saved skill, so the owner may allow it once and for all. */
-    data class Confirm(val question: String, val canAlways: Boolean = false) : EngineState
+    /**
+     * A yes/no question to the owner. [canAlways]: the step belongs to a saved skill, so it may be allowed once
+     * and for all. [yes]/[no] are the two answers as shown (a permission by default; "schedule / run now" otherwise).
+     */
+    data class Confirm(
+        val question: String, val canAlways: Boolean = false,
+        val yes: String = "سماح", val no: String = "رفض", val title: String = "مطلوب موافقتك",
+    ) : EngineState
     data class Ask(val question: String) : EngineState
 }
 
@@ -71,6 +77,8 @@ class AgentEngine(
     private val notes: AppNotes,
     private val apps: AppIndex,
     private val maps: AppMapStore,
+    /** Where a task that names a later time is kept until then. */
+    private val scheduler: Scheduler? = null,
     /** True while the owner is demonstrating a task by hand — the agent must not act then. */
     private val isRecording: () -> Boolean = { false },
 ) {
@@ -94,21 +102,23 @@ class AgentEngine(
 
     val isRunning: Boolean get() = job?.isActive == true
 
-    fun start(task: String, delayMs: Long = 0) {
+    /** [scheduledFor]: the task was scheduled earlier and its time has come. Returns false when nothing was started. */
+    fun start(task: String, delayMs: Long = 0, scheduledFor: Long? = null): Boolean {
         val t = task.trim()
-        if (t.isEmpty() || isRunning) return
+        if (t.isEmpty() || isRunning) return false
         if (isRecording()) {
             // The owner is teaching a task by hand: the agent must not act on the screen at the same time
             Handler(Looper.getMainLooper()).post {
                 Toast.makeText(ctx, "أنهِ تسجيل المهارة أولاً (الفقاعة الحمراء)، ثم اطلب المهمة.", Toast.LENGTH_LONG).show()
             }
-            return
+            return false
         }
         job = scope.launch {
             if (delayMs > 0) delay(delayMs)
-            val run = Run(t)
+            val run = Run(t, scheduledFor)
             guarded(run) { execute(run) }
         }
+        return true
     }
 
     /** Visits an app's bottom tabs and records its pages — no API calls, nothing is typed or submitted. */
@@ -185,6 +195,42 @@ class AgentEngine(
         return " — SENT: the text left the input field, so it went through. Do not send it again; if that was the task, call done."
     }
 
+    /** Text or body that a link pre-fills in the app it opens (wa.me/…?text=, sms:…?body=, mailto:…?body=). */
+    private fun noteLinkText(run: Run, url: String) {
+        val decoded = runCatching { java.net.URLDecoder.decode(url, "UTF-8") }.getOrDefault(url)
+        run.typed += Text.norm(decoded)
+    }
+
+    /**
+     * True when [draft] is this task's own text: it typed it, a link it opened carried it, or the task names it.
+     * Anything else found in an input field was left there earlier — by the owner or by an older task.
+     */
+    private fun ownText(run: Run, draft: String): Boolean {
+        val d = Text.norm(draft)
+        if (d.length < 2) return true
+        return run.typed.any { it == d || it.contains(d) || (it.length >= 2 && d.contains(it)) } || Text.norm(run.task).contains(d)
+    }
+
+    /**
+     * A send button is about to be pressed on a text this task did not write — an old draft still sitting in the
+     * field. That text is never sent on the agent's own judgment: the owner sees it and decides, whatever the settings.
+     * Returns null when there is no such draft, otherwise the owner's answer.
+     */
+    private suspend fun staleDraft(run: Run, drafts: List<String>): Pair<String, Boolean>? {
+        val stale = drafts.firstOrNull { !ownText(run, it) } ?: return null
+        log(run, LogKind.WARN, "في حقل الكتابة نص لم أكتبه في هذه المهمة: «${stale.take(60)}»")
+        val send = choose(
+            run, "في حقل الكتابة نص لم أكتبه أنا في هذه المهمة:\n«${stale.take(200)}»\nهل أرسله كما هو؟",
+            yes = "أرسله", no = "لا ترسله", title = "نص قديم في حقل الكتابة", timeoutMs = 120_000,
+        ) == true
+        log(run, if (send) LogKind.INFO else LogKind.WARN, if (send) "وافقتَ على إرسال النص الموجود" else "لم يُرسل النص القديم")
+        return stale to send
+    }
+
+    /** What the approval question shows for a send: the text that will go out, not just the button's name. */
+    private fun draftLine(drafts: List<String>): String =
+        drafts.firstOrNull()?.let { "\nالنص: «${it.take(200)}»" }.orEmpty()
+
     /**
      * The model is about to send again a text that already went out to the same place in this task.
      * That only happens when it did not believe the first send. The message is there, so the task ends
@@ -228,7 +274,7 @@ class AgentEngine(
     private val uiLang: String
         get() = runCatching { ctx.resources.configuration.locales[0].toLanguageTag() }.getOrDefault("ar")
 
-    private class Run(val task: String) {
+    private class Run(val task: String, val scheduledFor: Long? = null) {
         val started = System.currentTimeMillis()
         val logs = mutableListOf<LogEntry>()
         var usage = Usage()
@@ -258,6 +304,9 @@ class AgentEngine(
         /** "where::text" of everything this task already sent, so the same text is never sent twice to the same place. */
         val sent = HashSet<String>()
         val sentShown = ArrayList<String>()
+
+        /** Everything this task itself put into input fields (typed, or pre-filled through a link it opened), normalized. */
+        val typed = ArrayList<String>()
     }
 
     private class Stop(val status: TaskStatus, msg: String) : Exception(msg)
@@ -356,6 +405,33 @@ class AgentEngine(
 
     private suspend fun execute(run: Run) {
         val task = run.task
+
+        // 0) A task for later ("بعد 10 دقائق…", "الساعة 8 مساءً…") waits on the phone; the model cannot wait
+        if (run.scheduledFor != null) {
+            log(run, LogKind.LOCAL, "مهمة مجدولة حان موعدها (${Schedule.clock(run.scheduledFor)})")
+        } else if (scheduler != null) {
+            Schedule.parse(task)?.let { plan ->
+                val whenText = Schedule.describe(plan.at)
+                log(run, LogKind.INFO, "في المهمة موعد: «${plan.phrase}»")
+                val answer = choose(
+                    run, "أنفّذ هذه المهمة $whenText؟\n«${plan.task.take(160)}»",
+                    yes = "جدولة", no = "نفّذ الآن", title = "مهمة لوقت لاحق", timeoutMs = 60_000,
+                )
+                when (answer) {
+                    true -> {
+                        // Asked again from now: the owner may have taken a while to answer "after a minute"
+                        val at = Schedule.parse(task)?.at ?: plan.at
+                        scheduler.add(plan.task, at)
+                        run.localSteps++
+                        log(run, LogKind.LOCAL, "جُدولت المهمة دون استهلاك API")
+                        throw Stop(TaskStatus.DONE, "جُدولت المهمة ${Schedule.describe(at)}. إلغاؤها من الصفحة الرئيسية.")
+                    }
+                    false -> log(run, LogKind.INFO, "اخترتَ تنفيذها الآن")
+                    null -> throw Stop(TaskStatus.STOPPED, "لم تُجب عن سؤال الجدولة، فلم أنفّذ المهمة ولم أجدولها.")
+                }
+            }
+        }
+
         val svc = AgentAccessibilityService.instance
             ?: throw Stop(TaskStatus.FAILED, "خدمة إمكانية الوصول غير مفعّلة. فعّلها من الصفحة الرئيسية أولاً.")
         val trail = mutableListOf<String>()
@@ -767,7 +843,19 @@ class AgentEngine(
                 val here = if (risky) svc.readScreen() else cur
                 val drafts = if (risky) draftsOf(here) else emptyList()
                 drafts.firstOrNull { sentKey(here, it) in run.sent }?.let { alreadySent(run, it) }
-                if (!confirm(run, risky, if (a.type == ActionType.TAP) "الضغط على «${n.label.take(40)}»" else "الضغط المطوّل على «${n.label.take(40)}»"))
+                val sends = risky && a.type == ActionType.TAP && (Safety.isSendLabel(n.label) || (n.label.isBlank() && sensitive))
+                val stale = if (sends) staleDraft(run, drafts) else null
+                if (stale != null && !stale.second) {
+                    return Outcome(
+                        "${a.describe()} ✗ NOT SENT: the input field held an older draft \"${stale.first.take(60)}\" that this task did not type, " +
+                            "and the owner refused to send it. Type the message TASK asks for (type replaces the whole field), then send; " +
+                            "if TASK gives no message text, ask_user for it.",
+                        abort = true, breaksMacro = true,
+                    )
+                }
+                val what = (if (a.type == ActionType.TAP) "الضغط على «${n.label.take(40)}»" else "الضغط المطوّل على «${n.label.take(40)}»") +
+                    if (sends) draftLine(drafts) else ""
+                if (stale == null && !confirm(run, risky, what))
                     return Outcome("${a.describe()} ✗ DENIED by owner — do not retry", abort = true, breaksMacro = true)
                 val ok = if (a.type == ActionType.TAP) click(svc, n) else longClick(svc, n)
                 if (ok) run.pending = pendingFor(cur.pkg, run.lastKey, n)
@@ -820,6 +908,7 @@ class AgentEngine(
                     return Outcome("type ✗ REFUSED: read-only app — only search fields may be typed in", abort = true, breaksMacro = true)
                 val txt = a.text.orEmpty()
                 if (txt.isNotBlank() && sentKey(svc.readScreen(), txt) in run.sent) alreadySent(run, txt)
+                run.typed += Text.norm(txt)
                 val (ok, now) = setTextVerified(svc, field, txt)
                 Outcome(
                     "type #${field.id} ${mark(ok)} — field now: \"${now.replace("\n", "\\n").take(160)}\"" +
@@ -839,7 +928,16 @@ class AgentEngine(
                 val here = svc.readScreen()
                 val drafts = draftsOf(here)
                 if (sensitive) drafts.firstOrNull { sentKey(here, it) in run.sent }?.let { alreadySent(run, it) }
-                if (!confirm(run, sensitive, "إرسال/تأكيد النص المكتوب")) return Outcome("enter ✗ DENIED by owner", abort = true, breaksMacro = true)
+                val stale = if (sensitive) staleDraft(run, drafts) else null
+                if (stale != null && !stale.second) {
+                    return Outcome(
+                        "enter ✗ NOT SENT: the input field held an older draft \"${stale.first.take(60)}\" that this task did not type, and the owner " +
+                            "refused to send it. Type the message TASK asks for (type replaces the whole field); if TASK gives none, ask_user.",
+                        abort = true, breaksMacro = true,
+                    )
+                }
+                if (stale == null && !confirm(run, sensitive, "إرسال/تأكيد النص المكتوب" + if (sensitive) draftLine(drafts) else ""))
+                    return Outcome("enter ✗ DENIED by owner", abort = true, breaksMacro = true)
                 val ok = pressEnter(svc, cur, if (byFind) null else a.id?.let { orig.byId(it) })
                 val sentNote = if (ok && sensitive) committed(svc, run, here, drafts) else ""
                 Outcome("enter ${mark(ok)}$sentNote", abort = !ok, macro = if (ok) MacroStep("enter", confirm = sensitive) else null, breaksMacro = !ok)
@@ -896,6 +994,7 @@ class AgentEngine(
                     ?: return Outcome("open_url ✗ this link type is not allowed", abort = true)
                 val t0 = SystemClock.uptimeMillis()
                 val ok = router.openUrl(url)
+                if (ok) noteLinkText(run, url)
                 if (ok) svc.waitForApp(null, t0)
                 run.pending = null
                 Outcome("open_url ${url.take(90)} ${mark(ok)}", abort = !ok, macro = if (ok) MacroStep("open_url", text = url) else null)
@@ -943,8 +1042,20 @@ class AgentEngine(
             val ok: Boolean = if (pol == Policy.BLOCKED) false else when (s.type) {
                 "tap", "long_press" -> {
                     val n = waitFor(svc, s, params)
+                    // A send/post step: what is in the input field now is what will go out
+                    val commits = n != null && (s.confirm || s.approved || Safety.isSensitiveLabel(n.label))
+                    val shown = if (commits) svc.readScreen() else here
+                    val drafts = if (commits) draftsOf(shown) else emptyList()
+                    val sends = commits && s.type == "tap" && n != null && Safety.isSendLabel(n.label)
+                    val stale = if (sends) staleDraft(run, drafts) else null
                     if (n == null || (pol == Policy.READ_ONLY && Safety.isTradeLabel(n.label))) false
-                    else if (!confirm(run, !s.approved && (s.confirm || Safety.isSensitiveLabel(n.label)), "الضغط على «${n.title.take(40)}»", canAlways = skill.id.isNotEmpty())) {
+                    else if (stale != null && !stale.second) {
+                        throw Stop(TaskStatus.STOPPED, "توقّفتُ قبل «${n.title.take(40)}»: في حقل الكتابة نص قديم لم أكتبه، ولم توافق على إرساله.")
+                    } else if (stale == null && !confirm(
+                            run, !s.approved && (s.confirm || Safety.isSensitiveLabel(n.label)),
+                            "الضغط على «${n.title.take(40)}»" + if (sends) draftLine(drafts) else "", canAlways = skill.id.isNotEmpty(),
+                        )
+                    ) {
                         // The owner said no: stop here. Nothing failed, and no model call is spent looking for another way.
                         throw Stop(TaskStatus.STOPPED, "توقّفتُ قبل «${n.title.take(40)}» لأنك لم توافق.")
                     } else {
@@ -954,10 +1065,6 @@ class AgentEngine(
                             log(run, LogKind.LOCAL, "لن أسألك مجدداً عن «${n.title.take(30)}» في مهارة «${skill.title.take(30)}»")
                         }
                         filled = filled.copy(sig = n.signature, label = stepLabel(n))
-                        // A send/post step: remember what was in the input field, to know afterwards that it went out
-                        val commits = s.confirm || s.approved || Safety.isSensitiveLabel(n.label)
-                        val shown = if (commits) svc.readScreen() else here
-                        val drafts = if (commits) draftsOf(shown) else emptyList()
                         val done = if (s.type == "tap") click(svc, n) else longClick(svc, n)
                         if (done) run.pending = pendingFor(here.pkg, run.lastKey, n)
                         if (done) sentNote = committed(svc, run, shown, drafts)
@@ -966,6 +1073,7 @@ class AgentEngine(
                 }
                 "type" -> {
                     val n = waitFor(svc, s, params) ?: focusedEditable(svc.readScreen()) ?: svc.readScreen().nodes.singleOrNull { it.editable }
+                    run.typed += Text.norm(text.orEmpty())
                     if (n == null || n.password) false else setTextVerified(svc, n, text.orEmpty()).first
                 }
                 "enter" -> {
@@ -1008,7 +1116,12 @@ class AgentEngine(
                     val url = Templates.fill(s.text, params.mapValues { Commands.enc(it.value) }).orEmpty()
                     filled = filled.copy(text = url)
                     val t0 = SystemClock.uptimeMillis()
-                    router.openUrl(url).also { if (it) svc.waitForApp(null, t0) }
+                    router.openUrl(url).also {
+                        if (it) {
+                            noteLinkText(run, url)
+                            svc.waitForApp(null, t0)
+                        }
+                    }
                 }
                 "wait" -> { delay(2000); true }
                 else -> false
@@ -1171,6 +1284,25 @@ class AgentEngine(
         running(run, if (ok) "وافقتَ — متابعة" else "رفضتَ — سيبحث عن بديل")
         log(run, if (ok) LogKind.INFO else LogKind.WARN, if (ok) "وافقتَ على: $what" else "رفضتَ: $what")
         return ok
+    }
+
+    /**
+     * A two-way question that is not a plain permission ("schedule or run now?", "send this old draft?").
+     * It is asked whatever the confirmation setting says. Null when nobody answered in time.
+     */
+    private suspend fun choose(run: Run, question: String, yes: String, no: String, title: String, timeoutMs: Long): Boolean? {
+        val gate = CompletableDeferred<Boolean>()
+        confirmAlways = false
+        confirmGate = gate
+        _state.value = EngineState.Confirm(question, canAlways = false, yes = yes, no = no, title = title)
+        val answer = try {
+            withTimeout(timeoutMs) { gate.await() }
+        } catch (e: TimeoutCancellationException) {
+            null
+        }
+        confirmGate = null
+        running(run, "متابعة…")
+        return answer
     }
 
     private suspend fun ask(run: Run, question: String): String? {

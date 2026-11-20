@@ -36,8 +36,10 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.AccessibilityNew
+import androidx.compose.material.icons.rounded.Alarm
 import androidx.compose.material.icons.rounded.Bolt
 import androidx.compose.material.icons.rounded.CheckCircle
+import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.ErrorOutline
 import androidx.compose.material.icons.rounded.HealthAndSafety
 import androidx.compose.material.icons.rounded.Info
@@ -53,6 +55,7 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.FilledTonalIconButton
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
@@ -84,6 +87,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.wakeel.agent.Hub
 import com.wakeel.agent.agent.EngineState
 import com.wakeel.agent.agent.KnowledgeBase
+import com.wakeel.agent.agent.Schedule
 import com.wakeel.agent.core.DeviceInfo
 import com.wakeel.agent.core.DeviceSnapshot
 import com.wakeel.agent.core.LogKind
@@ -122,6 +126,7 @@ fun HomeScreen(task: String, onTask: (String) -> Unit, onOpenSettings: () -> Uni
     val serviceOn by AgentAccessibilityService.connected.collectAsStateWithLifecycle()
     val skillList by Hub.skills.skills.collectAsStateWithLifecycle()
     val records by Hub.history.records.collectAsStateWithLifecycle()
+    val scheduled by Hub.scheduler.items.collectAsStateWithLifecycle()
     val mapsVersion by Hub.maps.version.collectAsStateWithLifecycle()
     val hasKey = remember { Hub.settings.apiKey.isNotBlank() }
     val running = state !is EngineState.Idle
@@ -244,9 +249,32 @@ fun HomeScreen(task: String, onTask: (String) -> Unit, onOpenSettings: () -> Uni
             }
         }
 
+        // ---------- tasks waiting for their time
+        if (scheduled.isNotEmpty()) item {
+            Panel(accent = MaterialTheme.colorScheme.secondary) {
+                PanelHeader("مهام مجدولة", Icons.Rounded.Alarm, MaterialTheme.colorScheme.secondary)
+                scheduled.forEach { sc ->
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Column(Modifier.weight(1f)) {
+                            Text(sc.task, style = MaterialTheme.typography.bodyMedium, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                            Text(
+                                Schedule.describe(sc.at), style = MaterialTheme.typography.labelMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                        IconButton(onClick = { Hub.scheduler.cancel(sc.id) }) { Icon(Icons.Rounded.Close, "إلغاء المهمة المجدولة") }
+                    }
+                }
+                Text(
+                    "تبدأ في موعدها والشاشة مفتوحة. إن كان الهاتف مقفلاً تنبّهك بصوت وتبدأ حين تفتحه.",
+                    style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        }
+
         // ---------- live mission
         when (val s = state) {
-            is EngineState.Confirm -> item { ConfirmPanel(s.question) }
+            is EngineState.Confirm -> item { ConfirmPanel(s) }
             is EngineState.Ask -> item { AskPanel(s.question) }
             is EngineState.Running -> item { RunningPanel(s) }
             EngineState.Idle -> Unit
@@ -462,19 +490,19 @@ private fun RunningPanel(s: EngineState.Running) {
 }
 
 @Composable
-private fun ConfirmPanel(q: String) {
+private fun ConfirmPanel(c: EngineState.Confirm) {
     Panel(accent = Brand.Amber) {
-        PanelHeader("مطلوب موافقتك", Icons.Rounded.WarningAmber, Brand.Amber)
-        Text(q, style = MaterialTheme.typography.bodyLarge)
+        PanelHeader(c.title, Icons.Rounded.WarningAmber, Brand.Amber)
+        Text(c.question, style = MaterialTheme.typography.bodyLarge)
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             Button(
                 onClick = { Hub.engine.answerConfirm(true) }, modifier = Modifier.weight(1f),
                 colors = ButtonDefaults.buttonColors(containerColor = Brand.Green, contentColor = Color.White),
-            ) { Text("سماح") }
+            ) { Text(c.yes) }
             Button(
                 onClick = { Hub.engine.answerConfirm(false) }, modifier = Modifier.weight(1f),
                 colors = ButtonDefaults.buttonColors(containerColor = Brand.Ruby, contentColor = Color.White),
-            ) { Text("رفض") }
+            ) { Text(c.no) }
         }
     }
 }

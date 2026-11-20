@@ -13,6 +13,7 @@ import com.wakeel.agent.agent.MapEdge
 import com.wakeel.agent.agent.MapScreen
 import com.wakeel.agent.agent.Mastery
 import com.wakeel.agent.agent.Safety
+import com.wakeel.agent.agent.Schedule
 import com.wakeel.agent.agent.SettingsCatalog
 import com.wakeel.agent.agent.Templates
 import com.wakeel.agent.core.Text
@@ -23,6 +24,8 @@ import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import java.util.Calendar
+import java.util.TimeZone
 
 /** Checks the parts that must be exact: Arabic command parsing, skill generalization, safety guards. */
 class LogicTest {
@@ -241,5 +244,76 @@ class LogicTest {
         assertFalse(Safety.isTradeLabel("الأسواق"))
         assertTrue(Safety.isSensitiveLabel("Send"))
         assertTrue(Safety.isSearchField("Search coin", ""))
+    }
+
+    @Test
+    fun `tasks for later are recognised and their time phrase removed`() {
+        val zone = TimeZone.getTimeZone("Asia/Qatar")
+        fun at(y: Int, mo: Int, d: Int, h: Int, mi: Int) = Calendar.getInstance(zone).apply { clear(); set(y, mo - 1, d, h, mi, 0) }.timeInMillis
+        val now = at(2026, 11, 20, 3, 10)
+        fun p(s: String) = Schedule.parse(s, now, zone)
+
+        // What the owner asked on the phone
+        val asked = p("افتح الواتساب وارسل رسالة الي 70776067 بفتح خط قطر وارسل له رساله بعد دقيقة (هلا)")!!
+        assertEquals(now + 60_000, asked.at)
+        assertEquals("افتح الواتساب وارسل رسالة الي 70776067 بفتح خط قطر وارسل له رساله (هلا)", asked.task)
+        assertEquals("بعد دقيقة", asked.phrase)
+
+        // After a while
+        assertEquals(now + 600_000, p("بعد ١٠ دقائق افتح يوتيوب")!!.at)
+        assertEquals("افتح يوتيوب", p("بعد ١٠ دقائق افتح يوتيوب")!!.task)
+        assertEquals("افتح يوتيوب", p("افتح يوتيوب بعد 5 دقائق.")!!.task)
+        assertEquals(now + 90 * 60_000, p("بعد ساعة ونصف شغل الواي فاي")!!.at)
+        assertEquals(now + 30 * 60_000, p("شغل البلوتوث بعد نصف ساعة")!!.at)
+        assertEquals(now + 2 * 3600_000, p("بعد ساعتين من الآن افتح الكاميرا")!!.at)
+        assertEquals("افتح الكاميرا", p("بعد ساعتين من الآن افتح الكاميرا")!!.task)
+        assertEquals(now + 20 * 60_000, p("بعد عشرين دقيقة اطفئ الواي فاي")!!.at)
+        assertEquals(now + 5 * 60_000, p("بعد خمس دقائق افتح الاعدادات")!!.at)
+        assertEquals(now + 8_000, p("بعد 8 ثواني اعرض محفظة Sandbox")!!.at)
+        assertEquals(now + 300_000, p("in 5 minutes open youtube")!!.at)
+        assertEquals("open youtube", p("in 5 minutes open youtube")!!.task)
+
+        // At a time on the clock
+        assertEquals(at(2026, 11, 20, 20, 0), p("الساعة 8 مساءً ارسل تقرير الاسبوع")!!.at)
+        assertEquals("ارسل تقرير الاسبوع", p("الساعة 8 مساءً ارسل تقرير الاسبوع")!!.task)
+        assertEquals(at(2026, 11, 21, 7, 0), p("افتح الكاميرا غدا الساعة 7")!!.at)
+        assertEquals("افتح الكاميرا", p("افتح الكاميرا غدا الساعة 7")!!.task)
+        assertEquals(at(2026, 11, 20, 14, 0), p("افتح الإعدادات الساعة 2")!!.at)          // 2 at night has passed: the next 2 o'clock
+        assertEquals(at(2026, 11, 20, 17, 30), p("ارسلها الساعة 5:30 م")!!.at)
+        assertEquals(at(2026, 11, 20, 17, 30), p("افتح الخرائط الساعة الخامسة والنصف عصراً")!!.at)
+        assertEquals(at(2026, 11, 20, 8, 45), p("الساعة 9 إلا ربع صباحا افتح البريد")!!.at)
+        assertEquals(at(2026, 11, 21, 2, 0), p("الساعة 2 ص افتح الكاميرا")!!.at)          // already past today
+        assertEquals(at(2026, 11, 20, 17, 30), p("open maps at 5:30 pm")!!.at)
+
+        // A time inside the message is the message, not a schedule
+        assertNull(p("أرسل إلى أحمد: سأصل بعد 5 دقائق"))
+        assertNull(p("أرسل «سأصل بعد ساعة» إلى أحمد"))
+        val quoted = p("ارسل «سأصل بعد ساعة» الى احمد بعد نصف ساعة")!!
+        assertEquals(now + 30 * 60_000, quoted.at)
+        assertEquals("ارسل «سأصل بعد ساعة» الى احمد", quoted.task)
+
+        // Not schedules at all
+        assertNull(p("اضبط منبه الساعة 7 صباحا"))
+        assertNull(p("ذكرني بعد 10 دقائق بالدواء"))
+        assertNull(p("ارسل له بعد ذلك صورة"))
+        assertNull(p("كم الساعة الآن"))
+        assertNull(p("افتح الإعدادات"))
+        assertNull(p("بعد 5 دقائق"))
+
+        assertEquals("بعد دقيقة (الساعة 3:11 ص)", Schedule.describe(now + 60_000, now, zone))
+        assertEquals("بعد 10 دقيقة (الساعة 3:20 ص)", Schedule.describe(now + 600_000, now, zone))
+        assertEquals("اليوم الساعة 8:00 م", Schedule.describe(at(2026, 11, 20, 20, 0), now, zone))
+        assertEquals("غداً الساعة 7:00 ص", Schedule.describe(at(2026, 11, 21, 7, 0), now, zone))
+    }
+
+    @Test
+    fun `send buttons are told apart from other sensitive buttons`() {
+        assertTrue(Safety.isSendLabel("إرسال"))
+        assertTrue(Safety.isSendLabel("Send"))
+        assertTrue(Safety.isSendLabel("نشر"))
+        assertFalse(Safety.isSendLabel("حذف"))
+        assertFalse(Safety.isSendLabel("البريد الوارد"))
+        assertFalse(Safety.isSendLabel("المزيد"))
+        assertFalse(Safety.isSendLabel(""))
     }
 }

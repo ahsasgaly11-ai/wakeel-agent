@@ -28,6 +28,11 @@ object Safety {
 
     fun isSensitiveLabel(label: String): Boolean = label.isNotBlank() && sensitive.containsMatchIn(Text.norm(label))
 
+    /** A button that sends what is written in the input field (a message, a post, a reply). */
+    private val sends = Regex("(ارسال|ارسل|send|نشر|انشر|post|publish|reply|tweet)", RegexOption.IGNORE_CASE)
+
+    fun isSendLabel(label: String): Boolean = label.isNotBlank() && sends.containsMatchIn(Text.norm(label))
+
     fun isTradeLabel(label: String): Boolean {
         if (label.isBlank()) return false
         val l = Text.norm(label).replace("order book", "").replace("orderbook", "").replace("دفتر الطلبات", "").replace("سجل الطلبات", "")

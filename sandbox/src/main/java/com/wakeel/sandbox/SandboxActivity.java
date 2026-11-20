@@ -46,6 +46,10 @@ public class SandboxActivity extends Activity {
     /** How many messages each contact received since the app started — a duplicate send shows up here. */
     static final Map<String, Integer> SENT = new HashMap<>();
 
+    /** Real chat apps keep what was typed and not sent. Here one contact does — enough to test an old draft. */
+    static final String KEEPS_DRAFT = "Noor";
+    static String draft = "";
+
     private TextView status;
 
     @Override
@@ -131,6 +135,14 @@ public class SandboxActivity extends Activity {
         final TextView count = text("messages sent to " + name + ": " + sentTo(name));
         count.setId(R.id.sent_count);
         final EditText message = edit(R.id.message, "Message");
+        if (KEEPS_DRAFT.equals(name)) {
+            message.setText(draft);
+            message.addTextChangedListener(new TextWatcher() {
+                @Override public void beforeTextChanged(CharSequence s, int start, int count, int after) { }
+                @Override public void onTextChanged(CharSequence s, int start, int before, int count) { }
+                @Override public void afterTextChanged(Editable s) { draft = s.toString(); }
+            });
+        }
         c.addView(message);
         c.addView(button(R.id.btn_send, "Send", v -> {
             SENT.put(name, sentTo(name) + 1);

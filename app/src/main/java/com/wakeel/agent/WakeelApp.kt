@@ -7,6 +7,7 @@ import com.wakeel.agent.agent.AppMapStore
 import com.wakeel.agent.agent.AppNotes
 import com.wakeel.agent.agent.DemoRecorder
 import com.wakeel.agent.agent.HistoryStore
+import com.wakeel.agent.agent.Scheduler
 import com.wakeel.agent.agent.SkillStore
 import com.wakeel.agent.core.Settings
 
@@ -35,6 +36,8 @@ object Hub {
         private set
     lateinit var engine: AgentEngine
         private set
+    lateinit var scheduler: Scheduler
+        private set
 
     fun init(app: Application) {
         settings = Settings(app)
@@ -44,6 +47,9 @@ object Hub {
         maps = AppMapStore(app)
         apps = AppIndex(app)
         recorder = DemoRecorder(app, settings, skills, apps)
-        engine = AgentEngine(app, settings, history, skills, notes, apps, maps) { recorder.active }
+        scheduler = Scheduler(app, history, { engine }, { recorder.active })
+        engine = AgentEngine(app, settings, history, skills, notes, apps, maps, scheduler) { recorder.active }
+        // Tasks scheduled before the app was last closed get their alarm back; overdue ones start as soon as they can
+        scheduler.arm()
     }
 }
