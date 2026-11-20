@@ -1,0 +1,47 @@
+name: iPad app
+
+on:
+  push:
+    branches: [main]
+    paths: ['ipad/**', '.github/workflows/ipad.yml']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: ipad
+  cancel-in-progress: true
+
+jobs:
+  ipad:
+    runs-on: macos-15
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Logic tests, build, simulator self-test
+        id: run
+        run: bash ipad/ci/run.sh
+
+      - name: Publish the report (always)
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          cd out
+          rm -rf .git
+          git init -q
+          git checkout -q -b ipad-logs
+          git add -A
+          git -c user.name="ci" -c user.email="ci@users.noreply.github.com" commit -qm "iPad run ${GITHUB_RUN_NUMBER} for ${GITHUB_SHA}"
+          git push -qf "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" ipad-logs
+
+      - name: Release the project
+        if: success()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          TAG="ipad-v1.0.${GITHUB_RUN_NUMBER}"
+          gh release create "$TAG" out/Wakeel-iPad.zip --title "وكيل للآيباد 1.0.${GITHUB_RUN_NUMBER}" --latest=false \
+            --notes "مشروع Swift Playgrounds. نزّل الملف على الآيباد، فكّ ضغطه في «الملفات»، ثم افتح Wakeel.swiftpm في Swift Playgrounds."

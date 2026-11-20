@@ -3,6 +3,8 @@ name: Build APK
 on:
   push:
     branches: [main]
+    # The iPad app lives in ipad/ and has its own workflow
+    paths-ignore: ['ipad/**', '.github/workflows/ipad.yml']
   workflow_dispatch:
 
 permissions:

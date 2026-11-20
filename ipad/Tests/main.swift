@@ -1,0 +1,176 @@
+import Foundation
+
+// Logic tests for the parts of the app that need no screen: compiled together with the app's own
+// source files and run on the build machine. The sample Office files they write are then opened
+// by Tests/validate.py.
+
+var failures = 0
+var passed = 0
+func expect(_ ok: Bool, _ what: String, _ detail: @autoclosure () -> String = "") {
+    if ok { passed += 1 } else { failures += 1; print("FAIL  \(what)  \(detail())") }
+}
+func same<T: Equatable>(_ a: T, _ b: T, _ what: String) { expect(a == b, what, "got \(a), expected \(b)") }
+
+// ---------------------------------------------------------------- text
+same(TextTools.norm("  أَرْسِلْ  إلى  مُحمّد ٣ "), "ارسل الي محمد 3", "Arabic normalisation")
+expect(TextTools.isRTL("مرحبا") && !TextTools.isRTL("hello"), "direction")
+same(TextTools.xml("a<b & \"c\"\u{01}"), "a&lt;b &amp; &quot;c&quot;", "XML escaping drops control characters")
+same(ZipWriter.crc32(Data("123456789".utf8)), 0xCBF43926, "CRC-32")
+
+// ---------------------------------------------------------------- schedule
+let zone = TimeZone(identifier: "Asia/Qatar")!
+func at(_ y: Int, _ mo: Int, _ d: Int, _ h: Int, _ mi: Int) -> Date {
+    var cal = Calendar(identifier: .gregorian)
+    cal.timeZone = zone
+    return cal.date(from: DateComponents(year: y, month: mo, day: d, hour: h, minute: mi))!
+}
+let now = at(2026, 11, 20, 3, 10)
+func p(_ s: String) -> Schedule.Plan? { Schedule.parse(s, now: now, zone: zone) }
+
+let asked = p("افتح الواتساب وارسل رسالة الي 70776067 بفتح خط قطر وارسل له رساله بعد دقيقة (هلا)")
+same(asked?.at, now.addingTimeInterval(60), "after a minute")
+same(asked?.task, "افتح الواتساب وارسل رسالة الي 70776067 بفتح خط قطر وارسل له رساله (هلا)", "phrase removed from the task")
+same(asked?.phrase, "بعد دقيقة", "the phrase itself")
+same(p("بعد ١٠ دقائق افتح يوتيوب")?.at, now.addingTimeInterval(600), "Arabic digits")
+same(p("بعد ١٠ دقائق افتح يوتيوب")?.task, "افتح يوتيوب", "leading phrase removed")
+same(p("افتح يوتيوب بعد 5 دقائق.")?.task, "افتح يوتيوب", "trailing phrase and full stop removed")
+same(p("بعد ساعة ونصف شغل الواي فاي")?.at, now.addingTimeInterval(90 * 60), "an hour and a half")
+same(p("شغل البلوتوث بعد نصف ساعة")?.at, now.addingTimeInterval(30 * 60), "half an hour")
+same(p("بعد ساعتين من الآن افتح الكاميرا")?.at, now.addingTimeInterval(2 * 3600), "two hours from now")
+same(p("بعد ساعتين من الآن افتح الكاميرا")?.task, "افتح الكاميرا", "'from now' removed")
+same(p("بعد عشرين دقيقة اطفئ الواي فاي")?.at, now.addingTimeInterval(20 * 60), "twenty in words")
+same(p("بعد خمس دقائق افتح الاعدادات")?.at, now.addingTimeInterval(5 * 60), "five in words")
+same(p("in 5 minutes open youtube")?.at, now.addingTimeInterval(300), "English")
+same(p("in 5 minutes open youtube")?.task, "open youtube", "English phrase removed")
+same(p("الساعة 8 مساءً ارسل تقرير الاسبوع")?.at, at(2026, 11, 20, 20, 0), "8 in the evening")
+same(p("الساعة 8 مساءً ارسل تقرير الاسبوع")?.task, "ارسل تقرير الاسبوع", "clock phrase removed")
+same(p("افتح الكاميرا غدا الساعة 7")?.at, at(2026, 11, 21, 7, 0), "tomorrow at 7")
+same(p("افتح الإعدادات الساعة 2")?.at, at(2026, 11, 20, 14, 0), "the next 2 o'clock")
+same(p("ارسلها الساعة 5:30 م")?.at, at(2026, 11, 20, 17, 30), "5:30 pm")
+same(p("افتح الخرائط الساعة الخامسة والنصف عصراً")?.at, at(2026, 11, 20, 17, 30), "half past five, in words")
+same(p("الساعة 9 إلا ربع صباحا افتح البريد")?.at, at(2026, 11, 20, 8, 45), "a quarter to nine")
+same(p("الساعة 2 ص افتح الكاميرا")?.at, at(2026, 11, 21, 2, 0), "already past today")
+same(p("open maps at 5:30 pm")?.at, at(2026, 11, 20, 17, 30), "English clock")
+expect(p("أرسل إلى أحمد: سأصل بعد 5 دقائق") == nil, "a time inside the message is not a schedule")
+expect(p("أرسل «سأصل بعد ساعة» إلى أحمد") == nil, "a time inside quotes is not a schedule")
+same(p("ارسل «سأصل بعد ساعة» الى احمد بعد نصف ساعة")?.task, "ارسل «سأصل بعد ساعة» الى احمد", "the quoted text is kept")
+for s in ["اضبط منبه الساعة 7 صباحا", "ذكرني بعد 10 دقائق بالدواء", "ارسل له بعد ذلك صورة", "كم الساعة الآن", "افتح الإعدادات", "بعد 5 دقائق"] {
+    expect(p(s) == nil, "not a schedule: \(s)")
+}
+same(Schedule.describe(now.addingTimeInterval(60), now: now, zone: zone), "بعد دقيقة (الساعة 3:11 ص)", "describe a minute")
+same(Schedule.describe(now.addingTimeInterval(600), now: now, zone: zone), "بعد 10 دقيقة (الساعة 3:20 ص)", "describe ten minutes")
+same(Schedule.describe(at(2026, 11, 20, 20, 0), now: now, zone: zone), "اليوم الساعة 8:00 م", "describe today")
+same(Schedule.describe(at(2026, 11, 21, 7, 0), now: now, zone: zone), "غداً الساعة 7:00 ص", "describe tomorrow")
+
+// ---------------------------------------------------------------- local commands
+same(Dial.international("70776067", code: "974"), "97470776067", "local number gets the country code")
+same(Dial.international("+97470776067", code: "974"), "97470776067", "a number with + is complete")
+same(Dial.international("0097470776067", code: "974"), "97470776067", "a number with 00 is complete")
+same(Dial.international("0555123456", code: "966"), "966555123456", "the leading zero goes")
+same(Dial.international("70776067", code: nil), "70776067", "no region known")
+same(Dial.waLink("https://wa.me/70776067?text=hi", code: "974"), "https://wa.me/97470776067?text=hi", "chat link gets the country code")
+same(Commands.parse("أرسل واتساب إلى 70776067: هلا", dial: "974"),
+     .external(url: "https://wa.me/97470776067?text=" + Commands.enc("هلا"), say: "فتحتُ محادثة واتساب مع 70776067 والرسالة جاهزة — اضغط إرسال."), "WhatsApp command")
+same(Commands.parse("اتصل بالرقم 44551234"), .external(url: "tel:44551234", say: "بدأتُ الاتصال بـ 44551234."), "call command")
+same(Commands.parse("شغّل اختصار رسالة الصباح: صباح الخير"), .external(url: Commands.shortcutURL("رسالة الصباح", input: "صباح الخير"), say: "شغّلتُ الاختصار «رسالة الصباح»."), "shortcut with input")
+same(Commands.parse("رسالة الصباح", shortcuts: ["رسالة الصباح"]), .external(url: Commands.shortcutURL("رسالة الصباح", input: nil), say: "شغّلتُ الاختصار «رسالة الصباح»."), "shortcut by its name")
+same(Commands.parse("ابحث عن قهوة عربية"), .browse(url: "https://www.google.com/search?q=" + Commands.enc("قهوة عربية"), say: "هذه نتائج البحث عن «قهوة عربية»."), "search command")
+same(Commands.parse("ابحث في يوتيوب عن شرح دورة الماء"), .browse(url: "https://www.youtube.com/results?search_query=" + Commands.enc("شرح دورة الماء"), say: "هذه نتائج يوتيوب عن «شرح دورة الماء»."), "YouTube search")
+same(Commands.parse("افتح wikipedia.org"), .browse(url: "https://wikipedia.org", say: "فتحتُ wikipedia.org."), "open a site")
+same(Commands.parse("افتح تطبيق واتساب"), .external(url: "whatsapp://", say: "فتحتُ واتساب."), "open an app")
+same(Commands.parse("أين يقع برج خليفة؟"), .external(url: "http://maps.apple.com/?q=" + Commands.enc("برج خليفة"), say: "فتحتُ الخرائط على «برج خليفة»."), "a place on the map")
+same(Commands.parse("أرسل بريد إلى ali@example.com: الاجتماع غداً"), .external(url: "mailto:ali@example.com?body=" + Commands.enc("الاجتماع غداً"), say: "فتحتُ رسالة بريد إلى ali@example.com والنص جاهز — راجعها واضغط إرسال."), "mail command")
+for s in ["ابحث عن أسعار الذهب ولخّص النتائج", "أنشئ عرضاً تقديمياً عن دورة الماء", "افتح موقع المدرسة ثم حمّل الجدول", "ما عاصمة قطر"] {
+    expect(Commands.parse(s) == nil, "needs the model: \(s)", "\(String(describing: Commands.parse(s)))")
+}
+if case .answer(let t)? = Commands.parse("كم الساعة؟") { expect(t.contains("الساعة الآن"), "the time") } else { expect(false, "the time is answered locally") }
+
+// ---------------------------------------------------------------- safety
+expect(Safety.isSensitiveLabel("إرسال") && Safety.isSensitiveLabel("Buy now") && !Safety.isSensitiveLabel("المزيد"), "sensitive labels")
+expect(Safety.isSendLabel("Send") && Safety.isSendLabel("نشر") && !Safety.isSendLabel("حذف"), "send labels")
+expect(Safety.policy(host: "online.qnb.com", blocked: Safety.defaultBlocked, readOnly: Safety.defaultReadOnly) == .blocked, "a bank is blocked")
+expect(Safety.policy(host: "www.mexc.com", blocked: Safety.defaultBlocked, readOnly: Safety.defaultReadOnly) == .readOnly, "an exchange is read-only")
+expect(Safety.policy(host: "ar.wikipedia.org", blocked: Safety.defaultBlocked, readOnly: Safety.defaultReadOnly) == .allowed, "an ordinary site is allowed")
+
+// ---------------------------------------------------------------- skills
+let route = [SkillStep(type: "open", text: "https://shop.example/search?q=" + Commands.enc("قهوة عربية")), SkillStep(type: "type", label: "Search", text: "قهوة عربية"), SkillStep(type: "enter", label: "Search")]
+let g = SkillLogic.generalize(task: "ابحث في المتجر عن قهوة عربية", steps: route)
+same(g.pattern, "ابحث في المتجر عن {p1}", "typed text becomes a slot")
+same(g.steps[1].text, "{p1}", "the step carries the slot")
+same(g.steps[0].text, "https://shop.example/search?q={p1}", "the address carries the slot")
+let fit = SkillLogic.match(task: "ابحث في المتجر عن شاي أخضر", pattern: g.pattern)
+same(fit?["p1"], "شاي أخضر", "a new value fits the pattern")
+same(SkillLogic.fill(g.steps[0].text, fit ?? [:], encode: true), "https://shop.example/search?q=" + Commands.enc("شاي أخضر"), "the address is filled, encoded")
+expect(SkillLogic.match(task: "ابحث في السوق عن شاي", pattern: g.pattern) == nil, "another task does not fit")
+expect(SkillLogic.match(task: "ابحث في المتجر عن", pattern: g.pattern) == nil, "an empty slot does not fit")
+let chat = [SkillStep(type: "open", text: "https://sandbox.wakeel/"), SkillStep(type: "tap", label: "Contacts"), SkillStep(type: "tap", label: "Sara"),
+            SkillStep(type: "type", label: "Message", text: "مرحبا"), SkillStep(type: "tap", label: "Send", confirm: true)]
+let g2 = SkillLogic.generalize(task: "أرسل في الصندوق إلى Sara رسالة مرحبا", steps: chat)
+same(g2.pattern, "أرسل في الصندوق إلى {p2} رسالة {p1}", "a tapped name and a typed text both become slots")
+same(g2.steps[2].label, "{p2}", "the tapped name is a slot")
+same(g2.steps[1].label, "Contacts", "an ordinary button stays as it is")
+let fit2 = SkillLogic.match(task: "أرسل في الصندوق إلى Omar رسالة كيف حالك", pattern: g2.pattern)
+expect(fit2?["p1"] == "كيف حالك" && fit2?["p2"] == "Omar", "two slots are filled", "\(String(describing: fit2))")
+same(SkillLogic.generalize(task: "افتح Contacts", steps: [SkillStep(type: "open", text: "https://a.b/"), SkillStep(type: "tap", label: "Contacts")]).pattern, "افتح Contacts",
+     "a pattern keeps words of its own")
+same(SkillLogic.generalize(task: "ابحث عن amazon", steps: [SkillStep(type: "open", text: "https://amazon.com/s?k=amazon"), SkillStep(type: "type", label: "Search", text: "amazon")]).steps[0].text,
+     "https://amazon.com/s?k={p1}", "the site's own name is not turned into a slot")
+expect(SkillLogic.incomplete([SkillStep(type: "open", text: "x")], sawSecret: false) != nil, "a demonstration with no steps is incomplete")
+expect(SkillLogic.incomplete([SkillStep(type: "open", text: "x"), SkillStep(type: "type", text: "y")], sawSecret: false) != nil, "typing without sending is incomplete")
+expect(SkillLogic.incomplete(chat, sawSecret: true) != nil, "a demonstration with a password is not kept")
+expect(SkillLogic.incomplete(chat, sawSecret: false) == nil, "a finished demonstration is complete")
+
+// ---------------------------------------------------------------- model replies
+let d = AgentDecision(J.object(in: "Here: {\"thought\":\"t\",\"actions\":[{\"type\":\"TAP\",\"id\":\"7\"},{\"type\":\"create_file\",\"kind\":\"PPTX\",\"spec\":\"{\\\"title\\\":\\\"x\\\"}\"},{\"nope\":1}]}"))
+expect(d.actions.count == 2 && d.actions[0].type == "tap" && d.actions[0].id == 7 && d.actions[1].kind == "pptx" && d.actions[1].spec?["title"] as? String == "x", "lenient action parsing")
+expect(AgentDecision(["type": "done", "text": "ok"]).actions.first?.type == "done", "a single top-level action is accepted")
+expect(Prompt.system.contains("create_file") && JSONSerialization.isValidJSONObject(Prompt.actTool().schema), "the tool schema is valid JSON")
+
+// ---------------------------------------------------------------- Office files
+let out = URL(fileURLWithPath: CommandLine.arguments.count > 1 ? CommandLine.arguments[1] : ".")
+try? FileManager.default.createDirectory(at: out, withIntermediateDirectories: true)
+let docSpec: JSON = ["title": "دورة الماء في الطبيعة", "subtitle": "ملخص درس العلوم — الصف الثالث", "blocks": [
+    ["type": "heading", "level": 1, "text": "ما هي دورة الماء؟"] as JSON,
+    ["type": "paragraph", "text": "دورة الماء هي **حركة الماء المستمرة** بين الأرض والهواء. تبدأ بالتبخر (Evaporation) ثم التكاثف & الهطول <دائماً>."] as JSON,
+    ["type": "heading", "level": 2, "text": "المراحل"] as JSON,
+    ["type": "numbered", "items": ["التبخر", "التكاثف", "الهطول", "الجريان"]] as JSON,
+    ["type": "bullets", "items": ["الشمس مصدر الطاقة", "السحب تتكون من قطرات صغيرة"]] as JSON,
+    ["type": "quote", "text": "وجعلنا من الماء كل شيء حي"] as JSON,
+    ["type": "table", "header": ["المرحلة", "ماذا يحدث", "مثال"], "rows": [["التبخر", "يتحول الماء إلى بخار", "جفاف الملابس"], ["الهطول", "يسقط المطر", "مطر الشتاء"]]] as JSON,
+    ["type": "page_break"] as JSON,
+    ["type": "heading", "level": 3, "text": "English note"] as JSON,
+    ["type": "paragraph", "text": "This paragraph is left to right."] as JSON,
+    ["type": "numbered", "items": ["سؤال أول", "سؤال ثانٍ"]] as JSON,
+]]
+let deckSpec: JSON = ["title": "دورة الماء في الطبيعة", "subtitle": "العلوم — الصف الثالث", "theme": "maroon", "slides": [
+    ["layout": "section", "title": "أولاً: من أين يأتي المطر؟", "subtitle": "رحلة قطرة الماء"] as JSON,
+    ["layout": "bullets", "title": "مراحل دورة الماء", "bullets": ["**التبخر**: تسخّن الشمس الماء فيصعد بخاراً", "التكاثف: يبرد البخار فيصير قطرات", "الهطول: تسقط القطرات مطراً", "الجريان: يعود الماء إلى البحار"]] as JSON,
+    ["layout": "two", "title": "مقارنة", "left": ["title": "التبخر", "bullets": ["يحتاج حرارة", "من سائل إلى غاز"]] as JSON, "right": ["title": "التكاثف", "bullets": ["يحتاج برودة", "من غاز إلى سائل"]] as JSON] as JSON,
+    ["layout": "table", "title": "جدول المراحل", "table": ["header": ["المرحلة", "ماذا يحدث", "مثال"], "rows": [["التبخر", "ماء ← بخار", "جفاف الملابس"], ["التكاثف", "بخار ← قطرات", "الندى"]]] as JSON] as JSON,
+    ["layout": "quote", "title": "تأمّل", "text": "وجعلنا من الماء كل شيء حي", "by": "سورة الأنبياء"] as JSON,
+    ["layout": "bullets", "title": "Summary in English", "bullets": ["Evaporation", "Condensation", "Precipitation"]] as JSON,
+]]
+let sheetSpec: JSON = ["sheets": [
+    ["name": "درجات الصف", "header": ["الطالب", "الاختبار 1", "الاختبار 2", "المعدل", "النسبة"],
+     "rows": [["أحمد", 18, 17.5, "=AVERAGE(B2:C2)", "88%"] as [Any], ["سالم", 15, 19, "=AVERAGE(B3:C3)", "85%"] as [Any], ["المجموع", "=SUM(B2:B3)", "=SUM(C2:C3)", "", ""] as [Any]]] as JSON,
+    ["name": "Notes", "header": ["Item", "Qty"], "rows": [["Pens", "12"], ["Code", "007"]]] as JSON,
+]]
+do {
+    try Docx.build(docSpec).write(to: out.appendingPathComponent("sample.docx"))
+    try Xlsx.build(sheetSpec).write(to: out.appendingPathComponent("sample.xlsx"))
+    for theme in ["maroon", "teal", "dark"] {
+        var spec = deckSpec
+        spec["theme"] = theme
+        try Pptx.build(spec).write(to: out.appendingPathComponent("sample-\(theme).pptx"))
+    }
+    try Pptx.build(["title": ""]).write(to: out.appendingPathComponent("empty.pptx"))
+    try Docx.build([:]).write(to: out.appendingPathComponent("empty.docx"))
+    try Xlsx.build([:]).write(to: out.appendingPathComponent("empty.xlsx"))
+    expect(true, "files written")
+} catch {
+    expect(false, "writing the sample files", "\(error)")
+}
+same(Xlsx.column(0) + Xlsx.column(25) + Xlsx.column(26) + Xlsx.column(701), "AZAAZZ", "column letters")
+
+print(failures == 0 ? "LOGIC: OK (\(passed) checks)" : "LOGIC: FAILED (\(failures) failed, \(passed) passed)")
+exit(failures == 0 ? 0 : 1)
