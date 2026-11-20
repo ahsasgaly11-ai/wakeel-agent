@@ -13,6 +13,8 @@ struct RootView: View {
             tabs
             if keyboard.visible { KeyboardView().transition(.move(edge: .bottom)) }
         }
+        // The app's keyboard is part of this layout: whatever room the system keeps for its own is not wanted
+        .ignoresSafeArea(model.settings.inAppKeyboard ? .keyboard : [], edges: .bottom)
         .environment(\.layoutDirection, .rightToLeft)
         .onChange(of: engine.showBrowser) { model.tab = 1 }
     }

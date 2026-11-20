@@ -14,6 +14,20 @@ extension UIResponder {
     @objc private func wkReport(_ sender: Any?) { UIResponder.wkFound = self }
 }
 
+/// What a field is given in place of the system keyboard: nothing, with no height and no touches.
+final class NoSystemKeyboard: UIView {
+    override var intrinsicContentSize: CGSize { CGSize(width: UIView.noIntrinsicMetric, height: 0) }
+    override func point(inside point: CGPoint, with event: UIEvent?) -> Bool { false }
+
+    static func make() -> NoSystemKeyboard {
+        let v = NoSystemKeyboard(frame: .zero)
+        v.autoresizingMask = []
+        v.isUserInteractionEnabled = false
+        v.backgroundColor = .clear
+        return v
+    }
+}
+
 enum FocusHelp {
     static var window: UIWindow? {
         UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }.flatMap { $0.windows }.first { $0.isKeyWindow }
@@ -36,7 +50,11 @@ enum FocusHelp {
     static var report: String {
         let r = UIResponder.wkFirst()
         let state = UIApplication.shared.applicationState
-        return "focus=\(r.map { String(describing: type(of: $0)) } ?? "none") app=\(state == .active ? "active" : state == .inactive ? "inactive" : "background") key=\(window?.isKeyWindow ?? false)"
+        let input = (r as? UITextView)?.inputView ?? (r as? UITextField)?.inputView
+        var host = ""
+        var v = input?.superview
+        while let s = v { host += " \(type(of: s))=\(Int(s.frame.height))"; v = s.superview }
+        return "focus=\(r.map { String(describing: type(of: $0)) } ?? "none") app=\(state == .active ? "active" : state == .inactive ? "inactive" : "background") key=\(window?.isKeyWindow ?? false) screen=\(Int(window?.bounds.width ?? 0))x\(Int(window?.bounds.height ?? 0)) insets=\(Int(window?.safeAreaInsets.bottom ?? 0)) input=\(input.map { "\(Int($0.frame.width))x\(Int($0.frame.height))" } ?? "none") host:\(host)"
     }
 }
 
@@ -63,6 +81,9 @@ final class KeyboardHub: ObservableObject {
     /// True while the agent itself is working in the browser: its typing needs no keyboard.
     var busy: () -> Bool = { false }
     private var observers: [NSObjectProtocol] = []
+    /// Where the app's keyboard is on the screen, and where the system says its own is: for the self-test.
+    var frame: CGRect = .zero
+    private(set) var systemFrame: CGRect = .zero
 
     init(browser: BrowserController, settings: SettingsStore) {
         self.browser = browser
@@ -79,6 +100,10 @@ final class KeyboardHub: ObservableObject {
                 Task { @MainActor in self?.ended() }
             })
         }
+        observers.append(center.addObserver(forName: UIResponder.keyboardDidChangeFrameNotification, object: nil, queue: .main) { [weak self] note in
+            let f = (note.userInfo?[UIResponder.keyboardFrameEndUserInfoKey] as? NSValue)?.cgRectValue ?? .zero
+            Task { @MainActor in self?.systemFrame = f }
+        })
         browser.onFocus = { [weak self] on, secure in self?.webFocus(on, secure: secure) }
     }
 
@@ -96,13 +121,13 @@ final class KeyboardHub: ObservableObject {
         if let tf = field as? UITextField {
             tf.inputAssistantItem.leadingBarButtonGroups = []
             tf.inputAssistantItem.trailingBarButtonGroups = []
-            if tf.inputView == nil { tf.inputView = UIView(); tf.reloadInputViews() }
+            if tf.inputView == nil { tf.inputView = NoSystemKeyboard.make(); tf.reloadInputViews() }
             if tf.isSecureTextEntry || [.URL, .webSearch, .emailAddress, .asciiCapable].contains(tf.keyboardType) { show(.english) }
             else if [.decimalPad, .numberPad, .numbersAndPunctuation, .phonePad].contains(tf.keyboardType) { layer = .symbols }
         } else if let tv = field as? UITextView {
             tv.inputAssistantItem.leadingBarButtonGroups = []
             tv.inputAssistantItem.trailingBarButtonGroups = []
-            if tv.inputView == nil { tv.inputView = UIView(); tv.reloadInputViews() }
+            if tv.inputView == nil { tv.inputView = NoSystemKeyboard.make(); tv.reloadInputViews() }
         }
         refresh()
         // The keyboard takes the lower part of the screen: bring the field into what is left
@@ -278,6 +303,8 @@ struct KeyboardView: View {
                 }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .onAppear { hub.frame = geo.frame(in: .global) }
+            .onChange(of: geo.frame(in: .global)) { hub.frame = geo.frame(in: .global) }
         }
         .frame(height: 236)
         .padding(.bottom, 4)

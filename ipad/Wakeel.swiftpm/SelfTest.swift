@@ -240,6 +240,13 @@ enum SelfTest {
             try? await Task.sleep(nanoseconds: 900_000_000)
         }
         check("the keyboard comes up when a field of the app takes the focus", m.keyboard.visible, FocusHelp.report)
+        try? await Task.sleep(nanoseconds: 600_000_000)
+        let screen = FocusHelp.window?.bounds ?? .zero
+        let sys = m.keyboard.systemFrame.intersection(screen)
+        let place = "app keyboard \(Int(m.keyboard.frame.minY))…\(Int(m.keyboard.frame.maxY)) of \(Int(screen.height)) · system keyboard \(Int(sys.isNull ? 0 : sys.height)) high · " + FocusHelp.report
+        lines.append("  · " + place)
+        check("it sits at the bottom of the screen", screen.height - m.keyboard.frame.maxY < 44 && m.keyboard.frame.height > 200, place)
+        check("the system keyboard takes no room beside it", sys.isNull || sys.height < 12, place)
         for piece in ["مرحبا", " ", "A", "1"] { m.keyboard.insert(piece) }
         try? await Task.sleep(nanoseconds: 300_000_000)
         check("its keys type into the field", m.draft == "مرحبا A1", "«\(m.draft)»")
