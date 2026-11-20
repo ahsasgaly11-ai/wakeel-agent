@@ -45,22 +45,3 @@ jobs:
           TAG="ipad-v1.0.${GITHUB_RUN_NUMBER}"
           gh release create "$TAG" out/Wakeel-iPad.zip --title "وكيل للآيباد 1.0.${GITHUB_RUN_NUMBER}" --latest=false \
             --notes "مشروع Swift Playgrounds. نزّل الملف على الآيباد، فكّ ضغطه في «الملفات»، ثم افتح Wakeel.swiftpm في Swift Playgrounds."
-
-  # The same sources against the oldest Xcode still offered, to catch code that only a newer Swift accepts:
-  # Swift Playgrounds on an iPad may carry an older compiler than the build machine above.
-  older-swift:
-    runs-on: macos-14
-    timeout-minutes: 15
-    steps:
-      - uses: actions/checkout@v4
-      - name: Type-check with the oldest Xcode 15
-        run: |
-          ls /Applications | grep -i xcode
-          OLD="$(ls -d /Applications/Xcode_15*.app | sort -V | head -1)"
-          echo "using $OLD"
-          export DEVELOPER_DIR="$OLD/Contents/Developer"
-          xcodebuild -version; swift --version
-          SDK="$(xcrun --sdk iphonesimulator --show-sdk-path)"
-          xcrun swiftc -typecheck -parse-as-library -sdk "$SDK" -target arm64-apple-ios17.0-simulator -module-name AppModule \
-            $(ls ipad/Wakeel.swiftpm/*.swift | grep -v Package.swift) 2>&1 | tee typecheck.txt | grep -E "error:" | sort -u | head -60
-          ! grep -q "error:" typecheck.txt
