@@ -12,6 +12,7 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.view.accessibility.AccessibilityNodeInfo;
 import android.view.inputmethod.EditorInfo;
+import android.webkit.WebView;
 import android.widget.AbsListView;
 import android.widget.BaseAdapter;
 import android.widget.Button;
@@ -84,6 +85,7 @@ public class SandboxActivity extends Activity {
             case "prefs": setTitle("Preferences"); prefs(content); break;
             case "about": setTitle("About"); content.addView(text("Sandbox 1.0 — a pretend app for tests")); break;
             case "photos": setTitle("Photos"); photos(content); break;
+            case "web": setTitle("Flights"); web(content); break;
             default: setTitle("Home"); home(content); break;
         }
         root.addView(tabs(tab));
@@ -110,6 +112,37 @@ public class SandboxActivity extends Activity {
 
         c.addView(button(R.id.btn_about, "About", v -> open("about", null, false)));
         c.addView(button(R.id.btn_photos, "Photos", v -> open("photos", null, false)));
+        c.addView(button(R.id.btn_flights, "Flights", v -> open("web", null, false)));
+    }
+
+    /**
+     * A real web page in a real web view: a long list of flight results, each one a single long line, with the
+     * cheapest far below the screen — what a search-results page looks like to an app that reads the screen.
+     */
+    private void web(LinearLayout c) {
+        String[] airlines = {"SalamAir", "Oman Air", "flydubai", "Qatar Airways", "Air Arabia", "Emirates", "Turkish Airlines", "Gulf Air"};
+        StringBuilder h = new StringBuilder();
+        h.append("<html><head><meta name='viewport' content='width=device-width, initial-scale=1'>")
+            .append("<style>body{font:17px sans-serif;margin:12px} a{display:block;padding:26px 8px;border-bottom:1px solid #ccc;color:#111;text-decoration:none}</style>")
+            .append("</head><body><h1>Flights from Muscat (MCT) to Erbil (EBL)</h1>")
+            .append("<p>Wed 16 Dec – Sun 27 Dec · round trip · 1 passenger · prices include taxes</p>")
+            .append("<input type='text' placeholder='Where to?' aria-label='Where to?'>")
+            .append("<h2>Results</h2>");
+        for (int i = 1; i <= 30; i++) {
+            int price = i == 27 ? 41 : 58 + (i * 7) % 60;
+            String airline = i == 27 ? "FlyErbil" : airlines[i % airlines.length];
+            h.append("<a href='#r").append(i).append("'>").append(airline)
+                .append(" · departs Muscat ").append(String.format("%02d:%02d", (i * 3) % 24, (i * 10) % 60))
+                .append(" · arrives Erbil ").append(String.format("%02d:%02d", (i * 3 + 7) % 24, (i * 10 + 35) % 60))
+                .append(" · ").append(i % 3 == 0 ? "nonstop" : "1 stop in Dubai, 2 h 40 min between flights")
+                .append(" · ").append(6 + i % 5).append(" h ").append((i * 5) % 60).append(" min")
+                .append(" · ").append(price).append(" OMR round trip</a>");
+        }
+        h.append("<p>End of results — 30 flights</p></body></html>");
+        WebView web = new WebView(this);
+        web.setId(R.id.web_page);
+        web.loadDataWithBaseURL("https://flights.sandbox.example/", h.toString(), "text/html", "utf-8", null);
+        c.addView(web, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
     }
 
     private void contacts(LinearLayout c) {

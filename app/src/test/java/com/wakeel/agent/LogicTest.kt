@@ -33,6 +33,25 @@ class LogicTest {
     private fun url(task: String): String? = (Commands.parse(task) as? Cmd.Url)?.url
 
     @Test
+    fun `a page reading is handed over whole and says when it was cut`() {
+        val lines = (1..40).map { "result $it · " + "x".repeat(60) }
+        val all = com.wakeel.agent.service.ScreenReader.joinPage(lines, 9000)
+        assertTrue(all.startsWith("result 1 ·") && all.contains("result 40 ·") && !all.contains("the page continues"))
+        val cut = com.wakeel.agent.service.ScreenReader.joinPage(lines, 600)
+        assertTrue(cut.length <= 700 && cut.contains("result 1 ·") && !cut.contains("result 40 ·") && cut.endsWith("for the rest)"))
+    }
+
+    @Test
+    fun `web requests go by link and the model is told the date`() {
+        val link = "https://www.google.com/travel/flights?q=Flights+from+MCT+to+EBL+on+2026-12-16+through+2026-12-27"
+        assertEquals(link, LocalRouter.encodeLoose(LocalRouter.normalizeUrl(link)!!))
+        assertTrue(Regex("""\d{4}-\d{2}-\d{2} \(\w+\) \d{2}:\d{2}""").matches(com.wakeel.agent.llm.Prompt.now()))
+        val system = com.wakeel.agent.llm.Prompt.SYSTEM
+        assertTrue(system.contains("`read`") && system.contains("travel/flights?q=") && system.contains("NOW"))
+        assertEquals(com.wakeel.agent.core.ActionType.READ, com.wakeel.agent.core.ActionType.of("read"))
+    }
+
+    @Test
     fun normalization() {
         assertEquals("ارسل رساله الي احمد", Text.norm("أَرسِلْ رسالةً إلى أحمد"))
         assertEquals("12", Text.norm("١٢"))

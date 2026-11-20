@@ -23,6 +23,8 @@
     <item name="pin_len" type="id" />
     <item name="sw_dark" type="id" />
     <item name="btn_photos" type="id" />
+    <item name="btn_flights" type="id" />
+    <item name="web_page" type="id" />
     <item name="photo_grid" type="id" />
     <item name="sel_all" type="id" />
     <item name="sel_count" type="id" />

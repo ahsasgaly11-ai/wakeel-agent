@@ -7,7 +7,7 @@ enum class ActionType(val key: String) {
     TAP("tap"), TAP_XY("tap_xy"), LONG_PRESS("long_press"), DRAG("drag"), TYPE("type"), ENTER("enter"),
     SCROLL("scroll"), BACK("back"), HOME("home"), RECENTS("recents"), NOTIFICATIONS("notifications"),
     OPEN_APP("open_app"), OPEN_SETTINGS("open_settings"), OPEN_URL("open_url"),
-    WAIT("wait"), SCREENSHOT("screenshot"), ASK_USER("ask_user"), DONE("done"), FAIL("fail");
+    WAIT("wait"), SCREENSHOT("screenshot"), READ("read"), ASK_USER("ask_user"), DONE("done"), FAIL("fail");
 
     companion object {
         fun of(k: String?): ActionType? = entries.firstOrNull { it.key == k?.trim()?.lowercase() }

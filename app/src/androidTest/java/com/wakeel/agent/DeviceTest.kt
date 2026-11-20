@@ -67,6 +67,14 @@ private object FakeModel : LlmClient {
     @Volatile
     var lastUser = ""
 
+    /** What the model answers when asked to conclude a task that used up its requests (null = nothing usable). */
+    @Volatile
+    var finish: JSONObject? = null
+
+    /** What the model was shown when asked to conclude. */
+    @Volatile
+    var lastFinishUser = ""
+
     private const val NO_PLAN = """{"thought":"لا خطة","actions":[{"type":"fail","text":"انتهت الخطط المجهّزة للاختبار."}],"sensitive":false}"""
 
     override suspend fun callTool(
@@ -80,6 +88,10 @@ private object FakeModel : LlmClient {
                 lastKnowledge = extraSystem
                 val p = synchronized(plans) { plans.removeFirstOrNull() } ?: NO_PLAN
                 ToolResult(JSONObject(p), Usage(900, 60))
+            }
+            "finish" -> {
+                lastFinishUser = user
+                ToolResult(finish ?: JSONObject(), Usage(900, 80))
             }
             "learn" -> {
                 val task = user.lineSequence().firstOrNull().orEmpty().removePrefix("TASK: ")
@@ -720,6 +732,59 @@ class DeviceTest {
         assertEquals(TaskStatus.DONE, r.status)
         assertEquals("only the real message may go out", "messages sent to Noor: 1", byId("sent_count")?.label)
         assertEquals("sent: هلا to Noor", status())
+    }
+
+    @Test
+    fun t24_aWebPageIsReadWholeInOneRequest() {
+        // Thirty results, one long line each, the cheapest far below the screen. Scrolling to it screen by screen
+        // would cost a request per screen; reading the page costs none.
+        FakeModel.learn = JSONObject().put("title", "x").put("pattern", "x").put("params", JSONArray()).put("readout", true).put("reusable", false)
+        FakeModel.plans += plan("""[{"type":"open_app","text":"Sandbox"},{"type":"tap","find":"Flights"},{"type":"read"}]""")
+        FakeModel.plans += plan("""[{"type":"done","text":"أرخص رحلة: FlyErbil بسعر 41 OMR ذهاباً وعودة."}]""")
+        val before = FakeModel.calls
+        val r = run("ما أرخص رحلة في صفحة Flights في Sandbox")
+        dump("the web page")
+        val shown = FakeModel.lastUser
+        val page = shown.substringAfter("PAGE TEXT", "")
+        note("page text handed to the model: ${page.length} characters, ${page.lines().size} lines")
+        assertEquals(TaskStatus.DONE, r.status)
+        assertEquals("opening the page and reading it is one request, answering is the second", 2, FakeModel.calls - before)
+        assertTrue("the model was not given the page text", page.isNotEmpty())
+        assertTrue("the result far below the screen is missing from the page text", page.contains("FlyErbil") && page.contains("41 OMR round trip"))
+        assertTrue("the end of the page is missing", page.contains("End of results"))
+        assertTrue("a long result line was cut short", page.contains("1 stop in Dubai, 2 h 40 min between flights"))
+        assertTrue("the model was not told today's date", shown.contains("NOW: 20"))
+        val s = screen()
+        assertTrue("the page was not recognised as a web page", s.isWeb)
+        assertTrue("web results are still cut at 50 characters on screen", s.nodes.any { it.web && it.label.length > 80 })
+    }
+
+    @Test
+    fun t25_aTaskThatRunsOutOfRequestsStillAnswers() {
+        val s = Hub.settings
+        s.maxSteps = 3
+        try {
+            // The model wanders and never says "done" — the results are on the page all the same
+            FakeModel.finish = JSONObject().put("status", "done").put("text", "أرخص رحلة ظاهرة: FlyErbil بسعر 41 OMR.")
+            FakeModel.plans += plan("""[{"type":"open_app","text":"Sandbox"},{"type":"tap","find":"Flights"},{"type":"wait"}]""")
+            FakeModel.plans += plan("""[{"type":"scroll","dir":"down"}]""")
+            var r = run("افتح Flights في Sandbox وابحث عن أرخص رحلة")
+            assertEquals("the last request must give the answer that is on the page", TaskStatus.DONE, r.status)
+            assertTrue(r.result.contains("41 OMR"))
+            assertEquals("the conclusion is the last allowed request, not an extra one", 3, r.calls)
+            assertTrue("the conclusion was not given the page", FakeModel.lastFinishUser.contains("PAGE TEXT") && FakeModel.lastFinishUser.contains("FlyErbil"))
+
+            // And when even that gives nothing, the owner is told plainly
+            FakeModel.finish = null
+            FakeModel.plans += plan("""[{"type":"open_app","text":"Sandbox"},{"type":"tap","find":"Flights"},{"type":"wait"}]""")
+            FakeModel.plans += plan("""[{"type":"scroll","dir":"down"}]""")
+            r = run("افتح Flights في Sandbox وابحث عن أرخص رحلة")
+            assertEquals(TaskStatus.FAILED, r.status)
+            assertTrue(r.result.contains("الحد الأقصى"))
+        } finally {
+            s.maxSteps = 6
+            FakeModel.finish = null
+        }
     }
 
     @Test

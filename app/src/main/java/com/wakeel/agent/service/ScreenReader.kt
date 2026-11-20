@@ -24,6 +24,8 @@ class UiNode(
     /** Inside a dynamic list (RecyclerView/ListView…): content, not app structure. */
     val inList: Boolean,
     val info: AccessibilityNodeInfo,
+    /** Part of a web page (inside a browser or an app's web view). */
+    val web: Boolean = false,
 ) {
     /** Stable identity across screen reads (used for batching and saved routes). */
     val signature: String get() = "$cls|$viewId|${label.take(60)}"
@@ -34,6 +36,9 @@ class UiNode(
 
 class Screen(val pkg: String, val activity: String, val nodes: List<UiNode>, val width: Int, val height: Int) {
     val hasPassword = nodes.any { it.password }
+
+    /** A web page is showing: its text is long, and most of it lies below what is visible. */
+    val isWeb = nodes.any { it.web }
     val hash: Int = (pkg + "\n" + nodes.joinToString("\n") {
         it.signature + "@" + it.bounds.flattenToString() + (if (it.checked) "x" else "") + (if (it.selected) "*" else "")
     }).hashCode()
@@ -114,6 +119,18 @@ object ScreenReader {
     private const val MAX_LIST_NODES = 110
     private const val MAX_LABEL = 50
 
+    /** One element of a web page often carries a whole result (airline, times, price): cutting it at 50 loses the answer. */
+    private const val MAX_WEB_LABEL = 150
+
+    /** The most text one reading of a page hands to the model. */
+    const val PAGE_CHARS = 9000
+    private const val PAGE_LINE = 500
+
+    private fun isWebRoot(n: AccessibilityNodeInfo): Boolean {
+        val c = n.className?.toString().orEmpty()
+        return c.endsWith("WebView") || c.endsWith("GeckoView")
+    }
+
     /**
      * The app window to read. Normally the active one; while a page is still starting, Android may not
      * report an active window yet, so the front-most app window is used instead.
@@ -128,8 +145,85 @@ object ScreenReader {
         val root = root(svc) ?: return Screen("", "", emptyList(), w, h)
         val pkg = root.packageName?.toString() ?: ""
         val out = ArrayList<UiNode>()
-        walk(root, out, w, h, false, false, 0, null)
+        walk(root, out, w, h, false, false, 0, null, false)
         return Screen(pkg, activityFor(pkg), out, w, h)
+    }
+
+    /**
+     * The text of the page in front, in reading order, from the top of what is visible to the end.
+     * On a web page the browser describes the whole document, so the part below the screen is read too
+     * without scrolling; [Page.below] says how many of the lines lie outside the screen.
+     */
+    class Page(val lines: List<String>, val below: Int, val web: Boolean, val scroller: AccessibilityNodeInfo?)
+
+    fun page(svc: AccessibilityService): Page {
+        val root = root(svc) ?: return Page(emptyList(), 0, false, null)
+        val webs = ArrayList<AccessibilityNodeInfo>()
+        findWeb(root, webs, 0)
+        val lines = ArrayList<String>()
+        val visible = ArrayList<Boolean>()
+        var visited = 0
+        var scroller: AccessibilityNodeInfo? = null
+        var scrollerArea = 0L
+        val inWeb = webs.isNotEmpty()
+
+        fun go(n: AccessibilityNodeInfo, above: String, depth: Int) {
+            if (visited++ > 6000 || depth > 90) return
+            if (n.isPassword) return
+            val shown = n.isVisibleToUser
+            // Outside a web page, what is not visible is another tab or a recycled row: not part of this page
+            if (!inWeb && !shown) return
+            if (shown && n.isScrollable) {
+                val b = Rect()
+                n.getBoundsInScreen(b)
+                val area = b.width().toLong() * b.height()
+                if (area > scrollerArea) { scrollerArea = area; scroller = n }
+            }
+            var mine = above
+            val t = pageText(n)
+            // An element often repeats what its container already said
+            if (t.isNotEmpty() && !above.contains(t)) {
+                if (lines.lastOrNull() != t) {
+                    lines += t.take(PAGE_LINE)
+                    visible += shown
+                }
+                mine = t
+            }
+            for (i in 0 until n.childCount) n.getChild(i)?.let { go(it, mine, depth + 1) }
+        }
+        for (start in if (inWeb) webs else listOf(root)) go(start, "", 0)
+
+        val first = visible.indexOfFirst { it }.coerceAtLeast(0)
+        val out = lines.drop(first)
+        return Page(out, visible.drop(first).count { !it }, inWeb, if (inWeb) webs.firstOrNull { it.isScrollable } ?: scroller else scroller)
+    }
+
+    private fun findWeb(n: AccessibilityNodeInfo, out: MutableList<AccessibilityNodeInfo>, depth: Int) {
+        if (depth > 30 || out.size >= 3) return
+        if (isWebRoot(n)) {
+            if (n.isVisibleToUser) out += n
+            return
+        }
+        for (i in 0 until n.childCount) n.getChild(i)?.let { findWeb(it, out, depth + 1) }
+    }
+
+    private fun pageText(n: AccessibilityNodeInfo): String {
+        val t = n.text?.toString()?.trim().orEmpty()
+        val s = if (t.isNotEmpty()) t else n.contentDescription?.toString()?.trim().orEmpty()
+        return s.replace(Regex("\\s+"), " ")
+    }
+
+    /** Joins page lines up to [max] characters, saying so when the page goes on. */
+    fun joinPage(lines: List<String>, max: Int = PAGE_CHARS): String {
+        val sb = StringBuilder()
+        for (l in lines) {
+            if (sb.length + l.length + 1 > max) {
+                sb.append("… (the page continues: scroll down and read again for the rest)")
+                break
+            }
+            sb.append(l).append('\n')
+        }
+        return sb.toString().trim()
     }
 
     /**
@@ -160,7 +254,7 @@ object ScreenReader {
 
     private fun walk(
         n: AccessibilityNodeInfo, out: MutableList<UiNode>, w: Int, h: Int,
-        underLabeled: Boolean, inList: Boolean, depth: Int, listRoom: IntArray?,
+        underLabeled: Boolean, inList: Boolean, depth: Int, listRoom: IntArray?, inWeb: Boolean,
     ) {
         if (out.size >= MAX_NODES || depth > 45) return
         if (listRoom != null && listRoom[0] <= 0) return
@@ -180,7 +274,7 @@ object ScreenReader {
         if (interactive || (own.isNotEmpty() && !underLabeled)) {
             out += UiNode(
                 id = out.size,
-                label = if (n.isEditable && !n.isPassword) label.take(400) else label.take(MAX_LABEL),
+                label = if (n.isEditable && !n.isPassword) label.take(400) else label.take(if (inWeb) MAX_WEB_LABEL else MAX_LABEL),
                 role = role(n),
                 viewId = n.viewIdResourceName?.substringAfter(":id/").orEmpty(),
                 cls = n.className?.toString()?.substringAfterLast('.').orEmpty(),
@@ -194,6 +288,7 @@ object ScreenReader {
                 selected = n.isSelected,
                 inList = inList,
                 info = n,
+                web = inWeb,
             )
             listRoom?.let { it[0]-- }
         }
@@ -203,7 +298,7 @@ object ScreenReader {
         val childRoom = listRoom ?: if (dynamic) intArrayOf(MAX_LIST_NODES) else null
         for (i in 0 until n.childCount) {
             val c = n.getChild(i) ?: continue
-            walk(c, out, w, h, childUnder, childInList, depth + 1, childRoom)
+            walk(c, out, w, h, childUnder, childInList, depth + 1, childRoom, inWeb || isWebRoot(n))
         }
     }
 

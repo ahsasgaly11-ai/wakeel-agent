@@ -29,6 +29,7 @@ import com.wakeel.agent.llm.LlmClient
 import com.wakeel.agent.llm.Prompt
 import com.wakeel.agent.service.AgentAccessibilityService
 import com.wakeel.agent.service.Screen
+import com.wakeel.agent.service.ScreenReader
 import com.wakeel.agent.service.UiNode
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred
@@ -295,6 +296,12 @@ class AgentEngine(
         val route = mutableListOf<MacroStep>()
         var routeOk = true
         var llmActions = 0
+
+        /** The whole text of a page the model asked to read: handed over in its next turn, once. */
+        var pageText: String? = null
+
+        /** When a web link was last opened: its page may still be loading when it is read. */
+        var urlOpenedAt = 0L
 
         // Map learning
         var lastKey: String? = null
@@ -606,8 +613,10 @@ class AgentEngine(
         var blockedHits = 0
         val memo = mutableListOf<String>()
         val max = settings.maxSteps
+        // The last request is kept for the conclusion: a task that ran long still ends with an answer
+        val acting = if (max >= 3) max - 1 else max
 
-        for (step in 1..max) {
+        for (step in 1..acting) {
             currentCoroutineContext().ensureActive()
             run.step = step
             awaitScreen(svc, run)
@@ -670,10 +679,12 @@ class AgentEngine(
             val useStrong = strong && settings.strongModel.isNotBlank()
             val model = if (useStrong) settings.strongModel else settings.fastModel
             running(run, if (useStrong) "يخطّط بالنموذج الأقوى…" else "يخطّط…")
-            val finalNote = if (step >= max - 1) "FINAL STEP: call done now with your best answer from MEMO and this screen (state any limits), or fail with the reason." else null
+            val finalNote = if (step >= acting - 1) "FINAL STEP: call done now with your best answer from MEMO, PAGE TEXT and this screen (state any limits), or fail with the reason." else null
             val stepNote = listOfNotNull(note.takeIf { step == 1 }, finalNote).joinToString("\n").ifEmpty { null }
             val device = if (run.playbook != null) DeviceInfo.brief(DeviceInfo.snapshot(ctx)) else null
-            val user = Prompt.user(run.task, trail, screen, shot, step, max, stepNote, memo, device, uiLang)
+            val pageText = run.pageText
+            run.pageText = null
+            val user = Prompt.user(run.task, trail, screen, shot, step, max, stepNote, memo, device, uiLang, Prompt.now(), pageText)
             val res = client.decide(model, user, shot, knowledgeFor(run, screen.pkg))
             account(run, model, res.usage)
             strong = false
@@ -773,7 +784,7 @@ class AgentEngine(
                 prevTap = out.tap
                 prevOnEditable = out.onEditable
                 if (out.macro != null) run.route += out.macro else if (out.breaksMacro) run.routeOk = false
-                if (a.type == ActionType.WAIT) waited = true
+                if (a.type == ActionType.WAIT || a.type == ActionType.READ) waited = true
                 if (a.type == ActionType.SCREENSHOT && settings.allowScreenshots) {
                     wantShot = true
                     if (a.text?.contains("hd", ignoreCase = true) == true) wantHd = true
@@ -794,7 +805,97 @@ class AgentEngine(
                 log(run, LogKind.WARN, "تعثّر الوكيل — سيستعين بالنموذج الأقوى ولقطة شاشة للخطوة القادمة")
             }
         }
+        if (acting < max) conclude(svc, client, run, trail, memo, max)
         throw Stop(TaskStatus.FAILED, "توقّف الوكيل بعد بلوغ الحد الأقصى للطلبات ($max)." + sentFootnote(run))
+    }
+
+    /**
+     * The requests are used up. Whatever was reached is not thrown away: one last request reads the page in
+     * front and gives the owner the answer (or says exactly what was done and what is left).
+     */
+    private suspend fun conclude(
+        svc: AgentAccessibilityService, client: LlmClient, run: Run, trail: List<String>, memo: List<String>, max: Int,
+    ) {
+        run.step = max
+        budgetCheck(run)
+        svc.waitForIdle()
+        val screen = observe(svc, run)
+        if (screen.pkg == ctx.packageName || Safety.policy(screen.pkg, settings, apps) == Policy.BLOCKED) return
+        running(run, "يلخّص ما وصل إليه…")
+        log(run, LogKind.INFO, "بلغ الحد الأقصى للطلبات — يقرأ الصفحة الحالية ويجيب بما وصل إليه")
+        val text = if (screen.hasPassword) null else ScreenReader.joinPage(ScreenReader.page(svc).lines, 7000).ifBlank { null }
+        val user = Prompt.user(run.task, trail, screen, null, max, max, null, memo, null, uiLang, Prompt.now(), text)
+        val res = try {
+            client.callTool(settings.fastModel, Prompt.CONCLUDE, user, null, Prompt.finishTool(), maxTokens = 1200)
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            return
+        }
+        account(run, settings.fastModel, res.usage)
+        val o = res.input ?: return
+        val answer = o.optString("text").trim()
+        if (answer.isEmpty()) return
+        when (o.optString("status")) {
+            "done" -> throw Stop(TaskStatus.DONE, answer)
+            "fail" -> throw Stop(TaskStatus.FAILED, answer + sentFootnote(run))
+        }
+    }
+
+    /**
+     * Reads the page in front from the top of what is visible to its end. A web page is described whole by
+     * the browser; any other page (or a browser that describes only the visible part) is scrolled and gathered.
+     */
+    private suspend fun readPage(svc: AgentAccessibilityService, run: Run): String {
+        var page = ScreenReader.page(svc)
+        val fresh = run.urlOpenedAt > 0 && SystemClock.uptimeMillis() - run.urlOpenedAt < 12_000
+        // A link was just opened and the browser has not drawn the page yet
+        if (fresh && !page.web) {
+            for (i in 0 until 12) {
+                delay(400)
+                page = ScreenReader.page(svc)
+                if (page.web) break
+            }
+        }
+        // A page that is still loading keeps growing: wait until its readings agree
+        if (page.web) {
+            var size = page.lines.sumOf { it.length }
+            var same = 0
+            for (i in 0 until 10) {
+                delay(650)
+                page = ScreenReader.page(svc)
+                val n = page.lines.sumOf { it.length }
+                same = if (n == size && n > 0) same + 1 else 0
+                size = n
+                if (same >= (if (fresh) 2 else 1)) break
+            }
+        }
+        val lines = LinkedHashSet(page.lines)
+        var chars = lines.sumOf { it.length + 1 }
+        val whole = page.web && page.below > 0
+        var scrolled = 0
+        if (!whole && page.scroller != null) {
+            while (scrolled < 7 && chars < ScreenReader.PAGE_CHARS) {
+                currentCoroutineContext().ensureActive()
+                svc.markAction()
+                val node = ScreenReader.page(svc).scroller ?: break
+                if (!node.performAction(AccessibilityNodeInfo.ACTION_SCROLL_FORWARD)) break
+                scrolled++
+                svc.waitForIdle(300, 1500)
+                var added = 0
+                for (l in ScreenReader.page(svc).lines) if (lines.add(l)) { added++; chars += l.length + 1 }
+                if (added == 0) break
+            }
+            // Back to where the reading began: the next step may tap something that was on screen
+            repeat(scrolled) {
+                svc.markAction()
+                val node = ScreenReader.page(svc).scroller ?: return@repeat
+                node.performAction(AccessibilityNodeInfo.ACTION_SCROLL_BACKWARD)
+                svc.waitForIdle(200, 900)
+            }
+        }
+        log(run, LogKind.INFO, "قرأ الصفحة كاملة (${lines.size} سطراً" + (if (scrolled > 0) "، بتمرير $scrolled شاشات" else "") + ")")
+        return ScreenReader.joinPage(lines.toList())
     }
 
     private suspend fun learn(client: LlmClient, run: Run, result: String, screenPkg: String) {
@@ -1001,6 +1102,7 @@ class AgentEngine(
                 val t0 = SystemClock.uptimeMillis()
                 val ok = router.openUrl(url)
                 if (ok) noteLinkText(run, url)
+                if (ok && url.startsWith("http", ignoreCase = true)) run.urlOpenedAt = SystemClock.uptimeMillis()
                 if (ok) svc.waitForApp(null, t0)
                 run.pending = null
                 Outcome("open_url ${url.take(90)} ${mark(ok)}", abort = !ok, macro = if (ok) MacroStep("open_url", text = url) else null)
@@ -1014,6 +1116,14 @@ class AgentEngine(
                 if (settings.allowScreenshots) "screenshot → will be attached next turn" else "screenshot ✗ disabled by owner — use the element list",
                 abort = true,
             )
+
+            ActionType.READ -> {
+                if (cur.hasPassword) return Outcome("read ✗ this page has a password field — not read", abort = true)
+                val text = readPage(svc, run)
+                if (text.isBlank()) return Outcome("read ✗ nothing readable on this page (try a screenshot)", abort = true)
+                run.pageText = text
+                Outcome("read ✓ ${text.length} characters — see PAGE TEXT", abort = true)
+            }
 
             ActionType.ASK_USER -> {
                 val q = a.text ?: "هل يمكنك التوضيح؟"
@@ -1466,6 +1576,7 @@ class AgentEngine(
         ActionType.OPEN_URL -> "فتح رابط مباشر"
         ActionType.WAIT -> "انتظار"
         ActionType.SCREENSHOT -> "طلب لقطة شاشة"
+        ActionType.READ -> "قراءة الصفحة كاملة"
         ActionType.ASK_USER -> "سؤال لك"
         ActionType.DONE -> "إنهاء"
         ActionType.FAIL -> "تعذّر"
