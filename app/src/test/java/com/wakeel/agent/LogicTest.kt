@@ -403,6 +403,11 @@ class LogicTest {
         assertTrue(KnowledgeBase.guideFor("com.mexcpro.client")!!.ar.contains("الأسواق"))
         assertEquals("WhatsApp", KnowledgeBase.guideFor("com.whatsapp")?.name)
         assertEquals("Crypto exchange", KnowledgeBase.guideFor("com.mexcpro.client")?.name)
+        // Trading apps: the whole order ticket is described — every order type, leverage and amount unit
+        val ticket = KnowledgeBase.guideFor("com.tradingview.tradingviewapp")!!.guide
+        for (part in listOf("Market", "Limit", "Stop-Limit", "Trailing", "Leverage", "LOWEST", "quantity = value", "Take profit", "DEMO account", "REAL account", "Positions")) {
+            assertTrue("the trading guide does not cover «$part»", ticket.contains(part))
+        }
         assertEquals("Settings", KnowledgeBase.guideFor("com.android.settings")?.name)
         assertNull(KnowledgeBase.guideFor("com.google.android.gms"))
         assertEquals("storage", KnowledgeBase.playbookFor("ابحث عن سبب امتلاء مساحة التخزين للهاتف")?.id)

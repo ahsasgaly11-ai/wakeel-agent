@@ -100,7 +100,16 @@ object KnowledgeBase {
             "DEMO account (the screen says Paper Trading, Demo, Testnet or تجريبي): when TASK asks to trade there or to try trading there, DO it — reporting the price instead is not what was asked. " +
             "First make sure the account shown is the demo one (if you cannot tell, fail and say so). If TASK gives no side or size, ask_user ONCE: buy or sell, how much, market or limit. " +
             "Set leverage to the lowest offered unless TASK names one. Place the order (sensitive: the owner approves it), then read the open position back (entry, size, P&L) in done. " +
-            "If this app is read-only for you, fail and say so."
+            "If this app is read-only for you, fail and say so. " +
+            "THE ORDER TICKET — every kind of order, any leverage, any amount. Open it with Trade / Buy / Sell on the pair's page and read its fields on SCREEN before touching them; names differ between apps, the parts do not: " +
+            "(1) Side: Buy/Long (شراء، لونغ، طويل) or Sell/Short (بيع، شورت، قصير). " +
+            "(2) Order type, usually tabs or a dropdown: Market (سوقي: fills now at the current price) · Limit (محدد: needs a price; buy below / sell above the market) · Stop or Stop-Market (وقف: needs a trigger price; buy above / sell below the market) · Stop-Limit (trigger + limit price) · Trailing stop (a distance or %) · OCO / bracket (target and stop together). If TASK names none, use Market. " +
+            "(3) Leverage (الرافعة): a button like 20x, a slider, a field or a list, often beside Cross/Isolated. Set exactly what TASK says (\"رافعة 10\" → 10x) BEFORE the amount, and confirm its own dialog; if TASK names none, choose the LOWEST offered and say so. Margin mode: leave as it is unless TASK says cross (متقاطع) or isolated (معزول). " +
+            "(4) Amount: tickets ask for it in different units — quantity in the coin (Units, Qty, BTC), value in the quote currency (USDT, Cost, Total) or a % of the balance. Use the unit TASK gives; if the ticket only takes the other one, convert with the price on screen (quantity = value ÷ price; with leverage, position value = margin × leverage) and say in done what you entered. \"بمبلغ 100\" means 100 of the quote currency as cost/margin; \"بكمية 0.01\" means units of the coin. " +
+            "(5) Take profit / Stop loss (جني الأرباح / وقف الخسارة): tick their boxes and type the prices when TASK gives them (a long's stop is below the entry, a short's above). (6) Read the summary line or button (e.g. \"Buy 0.01 BTCUSDT MKT\") and check it against TASK, then press it — sensitive, the owner approves. " +
+            "AFTER: open Positions / Orders (الصفقات، الأوامر) and report entry, size, leverage, liquidation price if shown, and P&L. A Limit or Stop order waits under Orders until its price is reached: say it is pending. " +
+            "To close: Positions → the position → Close / ✕ (market) or a reduce-only opposite order; to cancel a waiting order: Orders → Cancel. " +
+            "One type per order: for \"try every type\" place them one after another, smallest size, and list each result."
 
     val guides: List<AppGuide> = listOf(
         AppGuide(
