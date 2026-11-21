@@ -770,7 +770,10 @@ class AgentEngine(
                         if (run.readOnlyNoted.isNotEmpty() && Safety.saysReadOnlyStoppedIt(result)) {
                             throw Stop(TaskStatus.FAILED, result + readOnlyFootnote(run, cur.pkg))
                         }
-                        if (activeSkill != null && run.llmActions == 0) {
+                        val unfinished = Safety.saysNotCarriedOut(result)
+                        if (unfinished) {
+                            log(run, LogKind.INFO, "لم تُحفظ مهارة من هذه المهمة: النتيجة تقول إن جزءاً منها لم يُنفَّذ")
+                        } else if (activeSkill != null && run.llmActions == 0) {
                             skills.record(activeSkill.id, true)
                             log(run, LogKind.LOCAL, "تأكّدت المهارة «${activeSkill.title}» — المرات القادمة دون أي استهلاك")
                         } else if (settings.autoLearn && run.routeOk && run.route.isNotEmpty()) {

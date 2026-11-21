@@ -466,6 +466,12 @@ class LogicTest {
         assertTrue(Safety.saysReadOnlyStoppedIt("I could not place the order: this app is read-only for me."))
         assertFalse(Safety.saysReadOnlyStoppedIt("سعر BTC الآن 58,977 والاتجاه هابط. RSI عند 41."))
         assertFalse("a finished analysis that only mentions the mode is still done", Safety.saysReadOnlyStoppedIt("التحليل: الاتجاه صاعد. التطبيق في وضع القراءة فقط."))
+        // The owner's second case: a price report that admits no trade was made must not become a skill
+        assertTrue(Safety.saysNotCarriedOut("زوج BTC/USDT على تريدنج فيو: السعر الحالي 58,925.34 USDT. ملاحظة: الأرقام معروضة كما ظهرت على الشاشة عند فتح الزوج، ولم يتم تنفيذ أي صفقة تجريبية."))
+        assertTrue(Safety.saysNotCarriedOut("لم أتمكن من إرسال الرسالة."))
+        assertTrue(Safety.saysNotCarriedOut("The order was not placed."))
+        assertFalse(Safety.saysNotCarriedOut("اشتريتُ 0.01 BTC بسعر 58,925 في الحساب التجريبي."))
+        assertFalse(Safety.saysNotCarriedOut("أُرسلت الرسالة إلى سارة."))
         assertTrue(Safety.isTradeLabel("Buy BTC"))
         assertTrue(Safety.isTradeLabel("شراء"))
         assertTrue(Safety.isTradeLabel("تأكيد الطلب"))

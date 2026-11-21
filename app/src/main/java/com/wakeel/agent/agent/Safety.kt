@@ -51,6 +51,17 @@ object Safety {
         return readOnlyWords.containsMatchIn(t) && notDone.containsMatchIn(t)
     }
 
+    private val notCarriedOut = Regex(
+        "لم يتم تنفيذ|لم تنفذ|لم انفذ|لم اشتر|لم ابع|لم ارسل|لم اتمكن|لم استطع|لا استطيع|تعذر|" +
+            "not executed|was not (placed|executed|carried|sent)|did not (place|execute|carry|send)|didn't (place|execute|send)|could not|unable to",
+    )
+
+    /**
+     * The closing text says something asked for was not carried out. Nothing is learned from such a run:
+     * a skill saved from it would repeat the not-doing every time the owner asks again.
+     */
+    fun saysNotCarriedOut(text: String): Boolean = notCarriedOut.containsMatchIn(Text.norm(text.take(900)))
+
     fun isSearchField(label: String, viewId: String): Boolean = searchLike.containsMatchIn(Text.norm(label)) || searchLike.containsMatchIn(viewId)
 
     private fun keywordHit(pkg: String, keywords: String): Boolean {
