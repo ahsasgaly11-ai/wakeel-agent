@@ -96,7 +96,11 @@ object KnowledgeBase {
             "Chart timeframe tabs that exist: 1m, 5m, 15m, 30m, 1h, 4h, 1D, 1W (others under 'More'); there is NO 10m — use the nearest (5m and 15m) and say so. " +
             "Pair-page tabs: Chart, Order book, Trades, Info/Data, and often 'AI analysis'/'Indicators' with a buy/neutral/sell gauge and counts. " +
             "Analysis recipe (≈4 replies): memo price + 24h stats → open the requested timeframe → memo the indicator summary (gauge, MA/RSI/MACD) → done with a structured analysis that ends with 'not financial advice'. " +
-            "NEVER place, modify or cancel orders, convert, transfer, deposit or withdraw unless the task explicitly orders it (always sensitive). This app is usually read-only for you."
+            "REAL account: NEVER place, modify or cancel orders, convert, transfer, deposit or withdraw unless the task explicitly orders it (always sensitive). " +
+            "DEMO account (the screen says Paper Trading, Demo, Testnet or تجريبي): when TASK asks to trade there or to try trading there, DO it — reporting the price instead is not what was asked. " +
+            "First make sure the account shown is the demo one (if you cannot tell, fail and say so). If TASK gives no side or size, ask_user ONCE: buy or sell, how much, market or limit. " +
+            "Set leverage to the lowest offered unless TASK names one. Place the order (sensitive: the owner approves it), then read the open position back (entry, size, P&L) in done. " +
+            "If this app is read-only for you, fail and say so."
 
     val guides: List<AppGuide> = listOf(
         AppGuide(
