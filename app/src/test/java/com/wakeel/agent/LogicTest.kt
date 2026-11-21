@@ -460,6 +460,12 @@ class LogicTest {
 
     @Test
     fun readOnlyGuards() {
+        // The owner's own case: reported as "done" while saying nothing was executed
+        assertTrue(Safety.saysReadOnlyStoppedIt("لم أنفذ أي صفقة: تطبيق TradingView مضبوط للقراءة فقط، والتداول التجريبي (Paper Trading) لا يمكن تنفيذه من خلالي."))
+        assertTrue(Safety.saysReadOnlyStoppedIt("لم أشترِ: التطبيق للقراءة فقط."))
+        assertTrue(Safety.saysReadOnlyStoppedIt("I could not place the order: this app is read-only for me."))
+        assertFalse(Safety.saysReadOnlyStoppedIt("سعر BTC الآن 58,977 والاتجاه هابط. RSI عند 41."))
+        assertFalse("a finished analysis that only mentions the mode is still done", Safety.saysReadOnlyStoppedIt("التحليل: الاتجاه صاعد. التطبيق في وضع القراءة فقط."))
         assertTrue(Safety.isTradeLabel("Buy BTC"))
         assertTrue(Safety.isTradeLabel("شراء"))
         assertTrue(Safety.isTradeLabel("تأكيد الطلب"))

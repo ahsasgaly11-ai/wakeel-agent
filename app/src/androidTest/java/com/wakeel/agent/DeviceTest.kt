@@ -475,6 +475,8 @@ class DeviceTest {
             val r = run("اشترِ BTC من Sandbox")
             dump("wallet after the refused purchase")
             assertTrue("the Buy tap was not refused", r.logs.any { it.text.contains("رُفضت") })
+            assertEquals("a task a read-only app stopped is not 'done', whatever the model calls it", TaskStatus.FAILED, r.status)
+            assertTrue("the owner is not told where to allow the app: ${r.result}", r.result.contains("المعرفة ← التطبيقات") && r.result.contains("مسموح"))
             assertEquals("status: idle", status())
             assertEquals("searching is allowed in a read-only app", "BTC", screen().nodes.first { it.viewId == "coin_search" }.label)
             assertTrue("nothing may be learned from a refused route", Hub.skills.skills.value.none { it.example.contains("BTC") })

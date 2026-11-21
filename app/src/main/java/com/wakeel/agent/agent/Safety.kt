@@ -39,6 +39,18 @@ object Safety {
         return trade.containsMatchIn("$l ")
     }
 
+    private val readOnlyWords = Regex("قراءه فقط|للقراءه|read[- ]only")
+    private val notDone = Regex("لم انفذ|لم اشتر|لم ابع|لم افتح صفق|لم اتمكن|لا استطيع|لا يمكن|تعذر|رفضت|did not|didn't|cannot|can't|could not|unable")
+
+    /**
+     * The model's own closing words say a read-only app stopped it. Such a reply is a task that was NOT done,
+     * whatever status the model gave it.
+     */
+    fun saysReadOnlyStoppedIt(text: String): Boolean {
+        val t = Text.norm(text.take(500))
+        return readOnlyWords.containsMatchIn(t) && notDone.containsMatchIn(t)
+    }
+
     fun isSearchField(label: String, viewId: String): Boolean = searchLike.containsMatchIn(Text.norm(label)) || searchLike.containsMatchIn(viewId)
 
     private fun keywordHit(pkg: String, keywords: String): Boolean {

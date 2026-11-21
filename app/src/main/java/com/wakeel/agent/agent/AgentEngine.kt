@@ -665,7 +665,8 @@ class AgentEngine(
                 }
                 Policy.READ_ONLY -> if (run.readOnlyNoted.add(screen.pkg)) {
                     log(run, LogKind.INFO, "«${apps.byPackage(screen.pkg)?.label ?: screen.pkg}» في وضع القراءة فقط: يقرأ ويحلل ولا ينفّذ أوامر مالية")
-                    trail += "(${screen.pkg} is READ-ONLY by owner policy: navigate, search and read only — never trade, order, transfer or confirm)"
+                    trail += "(${screen.pkg} is READ-ONLY by owner policy: navigate, search and read only — never trade, order, transfer or confirm. " +
+                        "If TASK asks for such an action here, even on a demo or paper account, call fail — not done — and say the app is read-only for you)"
                 }
                 Policy.ALLOWED -> Unit
             }
@@ -765,6 +766,10 @@ class AgentEngine(
                 when (a.type) {
                     ActionType.DONE -> {
                         val result = a.text ?: "تمّت المهمة."
+                        // "Done" whose own words say a read-only app stopped it is not done: the owner is told so, and how to allow it
+                        if (run.readOnlyNoted.isNotEmpty() && Safety.saysReadOnlyStoppedIt(result)) {
+                            throw Stop(TaskStatus.FAILED, result + readOnlyFootnote(run, cur.pkg))
+                        }
                         if (activeSkill != null && run.llmActions == 0) {
                             skills.record(activeSkill.id, true)
                             log(run, LogKind.LOCAL, "تأكّدت المهارة «${activeSkill.title}» — المرات القادمة دون أي استهلاك")
@@ -773,7 +778,11 @@ class AgentEngine(
                         }
                         throw Stop(TaskStatus.DONE, result)
                     }
-                    ActionType.FAIL -> throw Stop(TaskStatus.FAILED, (a.text ?: "تعذّر إكمال المهمة.") + sentFootnote(run))
+                    ActionType.FAIL -> {
+                        val why = a.text ?: "تعذّر إكمال المهمة."
+                        val more = if (run.readOnlyNoted.isNotEmpty() && Safety.saysReadOnlyStoppedIt(why)) readOnlyFootnote(run, cur.pkg) else ""
+                        throw Stop(TaskStatus.FAILED, why + more + sentFootnote(run))
+                    }
                     else -> Unit
                 }
                 prevHash = cur.hash
@@ -807,6 +816,14 @@ class AgentEngine(
         }
         if (acting < max) conclude(svc, client, run, trail, memo, max)
         throw Stop(TaskStatus.FAILED, "توقّف الوكيل بعد بلوغ الحد الأقصى للطلبات ($max)." + sentFootnote(run))
+    }
+
+    /** Where the owner changes what the agent may do in the read-only app that stopped this task. */
+    private fun readOnlyFootnote(run: Run, current: String): String {
+        val pkg = if (current in run.readOnlyNoted) current else run.readOnlyNoted.first()
+        val name = apps.byPackage(pkg)?.label ?: pkg
+        return "\n\n«$name» مضبوط على «قراءة فقط»، فلا أنفّذ فيه أوامر ولو على حساب تجريبي. " +
+            "للسماح: المعرفة ← التطبيقات ← $name ← «مسموح». بعدها أطلب موافقتك قبل كل شراء أو بيع."
     }
 
     /**
