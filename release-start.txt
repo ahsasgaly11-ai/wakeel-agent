@@ -1,0 +1,7 @@
+Starting: Intent { cmp=com.wakeel.agent/.ui.MainActivity }
+Status: ok
+LaunchState: WARM
+Activity: com.wakeel.agent/.ui.MainActivity
+TotalTime: 772
+WaitTime: 786
+Complete

@@ -1,0 +1,18 @@
+Performing Streamed Install
+Success
+Starting: Intent { cmp=com.wakeel.agent/.ui.MainActivity }
+Status: ok
+LaunchState: COLD
+Activity: com.wakeel.agent/.ui.MainActivity
+TotalTime: 1887
+WaitTime: 1899
+Complete
+Performing Streamed Install
+Success
+Starting: Intent { cmp=com.wakeel.agent/.ui.MainActivity }
+Status: ok
+LaunchState: COLD
+Activity: com.wakeel.agent/.ui.MainActivity
+TotalTime: 1460
+WaitTime: 1500
+Complete

@@ -1,0 +1,4 @@
+    versionCode=38 minSdk=30 targetSdk=35
+    versionName=2.0.38
+    lastUpdateTime=2026-11-21 00:33:39
+      firstInstallTime=2026-11-21 00:32:46

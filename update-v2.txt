@@ -1,0 +1,13 @@
+Performing Streamed Install
+Success
+Starting: Intent { cmp=com.wakeel.agent/.ui.MainActivity }
+Status: ok
+LaunchState: COLD
+Activity: com.wakeel.agent/.ui.MainActivity
+TotalTime: 1073
+WaitTime: 1076
+Complete
+tapped شخّص الهاتف at 869,1188
+tapped تنفيذ at 580,1351
+Performing Streamed Install
+Success

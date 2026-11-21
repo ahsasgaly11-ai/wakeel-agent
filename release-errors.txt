@@ -1,0 +1,8 @@
+11-21 00:32:46.480 V/SplashScreenExceptionList(  502): SplashScreen checking exception for package com.wakeel.agent (target sdk:35) -> false
+11-21 00:33:03.632 V/SplashScreenExceptionList(  502): SplashScreen checking exception for package com.wakeel.agent (target sdk:35) -> false
+11-21 00:33:27.671 V/SplashScreenExceptionList(  502): SplashScreen checking exception for package com.wakeel.agent (target sdk:35) -> false
+11-21 00:33:39.307 W/WindowManager(  502): Exception thrown during dispatchAppVisibility Window{bdac0e u0 com.wakeel.agent/com.wakeel.agent.ui.MainActivity EXITING}
+11-21 00:33:45.808 V/SplashScreenExceptionList(  502): SplashScreen checking exception for package com.wakeel.agent (target sdk:35) -> false
+11-21 00:34:26.626 V/SplashScreenExceptionList(  502): SplashScreen checking exception for package com.wakeel.agent (target sdk:35) -> false
+11-21 00:34:58.971 V/SplashScreenExceptionList(  502): SplashScreen checking exception for package com.wakeel.agent (target sdk:35) -> false
+11-21 00:35:14.371 V/SplashScreenExceptionList(  502): SplashScreen checking exception for package com.wakeel.agent (target sdk:35) -> false

@@ -1,0 +1,45 @@
+emulator: Android SDK built for x86_64 · Android 14 (API 34) · Physical size: 1080x2400
+
+== THE RELEASED FILE: Wakeel-v2.0.38.apk · sha256 a7eddf8ccc9b5c48 ==
+update over v1.0.13 installs: OK
+opens on v1.0.13 data without crashing: OK
+update over v2.0.16 installs: OK
+version on the device after the update: versionName=2.0.38
+accessibility service still switched on after the update: yes
+app opens and stays open: OK
+history from v2.0.16 is still there after the update: OK
+accessibility service binds: OK
+the bubble opens the command window: OK
+a task runs from the bubble to its result window: OK
+crashes: none
+still running at the end: OK
+
+== ON-DEVICE TESTS (real accessibility service, real taps; the AI model is scripted) ==
+PASS  t01_serviceConnects
+PASS  t02_mainScreenAndTabs
+PASS  t03_localAnswersCostNothing
+PASS  t04_settingsPageOpensDirectly
+PASS  t05_seesOtherAppsAndReadsTheirScreens
+PASS  t06_planAheadTypesAndLearns
+PASS  t07_learnedSkillRunsFreeWithNewValues
+PASS  t08_readOnlyAppRefusesToBuy
+PASS  t09_passwordFieldsAreNeverTyped
+PASS  t10_exploringAnAppMakesItsPagesFree
+PASS  t11_iconsWithoutTextAreFoundById
+PASS  t12_learnsFromTheOwnersOwnHands
+PASS  t13_realSettingsRouteIsLearnedThenFree
+PASS  t14_switchesAreFlippedLocally
+PASS  t15_pagesAndroidHidesAreReportedNotGuessed
+PASS  t16_unfinishedDemonstrationIsNotSaved
+PASS  t17_taughtSkillThatCannotCompleteIsDeleted
+PASS  t18_lockedScreenPausesAndRunningTaskKeepsScreenOn
+PASS  t19_sameMessageIsNeverSentTwice
+PASS  t20_manyItemsAreSelectedAndMovedInOnePlan
+PASS  t21_aRepeatedStepIsNamedWhenTheTaskStops
+PASS  t22_aTaskForLaterWaitsForItsTime
+PASS  t23_anOldDraftIsNeverSentUnasked
+PASS  t24_aWebPageIsReadWholeInOneRequest
+PASS  t25_aTaskThatRunsOutOfRequestsStillAnswers
+PASS  t26_tradingModeDecidesAndExecutesOnItsPaperAccount
+PASS  t27_liveMarketDataCanBeRead
+result: OK (27 tests)

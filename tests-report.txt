@@ -1,0 +1,818 @@
+accessibility service connected: true
+launchers: [com.android.launcher3] · apps on device: 13
+── home screen: app=com.android.launcher3 activity= elements=10
+     0|list||s|@x5y5
+     1|view|Search||@x5y1
+     2|ibtn||c|@x1y1
+     3|btn||c|@x5y1
+     4|btn|Gallery|cL|@x3y7
+     5|view|Home||@x5y5
+     6|btn|Phone|cL|@x1y9
+     7|btn|Messaging|cL|@x3y9
+     8|btn|WebView Browser Tester|cL|@x6y9
+     9|btn|Camera|cL|@x8y9
+── Wakeel · القيادة: app=com.wakeel.agent activity= elements=23
+     0|txt|وكيل||@x8y1
+     1|txt|ينجز مهام هاتفك، ويتعلّم ليستهلك أقل||@x7y1
+     2|txt|جاهز||@x0y1
+     3|txt|ماذا أنجز لك؟||@x7y2
+     4|edit|اكتب المهمة أو قلها…|cLe|@x5y2
+     5|btn|نفّذ المهمة|c|@x5y3
+     6|btn|إدخال صوتي|c|@x1y3
+     7|list||s|@x5y4
+     8|btn|شخّص الهاتف|c|@x8y4
+     9|btn|ابحث عن سبب امتلاء مساحة التخزين واقترح حلولاً|c|@x3y4
+     10|btn|صحة الجهاز · البطارية · 100%|c|@x7y6
+     11|btn|ما يعرفه · 7 · تطبيقاً بدليل مدمج|c|@x2y6
+     12|txt|0||@x9y7
+     13|txt|مهام منجزة||@x8y7
+     14|txt|0||@x6y7
+     15|txt|خطوات بلا تكلفة||@x5y7
+     16|txt|$0||@x2y7
+     17|txt|إنفاق اليوم||@x2y7
+     18|txt|القيادة||@x9y9
+     19|btn|المعرفة|c|@x7y9
+     20|btn|التداول|c|@x4y9
+     21|btn|السجل|c|@x2y9
+     22|btn|الإعدادات|c|@x0y9
+── Wakeel · المعرفة: app=com.wakeel.agent activity= elements=24
+     0|txt|المعرفة||@x8y0
+     1|txt|7||@x9y1
+     2|txt|تطبيق يعرفه||@x8y1
+     3|txt|0||@x6y1
+     4|txt|صفحة متعلَّمة||@x5y1
+     5|txt|0||@x2y1
+     6|txt|مهارة||@x2y1
+     7|btn|التطبيقات|c|@x7y2
+     8|btn|المهارات|c|@x2y2
+     9|edit|ابحث عن تطبيق|cLe|@x5y3
+     10|btn|الكل|c|@x8y3
+     11|btn|يعرفها|c|@x5y3
+     12|btn|مقيّدة|c|@x1y3
+     13|list||s|@x5y6
+     14|btn|Calendar · إنتاجية · متوسط|c|@x5y4
+     15|btn|Camera · أدوات · متوسط|c|@x5y5
+     16|btn|Clock · أدوات · متوسط|c|@x5y6
+     17|btn|Contacts · النظام · متوسط|c|@x5y7
+     18|btn|Files|c|@x5y8
+     19|btn|القيادة|c|@x9y9
+     20|txt|المعرفة||@x7y9
+     21|btn|التداول|c|@x4y9
+     22|btn|السجل|c|@x2y9
+     23|btn|الإعدادات|c|@x0y9
+── Wakeel · التداول: app=com.wakeel.agent activity= elements=27
+     0|list||s|@x5y4
+     1|txt|التداول||@x7y0
+     2|txt|حساب تجريبي — لا مال حقيقي||@x2y0
+     3|txt|الحساب التجريبي||@x4y1
+     4|txt|10,000.00||@x7y2
+     5|txt|الرصيد USDT||@x8y2
+     6|txt|+0.00||@x3y2
+     7|txt|اليوم||@x4y2
+     8|txt|+0.00||@x8y3
+     9|txt|منذ البداية||@x8y3
+     10|txt|—||@x4y3
+     11|txt|صفقات رابحة||@x3y3
+     12|txt|التداول التلقائي||@x7y3
+     13|txt|يحلل ويقرر وينفّذ وحده كل 60 دقيقة||@x7y4
+     14|chk||c|@x1y3
+     15|btn|دورة الآن|c|@x7y4
+     16|txt|الصفقات المفتوحة (0)||@x4y5
+     17|txt|لا صفقات مفتوحة الآن.||@x7y5
+     18|txt|قرارات الوكيل||@x4y6
+     19|txt|لم يقرر الوكيل شيئاً بعد. اضغط «دورة الآن» أو شغّل||@x5y7
+     20|txt|الضوابط||@x4y8
+     21|txt|هذه الحدود يطبّقها التطبيق بعد قرار النموذج، فلا ي||@x5y8
+     22|btn|القيادة|c|@x9y9
+     23|btn|المعرفة|c|@x7y9
+     24|txt|التداول||@x4y9
+     25|btn|السجل|c|@x2y9
+     26|btn|الإعدادات|c|@x0y9
+── Wakeel · السجل: app=com.wakeel.agent activity= elements=7
+     0|txt|السجل||@x5y0
+     1|txt|لا توجد مهام بعد||@x5y2
+     2|btn|القيادة|c|@x9y9
+     3|btn|المعرفة|c|@x7y9
+     4|btn|التداول|c|@x4y9
+     5|txt|السجل||@x2y9
+     6|btn|الإعدادات|c|@x0y9
+── Wakeel · الإعدادات: app=com.wakeel.agent activity= elements=22
+     0|list||s|@x5y4
+     1|txt|الإعدادات||@x8y0
+     2|txt|مزوّد الذكاء الاصطناعي||@x4y1
+     3|chk|Claude|c|@x8y2
+     4|chk|OpenAI|c|@x6y2
+     5|chk|Gemini|c|@x4y2
+     6|chk|OpenRouter|c|@x7y2
+     7|chk|مخصص|cx|@x5y2
+     8|txt|المفتاح محفوظ ومشفّر  ••••-key||@x5y3
+     9|btn|حذف|c|@x1y3
+     10|edit|(password)|cLep|@x5y4
+     11|btn||c|@x1y4
+     12|btn|حفظ المفتاح|c|@x7y4
+     13|edit|عنوان الخادم|cLe|@x5y5
+     14|edit|scripted-model|cLe|@x5y6
+     15|edit|النموذج الأقوى (عند التعثّر)|cLe|@x5y7
+     16|btn|اختبار الاتصال|c|@x7y8
+     17|btn|القيادة|c|@x9y9
+     18|btn|المعرفة|c|@x7y9
+     19|btn|التداول|c|@x4y9
+     20|btn|السجل|c|@x2y9
+     21|txt|الإعدادات||@x0y9
+── Wakeel · القيادة: app=com.wakeel.agent activity= elements=23
+     0|txt|وكيل||@x8y1
+     1|txt|ينجز مهام هاتفك، ويتعلّم ليستهلك أقل||@x7y1
+     2|txt|جاهز||@x0y1
+     3|txt|ماذا أنجز لك؟||@x7y2
+     4|edit|اكتب المهمة أو قلها…|cLe|@x5y2
+     5|btn|نفّذ المهمة|c|@x5y3
+     6|btn|إدخال صوتي|c|@x1y3
+     7|list||s|@x5y4
+     8|btn|شخّص الهاتف|c|@x8y4
+     9|btn|ابحث عن سبب امتلاء مساحة التخزين واقترح حلولاً|c|@x3y4
+     10|btn|صحة الجهاز · البطارية · 100%|c|@x7y6
+     11|btn|ما يعرفه · 7 · تطبيقاً بدليل مدمج|c|@x2y6
+     12|txt|0||@x9y7
+     13|txt|مهام منجزة||@x8y7
+     14|txt|0||@x6y7
+     15|txt|خطوات بلا تكلفة||@x5y7
+     16|txt|$0||@x2y7
+     17|txt|إنفاق اليوم||@x2y7
+     18|txt|القيادة||@x9y9
+     19|btn|المعرفة|c|@x7y9
+     20|btn|التداول|c|@x4y9
+     21|btn|السجل|c|@x2y9
+     22|btn|الإعدادات|c|@x0y9
+▶ TASK: كم البطارية؟
+     [INFO] المهمة: كم البطارية؟
+     [LOCAL] نُفّذت محلياً دون استهلاك API
+     [SUCCESS] البطارية 100% وهي تُشحن الآن، وحرارتها 25°م.
+◀ DONE · model calls=0 · local steps=1 · steps=0 · البطارية 100% وهي تُشحن الآن، وحرارتها 25°م.
+▶ TASK: كم المساحة المتبقية
+     [INFO] المهمة: كم المساحة المتبقية
+     [LOCAL] نُفّذت محلياً دون استهلاك API
+     [SUCCESS] المساحة المتاحة 5.4 غيغابايت من 5.8 (المستخدم 7%).
+◀ DONE · model calls=0 · local steps=1 · steps=0 · المساحة المتاحة 5.4 غيغابايت من 5.8 (المستخدم 7%).
+▶ TASK: شخّص الهاتف
+     [INFO] المهمة: شخّص الهاتف
+     [LOCAL] نُفّذت محلياً دون استهلاك API
+     [SUCCESS] حالة الهاتف جيدة، ولم أجد ما يستدعي القلق.
+◀ DONE · model calls=0 · local steps=1 · steps=0 · حالة الهاتف جيدة، ولم أجد ما يستدعي القلق.
+▶ TASK: افتح إعدادات البطارية
+     [INFO] المهمة: افتح إعدادات البطارية
+     [LOCAL] نُفّذت محلياً دون استهلاك API
+     [SUCCESS] فُتحت صفحة البطارية
+◀ DONE · model calls=0 · local steps=1 · steps=0 · فُتحت صفحة البطارية
+── battery settings: app=com.android.settings activity=Settings$PowerUsageSummaryActivity elements=10
+     0|list||s|@x5y4
+     1|view|Battery||@x5y1
+     2|ibtn|Navigate up|c|@x0y0
+     3|txt|100 %||@x2y2
+     4|txt|Charged||@x5y3
+     5|btn|Battery usage · View usage since last full charge|c|@x5y4
+     6|btn|Battery Saver · Off|c|@x5y5
+     7|btn|Battery percentage · Show battery percentage in st|c|@x5y6
+     8|sw|||@x8y6
+     9|txt|Remaining battery life is approximate and can chan||@x5y7
+── sandbox home: app=com.wakeel.sandbox activity=SandboxActivity elements=11
+     0|txt|Home||@x1y0
+     1|edit|Search|cLe|@x5y1
+     2|ibtn||c|@x1y2
+     3|btn|About|c|@x5y2
+     4|btn|Photos|c|@x5y3
+     5|btn|Flights|c|@x5y3
+     6|txt|status: idle||@x5y8
+     7|btn|Home|c*|@x1y9
+     8|btn|Contacts|c|@x3y9
+     9|btn|Wallet|c|@x6y9
+     10|btn|Profile|c|@x8y9
+▶ TASK: أرسل في Sandbox إلى Sara: مرحبا
+     ? الضغط على «Send» ⏎ النص: «مرحبا» — هل تسمح؟  [سماح / رفض]
+     [INFO] المهمة: أرسل في Sandbox إلى Sara: مرحبا
+     [THINK] خطة الاختبار
+     [INFO] خطة من 6 خطوات في طلب واحد
+     [ACTION] فتح تطبيق «Sandbox»
+     [ACTION] ضغط على «Contacts»
+     [ACTION] ضغط على «Sara»
+     [ACTION] كتابة «مرحبا»
+     [ACTION] ضغط على «Send»
+     [WARN] بانتظار موافقتك: الضغط على «Send»
+النص: «مرحبا»
+     [INFO] وافقتَ على: الضغط على «Send»
+النص: «مرحبا»
+     [INFO] أُرسل النص «مرحبا»: خلا حقل الكتابة بعد الضغط
+     [LOCAL] تعلّمتُ مهارة «رسالة في Sandbox» بمتغيّرات: contact، message — ستُنفَّذ لاحقاً محلياً
+     [SUCCESS] أرسلتُ «مرحبا» إلى Sara.
+◀ DONE · model calls=2 · local steps=0 · steps=5 · أرسلتُ «مرحبا» إلى Sara.
+── after the first message: app=com.wakeel.sandbox activity=SandboxActivity elements=10
+     0|txt|Chat||@x0y0
+     1|txt|To: Sara||@x5y1
+     2|edit|Message|cLe|@x5y2
+     3|btn|Send|c|@x5y2
+     4|txt|messages sent to Sara: 1||@x5y2
+     5|txt|sent: مرحبا to Sara||@x5y8
+     6|btn|Home|c|@x1y9
+     7|btn|Contacts|c*|@x3y9
+     8|btn|Wallet|c|@x6y9
+     9|btn|Profile|c|@x8y9
+learned: أرسل في Sandbox إلى {contact}: {message} · open_app:Sandbox → tap:Contacts → tap:{contact} → type:{message} → tap:Send
+▶ TASK: أرسل في Sandbox إلى Omar: كيف الحال
+     ? الضغط على «Send» ⏎ النص: «كيف الحال» — هل تسمح؟  [سماح / رفض]
+     [INFO] المهمة: أرسل في Sandbox إلى Omar: كيف الحال
+     [LOCAL] مهارة متعلَّمة: «رسالة في Sandbox» («Omar»، «كيف الحال») — تنفيذ محلي دون استهلاك API
+     [ACTION] ⚡ فتح Sandbox
+     [ACTION] ⚡ ضغط على Contacts
+     [ACTION] ⚡ ضغط على Omar
+     [ACTION] ⚡ كتابة كيف الحال
+     [WARN] بانتظار موافقتك: الضغط على «Send»
+النص: «كيف الحال»
+     [INFO] وافقتَ على: الضغط على «Send»
+النص: «كيف الحال»
+     [INFO] أُرسل النص «كيف الحال»: خلا حقل الكتابة بعد الضغط
+     [ACTION] ⚡ ضغط على Send
+     [THINK] خطة الاختبار
+     [LOCAL] تأكّدت المهارة «رسالة في Sandbox» — المرات القادمة دون أي استهلاك
+     [SUCCESS] تم الإرسال.
+◀ DONE · model calls=1 · local steps=5 · steps=5 · تم الإرسال.
+▶ TASK: أرسل في Sandbox إلى Layla: لا ترسل
+     ? الضغط على «Send» ⏎ النص: «لا ترسل» — هل تسمح؟  [سماح / رفض]
+     [INFO] المهمة: أرسل في Sandbox إلى Layla: لا ترسل
+     [LOCAL] مهارة متعلَّمة: «رسالة في Sandbox» («Layla»، «لا ترسل») — تنفيذ محلي دون استهلاك API
+     [ACTION] ⚡ فتح Sandbox
+     [ACTION] ⚡ ضغط على Contacts
+     [ACTION] ⚡ ضغط على Layla
+     [ACTION] ⚡ كتابة لا ترسل
+     [WARN] بانتظار موافقتك: الضغط على «Send»
+النص: «لا ترسل»
+     [WARN] رفضتَ: الضغط على «Send»
+النص: «لا ترسل»
+     [ERROR] توقّفتُ قبل «Send» لأنك لم توافق.
+◀ STOPPED · model calls=0 · local steps=4 · steps=4 · توقّفتُ قبل «Send» لأنك لم توافق.
+denied run: STOPPED · status: idle
+▶ TASK: أرسل في Sandbox إلى Saeed: تمام
+     ? الضغط على «Send» ⏎ النص: «تمام» — هل تسمح؟  [سماح / رفض]
+     [INFO] المهمة: أرسل في Sandbox إلى Saeed: تمام
+     [LOCAL] مهارة متعلَّمة: «رسالة في Sandbox» («Saeed»، «تمام») — تنفيذ محلي دون استهلاك API
+     [ACTION] ⚡ فتح Sandbox
+     [ACTION] ⚡ ضغط على Contacts
+     [ACTION] ⚡ ضغط على Saeed
+     [ACTION] ⚡ كتابة تمام
+     [WARN] بانتظار موافقتك: الضغط على «Send»
+النص: «تمام»
+     [INFO] وافقتَ على: الضغط على «Send»
+النص: «تمام»
+     [LOCAL] لن أسألك مجدداً عن «Send» في مهارة «رسالة في Sandbox»
+     [INFO] أُرسل النص «تمام»: خلا حقل الكتابة بعد الضغط
+     [ACTION] ⚡ ضغط على Send
+     [SUCCESS] أرسلتُ «تمام» إلى Saeed.
+◀ DONE · model calls=0 · local steps=5 · steps=5 · أرسلتُ «تمام» إلى Saeed.
+── after the free replay: app=com.wakeel.sandbox activity=SandboxActivity elements=10
+     0|txt|Chat||@x0y0
+     1|txt|To: Saeed||@x5y1
+     2|edit|Message|cLe|@x5y2
+     3|btn|Send|c|@x5y2
+     4|txt|messages sent to Saeed: 1||@x5y2
+     5|txt|sent: تمام to Saeed||@x5y8
+     6|btn|Home|c|@x1y9
+     7|btn|Contacts|c*|@x3y9
+     8|btn|Wallet|c|@x6y9
+     9|btn|Profile|c|@x8y9
+▶ TASK: أرسل في Sandbox إلى Yousef: بلا سؤال
+     [INFO] المهمة: أرسل في Sandbox إلى Yousef: بلا سؤال
+     [LOCAL] مهارة متعلَّمة: «رسالة في Sandbox» («Yousef»، «بلا سؤال») — تنفيذ محلي دون استهلاك API
+     [ACTION] ⚡ فتح Sandbox
+     [ACTION] ⚡ ضغط على Contacts
+     [ACTION] ⚡ ضغط على Yousef
+     [ACTION] ⚡ كتابة بلا سؤال
+     [INFO] أُرسل النص «بلا سؤال»: خلا حقل الكتابة بعد الضغط
+     [ACTION] ⚡ ضغط على Send
+     [SUCCESS] أرسلتُ «بلا سؤال» إلى Yousef.
+◀ DONE · model calls=0 · local steps=5 · steps=5 · أرسلتُ «بلا سؤال» إلى Yousef.
+▶ TASK: اشترِ BTC من Sandbox
+     [INFO] المهمة: اشترِ BTC من Sandbox
+     [THINK] خطة الاختبار
+     [INFO] خطة من 5 خطوات في طلب واحد
+     [ACTION] فتح تطبيق «Sandbox»
+     [ACTION] ضغط على «Wallet»
+     [ACTION] كتابة «BTC»
+     [ACTION] ضغط على «Buy BTC»
+     [WARN] رُفضت الضغطة على «Buy BTC»: التطبيق في وضع القراءة فقط
+     [INFO] «Sandbox» في وضع القراءة فقط: يقرأ ويحلل ولا ينفّذ أوامر مالية
+     [THINK] خطة الاختبار
+     [ERROR] لم أشترِ: التطبيق للقراءة فقط.
+◀ FAILED · model calls=2 · local steps=0 · steps=4 · لم أشترِ: التطبيق للقراءة فقط.
+── wallet after the refused purchase: app=com.wakeel.sandbox activity=SandboxActivity elements=10
+     0|txt|Wallet||@x1y0
+     1|txt|Balance: 100 USDT||@x5y1
+     2|edit|BTC|cLe|@x5y2
+     3|btn|Price history|c|@x5y2
+     4|btn|Buy BTC|c|@x5y3
+     5|txt|status: idle||@x5y8
+     6|btn|Home|c|@x1y9
+     7|btn|Contacts|c|@x3y9
+     8|btn|Wallet|c*|@x6y9
+     9|btn|Profile|c|@x8y9
+▶ TASK: اكتب الرمز 1234 في Sandbox
+     [INFO] المهمة: اكتب الرمز 1234 في Sandbox
+     [THINK] خطة الاختبار
+     [INFO] خطة من 5 خطوات في طلب واحد
+     [ACTION] فتح تطبيق «Sandbox»
+     [ACTION] ضغط على «Profile»
+     [ACTION] ضغط على «Security»
+     [ACTION] كتابة «1234»
+     [THINK] خطة الاختبار
+     [ERROR] لا أكتب كلمات المرور.
+◀ FAILED · model calls=2 · local steps=0 · steps=4 · لا أكتب كلمات المرور.
+── security page: app=com.wakeel.sandbox activity=SandboxActivity elements=8
+     0|txt|Security||@x1y0
+     1|edit|(password)|cLep|@x5y1
+     2|txt|pin length: 0||@x5y2
+     3|txt|status: idle||@x5y8
+     4|btn|Home|c|@x1y9
+     5|btn|Contacts|c|@x3y9
+     6|btn|Wallet|c|@x6y9
+     7|btn|Profile|c*|@x8y9
+▶ EXPLORE: com.wakeel.sandbox
+     [INFO] المهمة: استكشاف «Sandbox»
+     [LOCAL] استكشاف آمن: يزور التبويبات السفلية فقط، دون كتابة أو إرسال، ودون استهلاك API
+     [ACTION] تبويب «Home»
+     [ACTION] تبويب «Contacts»
+     [ACTION] تبويب «Wallet»
+     [ACTION] تبويب «Profile»
+     [SUCCESS] تعرّفتُ على 5 صفحة في «Sandbox» دون أي استهلاك. سأستخدم هذه الخريطة لأخطّط المهام في هذا التطبيق بطلب واحد.
+◀ DONE · model calls=0 · local steps=4 · steps=4 · تعرّفتُ على 5 صفحة في «Sandbox» دون أي استهلاك. سأستخدم هذه الخريطة لأخطّط المهام في هذا التطبيق بطلب واحد.
+map: 5 screens, 7 paths
+[Home] ✎Search, About, Photos, Flights, Home, Contacts, Wallet, Profile, #btn_prefs
+[Contacts] Home, Contacts, Wallet, Profile
+[Wallet] ✎Search coin, Price history, Buy BTC, Home, Contacts, Wallet, Profile
+[Profile] ✎Bio, Save, Security, Home, Contacts, Wallet, Profile
+PATHS: Home -"Contacts"→ Contacts; Contacts -"Wallet"→ Wallet; Home -"Wallet"→ Wallet; Wallet -"Profile"→ Profile; Home -"Profile"→ Profile;
+▶ TASK: افتح Wallet في Sandbox
+     [INFO] المهمة: افتح Wallet في Sandbox
+     [LOCAL] مسار محفوظ في خريطة «Sandbox» إلى «wallet» — تنفيذ محلي دون استهلاك API
+     [ACTION] ⚡ فتح Sandbox
+     [ACTION] ⚡ ضغط على Wallet
+     [SUCCESS] فتحتُ «wallet» في Sandbox.
+◀ DONE · model calls=0 · local steps=2 · steps=2 · فتحتُ «wallet» في Sandbox.
+▶ TASK: فعّل الوضع الداكن في Sandbox
+     [INFO] المهمة: فعّل الوضع الداكن في Sandbox
+     [THINK] خطة الاختبار
+     [INFO] خطة من 4 خطوات في طلب واحد
+     [ACTION] فتح تطبيق «Sandbox»
+     [ACTION] ضغط على «#btn_prefs»
+     [ACTION] ضغط على «Dark mode»
+     [LOCAL] تعلّمتُ مهارة «فعّل الوضع الداكن في Sandbox» — ستُنفَّذ لاحقاً محلياً
+     [SUCCESS] فعّلتُ الوضع الداكن.
+◀ DONE · model calls=2 · local steps=0 · steps=3 · فعّلتُ الوضع الداكن.
+── preferences: app=com.wakeel.sandbox activity=SandboxActivity elements=7
+     0|txt|Preferences||@x1y0
+     1|sw|Dark mode|cx|@x5y1
+     2|txt|dark: on||@x5y8
+     3|btn|Home|c*|@x1y9
+     4|btn|Contacts|c|@x3y9
+     5|btn|Wallet|c|@x6y9
+     6|btn|Profile|c|@x8y9
+▶ TASK: افتح Preferences في Sandbox
+     [INFO] المهمة: افتح Preferences في Sandbox
+     [LOCAL] مسار محفوظ في خريطة «Sandbox» إلى «preferences» — تنفيذ محلي دون استهلاك API
+     [ACTION] ⚡ فتح Sandbox
+     [ACTION] ⚡ ضغط على #btn_prefs
+     [SUCCESS] فتحتُ «preferences» في Sandbox.
+◀ DONE · model calls=0 · local steps=2 · steps=2 · فتحتُ «preferences» في Sandbox.
+recorder saw: State(active=true, task=راسل Omar وقل له hello, steps=5, last=ضغط على «Send»)
+     · app com.wakeel.sandbox first=true restart=true
+     · tap «Contacts» full=«Contacts» tree=«Contacts» event=[Contacts] id=tab_contacts class=Button source=true row=false
+     · tap «Omar» full=«Omar · online» tree=«Omar · online» event=[Omar, online] id= class=TwoLineListItem source=true row=true
+     · type «hello» in EditText|message|
+     · tap «Send» full=«Send» tree=«Send» event=[Send] id=btn_send class=Button source=true row=false
+ended by itself: saved=true reason=null
+taught: راسل {p1} وقل له {p2} · open_app:Sandbox → tap:Contacts → tap:{p1} → type:{p2} → tap:Send
+▶ TASK: راسل Sara وقل له salam
+     ? الضغط على «Send» ⏎ النص: «salam» — هل تسمح؟  [سماح / رفض]
+     [INFO] المهمة: راسل Sara وقل له salam
+     [LOCAL] مهارة متعلَّمة: «راسل Omar وقل له hello» («Sara»، «salam») — تنفيذ محلي دون استهلاك API
+     [ACTION] ⚡ فتح Sandbox
+     [ACTION] ⚡ ضغط على Contacts
+     [ACTION] ⚡ ضغط على Sara
+     [ACTION] ⚡ كتابة salam
+     [WARN] بانتظار موافقتك: الضغط على «Send»
+النص: «salam»
+     [INFO] وافقتَ على: الضغط على «Send»
+النص: «salam»
+     [INFO] أُرسل النص «salam»: خلا حقل الكتابة بعد الضغط
+     [ACTION] ⚡ ضغط على Send
+     [SUCCESS] تمّت «راسل Sara وقل له salam» بالمهارة التي علّمتَني إياها.
+◀ DONE · model calls=0 · local steps=5 · steps=5 · تمّت «راسل Sara وقل له salam» بالمهارة التي علّمتَني إياها.
+── after replaying the taught skill: app=com.wakeel.sandbox activity=SandboxActivity elements=10
+     0|txt|Chat||@x0y0
+     1|txt|To: Sara||@x5y1
+     2|edit|Message|cLe|@x5y2
+     3|btn|Send|c|@x5y2
+     4|txt|messages sent to Sara: 2||@x5y2
+     5|txt|sent: salam to Sara||@x5y8
+     6|btn|Home|c|@x1y9
+     7|btn|Contacts|c*|@x3y9
+     8|btn|Wallet|c|@x6y9
+     9|btn|Profile|c|@x8y9
+▶ TASK: ادخل قسم الشبكة والإنترنت من الإعدادات
+     [INFO] المهمة: ادخل قسم الشبكة والإنترنت من الإعدادات
+     [LOCAL] فُتح «Settings» محلياً دون استهلاك API
+     [THINK] خطة الاختبار
+     [ACTION] ضغط على «Network & internet|Network and»
+     [LOCAL] تعلّمتُ مهارة «ادخل قسم الشبكة والإنترنت من ا» — ستُنفَّذ لاحقاً محلياً
+     [SUCCESS] فتحتُ صفحة الشبكة.
+◀ DONE · model calls=2 · local steps=1 · steps=1 · فتحتُ صفحة الشبكة.
+── settings · network: app=com.android.settings activity=SubSettings elements=11
+     0|list||s|@x5y4
+     1|view|Network & internet||@x5y1
+     2|ibtn|Navigate up|c|@x0y0
+     3|btn|Internet · AndroidWifi|c|@x5y2
+     4|btn|Calls & SMS · T-Mobile|c|@x5y3
+     5|btn|SIMs · T-Mobile|c|@x5y4
+     6|btn|Hotspot & tethering · Off|c|@x5y6
+     7|btn|Data Saver · Off|c|@x5y7
+     8|btn|VPN · None|c|@x5y7
+     9|btn|Mobile plan|c|@x5y8
+     10|btn|Private DNS · Automatic|c|@x5y9
+settings map:
+[SettingsHomepage] Search settings, Network & internet, Connected devices, Apps, Notifications, Battery, Storage, Sound & vibration
+[SubSettings] Navigate up, Internet, Calls & SMS, SIMs, Hotspot & tethering, Data Saver, VPN, Mobile plan, Private DNS
+PATHS: SettingsHomepage -"Network & internet"→ SubSettings;
+▶ TASK: ادخل قسم الشبكة والإنترنت من الإعدادات
+     [INFO] المهمة: ادخل قسم الشبكة والإنترنت من الإعدادات
+     [LOCAL] مهارة متعلَّمة: «ادخل قسم الشبكة والإنترنت من ا» — تنفيذ محلي دون استهلاك API
+     [ACTION] ⚡ فتح Settings
+     [ACTION] ⚡ ضغط على Network & internet
+     [THINK] خطة الاختبار
+     [LOCAL] تأكّدت المهارة «ادخل قسم الشبكة والإنترنت من ا» — المرات القادمة دون أي استهلاك
+     [SUCCESS] فتحتُ صفحة الشبكة.
+◀ DONE · model calls=1 · local steps=2 · steps=2 · فتحتُ صفحة الشبكة.
+▶ TASK: ادخل قسم الشبكة والإنترنت من الإعدادات
+     [INFO] المهمة: ادخل قسم الشبكة والإنترنت من الإعدادات
+     [LOCAL] مهارة متعلَّمة: «ادخل قسم الشبكة والإنترنت من ا» — تنفيذ محلي دون استهلاك API
+     [ACTION] ⚡ فتح Settings
+     [ACTION] ⚡ ضغط على Network & internet
+     [SUCCESS] فتحتُ صفحة الشبكة.
+◀ DONE · model calls=0 · local steps=2 · steps=2 · فتحتُ صفحة الشبكة.
+▶ TASK: افتح Network & internet في الإعدادات
+     [INFO] المهمة: افتح Network & internet في الإعدادات
+     [LOCAL] مسار محفوظ في خريطة «Settings» إلى «network & internet» — تنفيذ محلي دون استهلاك API
+     [ACTION] ⚡ فتح Settings
+     [ACTION] ⚡ ضغط على Network & internet
+     [SUCCESS] فتحتُ «network & internet» في Settings.
+◀ DONE · model calls=0 · local steps=2 · steps=2 · فتحتُ «network & internet» في Settings.
+▶ TASK: أطفئ الموقع
+     [INFO] المهمة: أطفئ الموقع
+     [LOCAL] نُفّذت محلياً دون استهلاك API
+     [SUCCESS] تم إيقاف الموقع
+◀ DONE · model calls=0 · local steps=1 · steps=0 · تم إيقاف الموقع
+── location page: app=com.android.settings activity=DeepLinkHomepageActivity elements=10
+     0|list||s|@x5y4
+     1|view|Location||@x5y1
+     2|ibtn|Navigate up|c|@x0y0
+     3|btn|Use location|c|@x5y3
+     4|sw|||@x8y3
+     5|list||s|@x5y5
+     6|btn|App location permissions · Location is off|c|@x5y4
+     7|btn|Location services|c|@x5y4
+     8|txt|Location access is off for apps and services. Your||@x5y6
+     9|txt|Learn more about Location Settings.||@x3y7
+▶ TASK: شغل الموقع
+     [INFO] المهمة: شغل الموقع
+     [LOCAL] نُفّذت محلياً دون استهلاك API
+     [SUCCESS] تم تشغيل الموقع
+◀ DONE · model calls=0 · local steps=1 · steps=0 · تم تشغيل الموقع
+▶ TASK: شغل الواي فاي
+     [INFO] المهمة: شغل الواي فاي
+     [ERROR] فتحتُ صفحة الواي فاي، لكنّ أندرويد يحجب محتوى هذه الصفحة عن تطبيقات التحكم، فلا أستطيع تبديل المفتاح. الصفحة مفتوحة أمامك: بدّله بيدك.
+◀ FAILED · model calls=0 · local steps=1 · steps=0 · فتحتُ صفحة الواي فاي، لكنّ أندرويد يحجب محتوى هذه الصفحة عن تطبيقات التحكم، فلا أستطيع تبديل المفتاح. الصفحة مفتوحة أمامك: بدّله بيدك.
+── wifi page: app= activity= elements=0
+     window type=4 active=false focused=false title=null app=com.wakeel.agent
+     window type=3 active=false focused=false title=Navigation bar app=com.android.systemui
+     window type=3 active=false focused=false title=null app=com.android.systemui
+     window type=1 active=true focused=true title=Internet app=null
+unfinished demonstration: saved=false reason=كتبتَ نصاً ولم ترسله أو تحفظه
+▶ TASK: افتح الصفحة المفقودة في العرض
+     [INFO] المهمة: افتح الصفحة المفقودة في العرض
+     [LOCAL] مهارة متعلَّمة: «صفحة مفقودة» — تنفيذ محلي دون استهلاك API
+     [ACTION] ⚡ فتح Sandbox
+     [WARN] تغيّرت الشاشة عن المهارة المحفوظة بعد 1 خطوة — سيكمل الذكاء الاصطناعي ويحدّث المهارة
+     [WARN] المهارة «صفحة مفقودة» التي علّمتَني إياها ناقصة (توقّفت عند الخطوة 2 من 2)، فحذفتُها.
+     [THINK] خطة الاختبار
+     [LOCAL] تعلّمتُ مهارة «افتح الصفحة المفقودة في العرض» — ستُنفَّذ لاحقاً محلياً
+     [SUCCESS] الزر غير موجود.
+◀ DONE · model calls=2 · local steps=1 · steps=1 · الزر غير موجود.
+▶ TASK (screen off): اعرض جهات الاتصال التجريبية
+while the screen is off: running=true · Running(line=متوقف مؤقتاً: افتح الشاشة لأكمل, step=1, max=6) · model calls=0
+     [INFO] المهمة: اعرض جهات الاتصال التجريبية
+     [WARN] الشاشة مطفأة أو مقفلة: توقّفتُ مؤقتاً دون أي استهلاك، وأكمل حين تفتحها.
+     [INFO] فُتحت الشاشة — أكمل المهمة.
+     [THINK] خطة الاختبار
+     [INFO] خطة من 3 خطوات في طلب واحد
+     [ACTION] فتح تطبيق «Sandbox»
+     [ACTION] ضغط على «Contacts»
+     [LOCAL] تعلّمتُ مهارة «اعرض جهات الاتصال التجريبية» — ستُنفَّذ لاحقاً محلياً
+     [SUCCESS] فتحتُ جهات الاتصال.
+◀ DONE · model calls=2 · local steps=0 · steps=2 · فتحتُ جهات الاتصال.
+idle emulator screen turns itself off after the timeout: true
+▶ TASK (nobody touching the phone): انتظر طويلاً ثم اعرض المحفظة التجريبية
+     [INFO] المهمة: انتظر طويلاً ثم اعرض المحفظة التجريبية
+     [THINK] خطة الاختبار
+     [INFO] خطة من 11 خطوات في طلب واحد
+     [ACTION] فتح تطبيق «Sandbox»
+     [ACTION] انتظار
+     [ACTION] انتظار
+     [ACTION] انتظار
+     [ACTION] انتظار
+     [ACTION] انتظار
+     [ACTION] انتظار
+     [ACTION] انتظار
+     [ACTION] انتظار
+     [ACTION] ضغط على «Wallet»
+     [LOCAL] تعلّمتُ مهارة «انتظر طويلاً ثم اعرض المحفظة ا» — ستُنفَّذ لاحقاً محلياً
+     [SUCCESS] فتحتُ المحفظة بعد انتظار طويل.
+◀ DONE · model calls=2 · local steps=0 · steps=10 · فتحتُ المحفظة بعد انتظار طويل.
+the task ran for 21s with nobody touching the phone · screen went dark: false
+▶ TASK: أبلغ Mariam في Sandbox: مرة واحدة فقط
+     ? الضغط على «Send» ⏎ النص: «مرة واحدة فقط» — هل تسمح؟  [سماح / رفض]
+     [INFO] المهمة: أبلغ Mariam في Sandbox: مرة واحدة فقط
+     [THINK] خطة الاختبار
+     [INFO] خطة من 5 خطوات في طلب واحد
+     [ACTION] فتح تطبيق «Sandbox»
+     [ACTION] ضغط على «Contacts»
+     [ACTION] ضغط على «Mariam»
+     [ACTION] كتابة «مرة واحدة فقط»
+     [ACTION] ضغط على «Send»
+     [WARN] بانتظار موافقتك: الضغط على «Send»
+النص: «مرة واحدة فقط»
+     [INFO] وافقتَ على: الضغط على «Send»
+النص: «مرة واحدة فقط»
+     [INFO] أُرسل النص «مرة واحدة فقط»: خلا حقل الكتابة بعد الضغط
+     [THINK] خطة الاختبار
+     [INFO] خطة من 3 خطوات في طلب واحد
+     [ACTION] كتابة «مرة واحدة فقط»
+     [WARN] منعتُ إرسال النص نفسه مرة ثانية: «مرة واحدة فقط»
+     [SUCCESS] أُرسل «مرة واحدة فقط» مرة واحدة. أوقفتُ محاولة إرساله ثانيةً حتى لا يتكرر.
+◀ DONE · model calls=2 · local steps=0 · steps=5 · أُرسل «مرة واحدة فقط» مرة واحدة. أوقفتُ محاولة إرساله ثانيةً حتى لا يتكرر.
+── after the guarded send: app=com.wakeel.sandbox activity=SandboxActivity elements=10
+     0|txt|Chat||@x0y0
+     1|txt|To: Mariam||@x5y1
+     2|edit|Message|cLe|@x5y2
+     3|btn|Send|c|@x5y2
+     4|txt|messages sent to Mariam: 1||@x5y2
+     5|txt|sent: مرة واحدة فقط to Mariam||@x5y8
+     6|btn|Home|c|@x1y9
+     7|btn|Contacts|c*|@x3y9
+     8|btn|Wallet|c|@x6y9
+     9|btn|Profile|c|@x8y9
+▶ TASK: انقل كل صور Sandbox إلى ألبوم جديد اسمه صور الهند
+     [INFO] المهمة: انقل كل صور Sandbox إلى ألبوم جديد اسمه صور الهند
+     [THINK] خطة الاختبار
+     [INFO] خطة من 10 خطوات في طلب واحد
+     [ACTION] فتح تطبيق «Sandbox»
+     [ACTION] ضغط على «Photos»
+     [ACTION] ضغط مطوّل على «Photo 1»
+     [ACTION] ضغط على «All»
+     [ACTION] ضغط على «More»
+     [ACTION] ضغط على «Move to album»
+     [ACTION] ضغط على «Create album»
+     [ACTION] كتابة «صور الهند»
+     [ACTION] ضغط على «Create»
+     [LOCAL] تعلّمتُ مهارة «انقل كل صور Sandbox إلى ألبوم » — ستُنفَّذ لاحقاً محلياً
+     [SUCCESS] نقلتُ الصور إلى ألبوم «صور الهند».
+◀ DONE · model calls=2 · local steps=0 · steps=9 · نقلتُ الصور إلى ألبوم «صور الهند».
+── after moving the photos: app=com.wakeel.sandbox activity=SandboxActivity elements=118
+     0|txt|Photos||@x1y0
+     1|txt|Camera: 360 photos||@x2y1
+     2|list||s|@x5y5
+     3|btn|Photo 2|cL|@x1y1
+     4|btn|Photo 3|cL|@x2y1
+     5|btn|Photo 4|cL|@x3y1
+     6|btn|Photo 5|cL|@x3y1
+     7|btn|Photo 6|cL|@x4y1
+     8|btn|Photo 7|cL|@x5y1
+     9|btn|Photo 8|cL|@x6y1
+     10|btn|Photo 9|cL|@x6y1
+     11|btn|Photo 10|cL|@x7y1
+     12|btn|Photo 11|cL|@x8y1
+     13|btn|Photo 12|cL|@x9y1
+     14|btn|Photo 13|cL|@x0y2
+     15|btn|Photo 14|cL|@x1y2
+     16|btn|Photo 15|cL|@x2y2
+     17|btn|Photo 16|cL|@x3y2
+     18|btn|Photo 17|cL|@x3y2
+     19|btn|Photo 18|cL|@x4y2
+     20|btn|Photo 19|cL|@x5y2
+     21|btn|Photo 20|cL|@x6y2
+     22|btn|Photo 21|cL|@x6y2
+     23|btn|Photo 22|cL|@x7y2
+     24|btn|Photo 23|cL|@x8y2
+     25|btn|Photo 24|cL|@x9y2
+     26|btn|Photo 25|cL|@x0y2
+     27|btn|Photo 26|cL|@x1y2
+     28|btn|Photo 27|cL|@x2y2
+     29|btn|Photo 28|cL|@x3y2
+     30|btn|Photo 29|cL|@x3y2
+     31|btn|Photo 30|cL|@x4y2
+     32|btn|Photo 31|cL|@x5y2
+     33|btn|Photo 32|cL|@x6y2
+     34|btn|Photo 33|cL|@x6y2
+     35|btn|Photo 34|cL|@x7y2
+     36|btn|Photo 35|cL|@x8y2
+     37|btn|Photo 36|cL|@x9y2
+     38|btn|Photo 37|cL|@x0y3
+     39|btn|Photo 38|cL|@x1y3
+     40|btn|Photo 39|cL|@x2y3
+     41|btn|Photo 40|cL|@x3y3
+     42|btn|Photo 41|cL|@x3y3
+     43|btn|Photo 42|cL|@x4y3
+     44|btn|Photo 43|cL|@x5y3
+dense grid: 118 elements read, 110 of them thumbnails
+▶ TASK: اضغط على الرصيد في محفظة Sandbox حتى يتغيّر
+     [INFO] المهمة: اضغط على الرصيد في محفظة Sandbox حتى يتغيّر
+     [THINK] خطة الاختبار
+     [ACTION] فتح تطبيق «Sandbox»
+     [ACTION] ضغط على «Wallet»
+     [THINK] خطة الاختبار
+     [ACTION] ضغط على «Balance: 100 USDT»
+     [THINK] خطة الاختبار
+     [ACTION] ضغط على «Balance: 100 USDT»
+     [WARN] تعثّر الوكيل — سيستعين بالنموذج الأقوى ولقطة شاشة للخطوة القادمة
+     [INFO] أُرفقت لقطة شاشة مصغّرة
+     [THINK] خطة الاختبار
+     [ERROR] توقّفتُ لأن خطوة واحدة تتكرر والشاشة لا تتغيّر: ضغط على «Balance: 100 USDT» في «Sandbox».
+◀ FAILED · model calls=4 · local steps=0 · steps=4 · توقّفتُ لأن خطوة واحدة تتكرر والشاشة لا تتغيّر: ضغط على «Balance: 100 USDT» في «Sandbox».
+▶ TASK: بعد 8 ثواني اعرض محفظة Sandbox
+     ? أنفّذ هذه المهمة بعد 8 ثانية؟ ⏎ «اعرض محفظة Sandbox»  [جدولة / نفّذ الآن]
+     [INFO] المهمة: بعد 8 ثواني اعرض محفظة Sandbox
+     [INFO] في المهمة موعد: «بعد 8 ثواني»
+     [LOCAL] جُدولت المهمة دون استهلاك API
+     [SUCCESS] جُدولت المهمة بعد 8 ثانية. إلغاؤها من الصفحة الرئيسية.
+◀ DONE · model calls=0 · local steps=1 · steps=0 · جُدولت المهمة بعد 8 ثانية. إلغاؤها من الصفحة الرئيسية.
+     [INFO] المهمة: اعرض محفظة Sandbox
+     [LOCAL] مهمة مجدولة حان موعدها (12:40 ص)
+     [THINK] خطة الاختبار
+     [INFO] خطة من 3 خطوات في طلب واحد
+     [ACTION] فتح تطبيق «Sandbox»
+     [ACTION] ضغط على «Wallet»
+     [LOCAL] تعلّمتُ مهارة «اعرض محفظة Sandbox» — ستُنفَّذ لاحقاً محلياً
+     [SUCCESS] عرضتُ المحفظة في موعدها.
+◀ DONE · model calls=2 · local steps=0 · steps=2 · عرضتُ المحفظة في موعدها.
+── after the scheduled task: app=com.wakeel.sandbox activity=SandboxActivity elements=10
+     0|txt|Wallet||@x1y0
+     1|txt|Balance: 100 USDT||@x5y1
+     2|edit|Search coin|cLe|@x5y2
+     3|btn|Price history|c|@x5y2
+     4|btn|Buy BTC|c|@x5y3
+     5|txt|status: idle||@x5y8
+     6|btn|Home|c|@x1y9
+     7|btn|Contacts|c|@x3y9
+     8|btn|Wallet|c*|@x6y9
+     9|btn|Profile|c|@x8y9
+▶ TASK: بعد ساعة افتح ملف Sandbox الشخصي
+     ? أنفّذ هذه المهمة بعد 60 دقيقة (الساعة 1:40 ص)؟ ⏎ «افتح ملف Sandbox الشخصي»  [جدولة / نفّذ الآن]
+     [INFO] المهمة: بعد ساعة افتح ملف Sandbox الشخصي
+     [INFO] في المهمة موعد: «بعد ساعة»
+     [INFO] اخترتَ تنفيذها الآن
+     [THINK] خطة الاختبار
+     [INFO] خطة من 3 خطوات في طلب واحد
+     [ACTION] فتح تطبيق «Sandbox»
+     [ACTION] ضغط على «Profile»
+     [LOCAL] تعلّمتُ مهارة «بعد ساعة افتح ملف Sandbox الشخ» — ستُنفَّذ لاحقاً محلياً
+     [SUCCESS] فتحتُ الملف الشخصي.
+◀ DONE · model calls=2 · local steps=0 · steps=2 · فتحتُ الملف الشخصي.
+▶ TASK: اكتب مسودة قديمة عند Noor في Sandbox دون إرسال
+     [INFO] المهمة: اكتب مسودة قديمة عند Noor في Sandbox دون إرسال
+     [THINK] خطة الاختبار
+     [INFO] خطة من 5 خطوات في طلب واحد
+     [ACTION] فتح تطبيق «Sandbox»
+     [ACTION] ضغط على «Contacts»
+     [ACTION] ضغط على «Noor»
+     [ACTION] كتابة «مسودة قديمة»
+     [INFO] لم تُحفظ مهارة من هذه المهمة: النتيجة تقول إن جزءاً منها لم يُنفَّذ
+     [SUCCESS] كتبتُها ولم أرسلها.
+◀ DONE · model calls=1 · local steps=0 · steps=4 · كتبتُها ولم أرسلها.
+▶ TASK: حيِّ Noor داخل Sandbox
+     ? في حقل الكتابة نص لم أكتبه أنا في هذه المهمة: ⏎ «مسودة قديمة» ⏎ هل أرسله كما هو؟  [أرسله / لا ترسله]
+     ? الضغط على «Send» ⏎ النص: «هلا» — هل تسمح؟  [سماح / رفض]
+     [INFO] المهمة: حيِّ Noor داخل Sandbox
+     [THINK] خطة الاختبار
+     [INFO] خطة من 5 خطوات في طلب واحد
+     [ACTION] فتح تطبيق «Sandbox»
+     [ACTION] ضغط على «Contacts»
+     [ACTION] ضغط على «Noor»
+     [ACTION] ضغط على «Send»
+     [WARN] في حقل الكتابة نص لم أكتبه في هذه المهمة: «مسودة قديمة»
+     [WARN] لم يُرسل النص القديم
+     [THINK] خطة الاختبار
+     [INFO] خطة من 3 خطوات في طلب واحد
+     [ACTION] كتابة «هلا»
+     [ACTION] ضغط على «Send»
+     [WARN] بانتظار موافقتك: الضغط على «Send»
+النص: «هلا»
+     [INFO] وافقتَ على: الضغط على «Send»
+النص: «هلا»
+     [INFO] أُرسل النص «هلا»: خلا حقل الكتابة بعد الضغط
+     [SUCCESS] أرسلتُ «هلا».
+◀ DONE · model calls=2 · local steps=0 · steps=6 · أرسلتُ «هلا».
+── after the old draft was refused: app=com.wakeel.sandbox activity=SandboxActivity elements=10
+     0|txt|Chat||@x0y0
+     1|txt|To: Noor||@x5y1
+     2|edit|Message|cLe|@x5y2
+     3|btn|Send|c|@x5y2
+     4|txt|messages sent to Noor: 1||@x5y2
+     5|txt|sent: هلا to Noor||@x5y8
+     6|btn|Home|c|@x1y9
+     7|btn|Contacts|c*|@x3y9
+     8|btn|Wallet|c|@x6y9
+     9|btn|Profile|c|@x8y9
+▶ TASK: ما أرخص رحلة في صفحة Flights في Sandbox
+     [INFO] المهمة: ما أرخص رحلة في صفحة Flights في Sandbox
+     [THINK] خطة الاختبار
+     [INFO] خطة من 3 خطوات في طلب واحد
+     [ACTION] فتح تطبيق «Sandbox»
+     [ACTION] ضغط على «Flights»
+     [ACTION] قراءة الصفحة كاملة
+     [INFO] قرأ الصفحة كاملة (22 سطراً)
+     [THINK] خطة الاختبار
+     [SUCCESS] أرخص رحلة: FlyErbil بسعر 41 OMR ذهاباً وعودة.
+◀ DONE · model calls=3 · local steps=0 · steps=3 · أرخص رحلة: FlyErbil بسعر 41 OMR ذهاباً وعودة.
+── the web page: app=com.wakeel.sandbox activity=SandboxActivity elements=13
+     0|txt|Flights||@x1y0
+     1|list||s|@x5y4
+     2|btn|flydubai · departs Muscat 06:40 · arrives Erbil 13:15 · 1 stop in Dubai, 2 h 40 min between flights · 6 h 50 min · 68 OMR round trip|c|@x5y1
+     3|btn|Qatar Airways · departs Muscat 09:50 · arrives Erbil 16:25 · 1 stop in Dubai, 2 h 40 min between flights · 7 h 55 min · 75 OMR round trip|c|@x5y3
+     4|btn|Air Arabia · departs Muscat 12:00 · arrives Erbil 19:35 · nonstop · 8 h 0 min · 82 OMR round trip|c|@x5y4
+     5|btn|Emirates · departs Muscat 15:10 · arrives Erbil 22:45 · 1 stop in Dubai, 2 h 40 min between flights · 9 h 5 min · 89 OMR round trip|c|@x5y5
+     6|btn|Turkish Airlines · departs Muscat 18:20 · arrives Erbil 01:55 · 1 stop in Dubai, 2 h 40 min between flights · 10 h 10 min · 96 OMR round trip|c|@x5y7
+     7|btn|Gulf Air · departs Muscat 21:30 · arrives Erbil 04:05 · nonstop · 6 h 15 min · 103 OMR round trip|c|@x5y8
+     8|txt|status: idle||@x5y8
+     9|btn|Home|c*|@x1y9
+     10|btn|Contacts|c|@x3y9
+     11|btn|Wallet|c|@x6y9
+     12|btn|Profile|c|@x8y9
+page text handed to the model: 3730 characters, 41 lines
+▶ TASK: افتح Flights في Sandbox وابحث عن أرخص رحلة
+     [INFO] المهمة: افتح Flights في Sandbox وابحث عن أرخص رحلة
+     [THINK] خطة الاختبار
+     [INFO] خطة من 3 خطوات في طلب واحد
+     [ACTION] فتح تطبيق «Sandbox»
+     [ACTION] ضغط على «Flights»
+     [ACTION] انتظار
+     [THINK] خطة الاختبار
+     [ACTION] تمرير للأسفل
+     [INFO] بلغ الحد الأقصى للطلبات — يقرأ الصفحة الحالية ويجيب بما وصل إليه
+     [SUCCESS] أرخص رحلة ظاهرة: FlyErbil بسعر 41 OMR.
+◀ DONE · model calls=3 · local steps=0 · steps=4 · أرخص رحلة ظاهرة: FlyErbil بسعر 41 OMR.
+▶ TASK: افتح Flights في Sandbox وابحث عن أرخص رحلة
+     [INFO] المهمة: افتح Flights في Sandbox وابحث عن أرخص رحلة
+     [THINK] خطة الاختبار
+     [INFO] خطة من 3 خطوات في طلب واحد
+     [ACTION] فتح تطبيق «Sandbox»
+     [ACTION] ضغط على «Flights»
+     [ACTION] انتظار
+     [THINK] خطة الاختبار
+     [ACTION] تمرير للأسفل
+     [INFO] بلغ الحد الأقصى للطلبات — يقرأ الصفحة الحالية ويجيب بما وصل إليه
+     [ERROR] توقّف الوكيل بعد بلوغ الحد الأقصى للطلبات (3).
+◀ FAILED · model calls=3 · local steps=0 · steps=4 · توقّف الوكيل بعد بلوغ الحد الأقصى للطلبات (3).
+cycle 1: 1 إجراء هذه الدورة · الرصيد 9,999.00 USDT · اليوم -1.00
+     · BTCUSDT buy (82) — فُتحت صفقة شراء BTCUSDT: 17.4064 بسعر 114.9000 (2,000.00 USDT) · وقف 111.4530 · هدف 119.4960 (قُرّب وقف الخسارة إلى الحد 3.0%)
+cycle 2: 1 إجراء هذه الدورة · الرصيد 10,077.96 USDT · اليوم +77.96
+     · BTCUSDT hold — لا صفقة
+     · BTCUSDT close — أُغلقت صفقة الشراء على BTCUSDT عند الهدف بسعر 119.4960: ربح +77.96 USDT
+── Wakeel · التداول: app=com.wakeel.agent activity= elements=31
+     0|list||s|@x5y4
+     1|txt|التداول||@x7y0
+     2|txt|حساب تجريبي — لا مال حقيقي||@x2y0
+     3|txt|الحساب التجريبي||@x4y1
+     4|txt|10,077.96||@x7y2
+     5|txt|الرصيد USDT||@x8y2
+     6|txt|+77.96||@x3y2
+     7|txt|اليوم||@x4y2
+     8|txt|+77.96||@x8y3
+     9|txt|منذ البداية||@x8y3
+     10|txt|1 من 1||@x3y3
+     11|txt|صفقات رابحة||@x3y3
+     12|txt|التداول التلقائي||@x7y3
+     13|txt|يحلل ويقرر وينفّذ وحده كل 60 دقيقة||@x7y4
+     14|chk||c|@x1y3
+     15|btn|دورة الآن|c|@x7y4
+     16|txt|آخر دورة 21/11 00:41||@x1y4
+     17|txt|لا صفقات هذه الدورة · الرصيد 10,077.96 USDT · اليو||@x5y5
+     18|txt|الصفقات المفتوحة (0)||@x4y6
+     19|txt|لا صفقات مفتوحة الآن.||@x7y6
+     20|txt|قرارات الوكيل||@x4y7
+     21|txt|BTCUSDT||@x8y7
+     22|txt|بيع · ثقة 30||@x6y7
+     23|txt|21/11 00:41||@x1y7
+     24|txt|ظن||@x8y8
+     25|txt|ثقة القرار 30 أقل من الحد 60 — لم تُفتح صفقة||@x6y8
+     26|btn|القيادة|c|@x9y9
+     27|btn|المعرفة|c|@x7y9
+     28|txt|التداول||@x4y9
+     29|btn|السجل|c|@x2y9
+     30|btn|الإعدادات|c|@x0y9
+live market data: 60 candles, last BTCUSDT close 59120.0
+live headlines: Bitcoin sell-off: Crypto is failing the 'digital gold' test again as it sinks with stocks - CNBC | Bitcoin plunges below $60,000, on pace for its worst month since June 2022 - Yahoo Finance
+END OF DEVICE TESTS

@@ -1,0 +1,923 @@
+--------- beginning of main
+11-21 00:36:10.087 I/TestRunner( 3228): run started: 27 tests
+11-21 00:36:10.294 I/WakeelTest( 3228): accessibility service connected: true
+11-21 00:36:10.312 I/TestRunner( 3228): started: t01_serviceConnects(com.wakeel.agent.DeviceTest)
+11-21 00:36:11.168 I/WakeelTest( 3228): launchers: [com.android.launcher3] · apps on device: 13
+11-21 00:36:11.172 I/WakeelTest( 3228): ── home screen: app=com.android.launcher3 activity= elements=10
+11-21 00:36:11.172 I/WakeelTest( 3228):      0|list||s|@x5y5
+11-21 00:36:11.173 I/WakeelTest( 3228):      1|view|Search||@x5y1
+11-21 00:36:11.173 I/WakeelTest( 3228):      2|ibtn||c|@x1y1
+11-21 00:36:11.173 I/WakeelTest( 3228):      3|btn||c|@x5y1
+11-21 00:36:11.173 I/WakeelTest( 3228):      4|btn|Gallery|cL|@x3y7
+11-21 00:36:11.173 I/WakeelTest( 3228):      5|view|Home||@x5y5
+11-21 00:36:11.173 I/WakeelTest( 3228):      6|btn|Phone|cL|@x1y9
+11-21 00:36:11.173 I/WakeelTest( 3228):      7|btn|Messaging|cL|@x3y9
+11-21 00:36:11.173 I/WakeelTest( 3228):      8|btn|WebView Browser Tester|cL|@x6y9
+11-21 00:36:11.173 I/WakeelTest( 3228):      9|btn|Camera|cL|@x8y9
+11-21 00:36:11.173 I/TestRunner( 3228): finished: t01_serviceConnects(com.wakeel.agent.DeviceTest)
+11-21 00:36:11.174 I/TestRunner( 3228): started: t02_mainScreenAndTabs(com.wakeel.agent.DeviceTest)
+11-21 00:36:13.421 I/WakeelTest( 3228): ── Wakeel · القيادة: app=com.wakeel.agent activity= elements=23
+11-21 00:36:13.422 I/WakeelTest( 3228):      0|txt|وكيل||@x8y1
+11-21 00:36:13.422 I/WakeelTest( 3228):      1|txt|ينجز مهام هاتفك، ويتعلّم ليستهلك أقل||@x7y1
+11-21 00:36:13.423 I/WakeelTest( 3228):      2|txt|جاهز||@x0y1
+11-21 00:36:13.423 I/WakeelTest( 3228):      3|txt|ماذا أنجز لك؟||@x7y2
+11-21 00:36:13.423 I/WakeelTest( 3228):      4|edit|اكتب المهمة أو قلها…|cLe|@x5y2
+11-21 00:36:13.423 I/WakeelTest( 3228):      5|btn|نفّذ المهمة|c|@x5y3
+11-21 00:36:13.423 I/WakeelTest( 3228):      6|btn|إدخال صوتي|c|@x1y3
+11-21 00:36:13.423 I/WakeelTest( 3228):      7|list||s|@x5y4
+11-21 00:36:13.424 I/WakeelTest( 3228):      8|btn|شخّص الهاتف|c|@x8y4
+11-21 00:36:13.424 I/WakeelTest( 3228):      9|btn|ابحث عن سبب امتلاء مساحة التخزين واقترح حلولاً|c|@x3y4
+11-21 00:36:13.424 I/WakeelTest( 3228):      10|btn|صحة الجهاز · البطارية · 100%|c|@x7y6
+11-21 00:36:13.424 I/WakeelTest( 3228):      11|btn|ما يعرفه · 7 · تطبيقاً بدليل مدمج|c|@x2y6
+11-21 00:36:13.424 I/WakeelTest( 3228):      12|txt|0||@x9y7
+11-21 00:36:13.424 I/WakeelTest( 3228):      13|txt|مهام منجزة||@x8y7
+11-21 00:36:13.425 I/WakeelTest( 3228):      14|txt|0||@x6y7
+11-21 00:36:13.425 I/WakeelTest( 3228):      15|txt|خطوات بلا تكلفة||@x5y7
+11-21 00:36:13.425 I/WakeelTest( 3228):      16|txt|$0||@x2y7
+11-21 00:36:13.425 I/WakeelTest( 3228):      17|txt|إنفاق اليوم||@x2y7
+11-21 00:36:13.425 I/WakeelTest( 3228):      18|txt|القيادة||@x9y9
+11-21 00:36:13.425 I/WakeelTest( 3228):      19|btn|المعرفة|c|@x7y9
+11-21 00:36:13.425 I/WakeelTest( 3228):      20|btn|التداول|c|@x4y9
+11-21 00:36:13.426 I/WakeelTest( 3228):      21|btn|السجل|c|@x2y9
+11-21 00:36:13.426 I/WakeelTest( 3228):      22|btn|الإعدادات|c|@x0y9
+11-21 00:36:14.100 I/WakeelTest( 3228): ── Wakeel · المعرفة: app=com.wakeel.agent activity= elements=24
+11-21 00:36:14.100 I/WakeelTest( 3228):      0|txt|المعرفة||@x8y0
+11-21 00:36:14.100 I/WakeelTest( 3228):      1|txt|7||@x9y1
+11-21 00:36:14.100 I/WakeelTest( 3228):      2|txt|تطبيق يعرفه||@x8y1
+11-21 00:36:14.101 I/WakeelTest( 3228):      3|txt|0||@x6y1
+11-21 00:36:14.101 I/WakeelTest( 3228):      4|txt|صفحة متعلَّمة||@x5y1
+11-21 00:36:14.101 I/WakeelTest( 3228):      5|txt|0||@x2y1
+11-21 00:36:14.101 I/WakeelTest( 3228):      6|txt|مهارة||@x2y1
+11-21 00:36:14.101 I/WakeelTest( 3228):      7|btn|التطبيقات|c|@x7y2
+11-21 00:36:14.101 I/WakeelTest( 3228):      8|btn|المهارات|c|@x2y2
+11-21 00:36:14.101 I/WakeelTest( 3228):      9|edit|ابحث عن تطبيق|cLe|@x5y3
+11-21 00:36:14.101 I/WakeelTest( 3228):      10|btn|الكل|c|@x8y3
+11-21 00:36:14.101 I/WakeelTest( 3228):      11|btn|يعرفها|c|@x5y3
+11-21 00:36:14.101 I/WakeelTest( 3228):      12|btn|مقيّدة|c|@x1y3
+11-21 00:36:14.101 I/WakeelTest( 3228):      13|list||s|@x5y6
+11-21 00:36:14.102 I/WakeelTest( 3228):      14|btn|Calendar · إنتاجية · متوسط|c|@x5y4
+11-21 00:36:14.102 I/WakeelTest( 3228):      15|btn|Camera · أدوات · متوسط|c|@x5y5
+11-21 00:36:14.102 I/WakeelTest( 3228):      16|btn|Clock · أدوات · متوسط|c|@x5y6
+11-21 00:36:14.102 I/WakeelTest( 3228):      17|btn|Contacts · النظام · متوسط|c|@x5y7
+11-21 00:36:14.102 I/WakeelTest( 3228):      18|btn|Files|c|@x5y8
+11-21 00:36:14.102 I/WakeelTest( 3228):      19|btn|القيادة|c|@x9y9
+11-21 00:36:14.102 I/WakeelTest( 3228):      20|txt|المعرفة||@x7y9
+11-21 00:36:14.102 I/WakeelTest( 3228):      21|btn|التداول|c|@x4y9
+11-21 00:36:14.102 I/WakeelTest( 3228):      22|btn|السجل|c|@x2y9
+11-21 00:36:14.102 I/WakeelTest( 3228):      23|btn|الإعدادات|c|@x0y9
+11-21 00:36:14.690 I/WakeelTest( 3228): ── Wakeel · التداول: app=com.wakeel.agent activity= elements=27
+11-21 00:36:14.691 I/WakeelTest( 3228):      0|list||s|@x5y4
+11-21 00:36:14.691 I/WakeelTest( 3228):      1|txt|التداول||@x7y0
+11-21 00:36:14.692 I/WakeelTest( 3228):      2|txt|حساب تجريبي — لا مال حقيقي||@x2y0
+11-21 00:36:14.692 I/WakeelTest( 3228):      3|txt|الحساب التجريبي||@x4y1
+11-21 00:36:14.692 I/WakeelTest( 3228):      4|txt|10,000.00||@x7y2
+11-21 00:36:14.692 I/WakeelTest( 3228):      5|txt|الرصيد USDT||@x8y2
+11-21 00:36:14.692 I/WakeelTest( 3228):      6|txt|+0.00||@x3y2
+11-21 00:36:14.693 I/WakeelTest( 3228):      7|txt|اليوم||@x4y2
+11-21 00:36:14.693 I/WakeelTest( 3228):      8|txt|+0.00||@x8y3
+11-21 00:36:14.693 I/WakeelTest( 3228):      9|txt|منذ البداية||@x8y3
+11-21 00:36:14.693 I/WakeelTest( 3228):      10|txt|—||@x4y3
+11-21 00:36:14.693 I/WakeelTest( 3228):      11|txt|صفقات رابحة||@x3y3
+11-21 00:36:14.693 I/WakeelTest( 3228):      12|txt|التداول التلقائي||@x7y3
+11-21 00:36:14.694 I/WakeelTest( 3228):      13|txt|يحلل ويقرر وينفّذ وحده كل 60 دقيقة||@x7y4
+11-21 00:36:14.694 I/WakeelTest( 3228):      14|chk||c|@x1y3
+11-21 00:36:14.694 I/WakeelTest( 3228):      15|btn|دورة الآن|c|@x7y4
+11-21 00:36:14.694 I/WakeelTest( 3228):      16|txt|الصفقات المفتوحة (0)||@x4y5
+11-21 00:36:14.694 I/WakeelTest( 3228):      17|txt|لا صفقات مفتوحة الآن.||@x7y5
+11-21 00:36:14.694 I/WakeelTest( 3228):      18|txt|قرارات الوكيل||@x4y6
+11-21 00:36:14.694 I/WakeelTest( 3228):      19|txt|لم يقرر الوكيل شيئاً بعد. اضغط «دورة الآن» أو شغّل||@x5y7
+11-21 00:36:14.694 I/WakeelTest( 3228):      20|txt|الضوابط||@x4y8
+11-21 00:36:14.694 I/WakeelTest( 3228):      21|txt|هذه الحدود يطبّقها التطبيق بعد قرار النموذج، فلا ي||@x5y8
+11-21 00:36:14.695 I/WakeelTest( 3228):      22|btn|القيادة|c|@x9y9
+11-21 00:36:14.695 I/WakeelTest( 3228):      23|btn|المعرفة|c|@x7y9
+11-21 00:36:14.695 I/WakeelTest( 3228):      24|txt|التداول||@x4y9
+11-21 00:36:14.695 I/WakeelTest( 3228):      25|btn|السجل|c|@x2y9
+11-21 00:36:14.695 I/WakeelTest( 3228):      26|btn|الإعدادات|c|@x0y9
+11-21 00:36:14.939 I/WakeelTest( 3228): ── Wakeel · السجل: app=com.wakeel.agent activity= elements=7
+11-21 00:36:14.940 I/WakeelTest( 3228):      0|txt|السجل||@x5y0
+11-21 00:36:14.940 I/WakeelTest( 3228):      1|txt|لا توجد مهام بعد||@x5y2
+11-21 00:36:14.941 I/WakeelTest( 3228):      2|btn|القيادة|c|@x9y9
+11-21 00:36:14.941 I/WakeelTest( 3228):      3|btn|المعرفة|c|@x7y9
+11-21 00:36:14.941 I/WakeelTest( 3228):      4|btn|التداول|c|@x4y9
+11-21 00:36:14.941 I/WakeelTest( 3228):      5|txt|السجل||@x2y9
+11-21 00:36:14.941 I/WakeelTest( 3228):      6|btn|الإعدادات|c|@x0y9
+11-21 00:36:15.479 I/WakeelTest( 3228): ── Wakeel · الإعدادات: app=com.wakeel.agent activity= elements=22
+11-21 00:36:15.480 I/WakeelTest( 3228):      0|list||s|@x5y4
+11-21 00:36:15.480 I/WakeelTest( 3228):      1|txt|الإعدادات||@x8y0
+11-21 00:36:15.480 I/WakeelTest( 3228):      2|txt|مزوّد الذكاء الاصطناعي||@x4y1
+11-21 00:36:15.480 I/WakeelTest( 3228):      3|chk|Claude|c|@x8y2
+11-21 00:36:15.480 I/WakeelTest( 3228):      4|chk|OpenAI|c|@x6y2
+11-21 00:36:15.480 I/WakeelTest( 3228):      5|chk|Gemini|c|@x4y2
+11-21 00:36:15.480 I/WakeelTest( 3228):      6|chk|OpenRouter|c|@x7y2
+11-21 00:36:15.481 I/WakeelTest( 3228):      7|chk|مخصص|cx|@x5y2
+11-21 00:36:15.481 I/WakeelTest( 3228):      8|txt|المفتاح محفوظ ومشفّر  ••••-key||@x5y3
+11-21 00:36:15.481 I/WakeelTest( 3228):      9|btn|حذف|c|@x1y3
+11-21 00:36:15.481 I/WakeelTest( 3228):      10|edit|(password)|cLep|@x5y4
+11-21 00:36:15.481 I/WakeelTest( 3228):      11|btn||c|@x1y4
+11-21 00:36:15.481 I/WakeelTest( 3228):      12|btn|حفظ المفتاح|c|@x7y4
+11-21 00:36:15.481 I/WakeelTest( 3228):      13|edit|عنوان الخادم|cLe|@x5y5
+11-21 00:36:15.482 I/WakeelTest( 3228):      14|edit|scripted-model|cLe|@x5y6
+11-21 00:36:15.482 I/WakeelTest( 3228):      15|edit|النموذج الأقوى (عند التعثّر)|cLe|@x5y7
+11-21 00:36:15.482 I/WakeelTest( 3228):      16|btn|اختبار الاتصال|c|@x7y8
+11-21 00:36:15.482 I/WakeelTest( 3228):      17|btn|القيادة|c|@x9y9
+11-21 00:36:15.482 I/WakeelTest( 3228):      18|btn|المعرفة|c|@x7y9
+11-21 00:36:15.482 I/WakeelTest( 3228):      19|btn|التداول|c|@x4y9
+11-21 00:36:15.483 I/WakeelTest( 3228):      20|btn|السجل|c|@x2y9
+11-21 00:36:15.483 I/WakeelTest( 3228):      21|txt|الإعدادات||@x0y9
+11-21 00:36:16.074 I/WakeelTest( 3228): ── Wakeel · القيادة: app=com.wakeel.agent activity= elements=23
+11-21 00:36:16.075 I/WakeelTest( 3228):      0|txt|وكيل||@x8y1
+11-21 00:36:16.075 I/WakeelTest( 3228):      1|txt|ينجز مهام هاتفك، ويتعلّم ليستهلك أقل||@x7y1
+11-21 00:36:16.076 I/WakeelTest( 3228):      2|txt|جاهز||@x0y1
+11-21 00:36:16.076 I/WakeelTest( 3228):      3|txt|ماذا أنجز لك؟||@x7y2
+11-21 00:36:16.076 I/WakeelTest( 3228):      4|edit|اكتب المهمة أو قلها…|cLe|@x5y2
+11-21 00:36:16.076 I/WakeelTest( 3228):      5|btn|نفّذ المهمة|c|@x5y3
+11-21 00:36:16.076 I/WakeelTest( 3228):      6|btn|إدخال صوتي|c|@x1y3
+11-21 00:36:16.076 I/WakeelTest( 3228):      7|list||s|@x5y4
+11-21 00:36:16.076 I/WakeelTest( 3228):      8|btn|شخّص الهاتف|c|@x8y4
+11-21 00:36:16.077 I/WakeelTest( 3228):      9|btn|ابحث عن سبب امتلاء مساحة التخزين واقترح حلولاً|c|@x3y4
+11-21 00:36:16.077 I/WakeelTest( 3228):      10|btn|صحة الجهاز · البطارية · 100%|c|@x7y6
+11-21 00:36:16.077 I/WakeelTest( 3228):      11|btn|ما يعرفه · 7 · تطبيقاً بدليل مدمج|c|@x2y6
+11-21 00:36:16.077 I/WakeelTest( 3228):      12|txt|0||@x9y7
+11-21 00:36:16.077 I/WakeelTest( 3228):      13|txt|مهام منجزة||@x8y7
+11-21 00:36:16.077 I/WakeelTest( 3228):      14|txt|0||@x6y7
+11-21 00:36:16.078 I/WakeelTest( 3228):      15|txt|خطوات بلا تكلفة||@x5y7
+11-21 00:36:16.078 I/WakeelTest( 3228):      16|txt|$0||@x2y7
+11-21 00:36:16.078 I/WakeelTest( 3228):      17|txt|إنفاق اليوم||@x2y7
+11-21 00:36:16.078 I/WakeelTest( 3228):      18|txt|القيادة||@x9y9
+11-21 00:36:16.078 I/WakeelTest( 3228):      19|btn|المعرفة|c|@x7y9
+11-21 00:36:16.079 I/WakeelTest( 3228):      20|btn|التداول|c|@x4y9
+11-21 00:36:16.079 I/WakeelTest( 3228):      21|btn|السجل|c|@x2y9
+11-21 00:36:16.079 I/WakeelTest( 3228):      22|btn|الإعدادات|c|@x0y9
+11-21 00:36:16.084 I/TestRunner( 3228): finished: t02_mainScreenAndTabs(com.wakeel.agent.DeviceTest)
+11-21 00:36:16.462 I/TestRunner( 3228): started: t03_localAnswersCostNothing(com.wakeel.agent.DeviceTest)
+11-21 00:36:17.101 I/WakeelTest( 3228): ▶ TASK: كم البطارية؟
+11-21 00:36:17.253 I/WakeelTest( 3228):      [INFO] المهمة: كم البطارية؟
+11-21 00:36:17.254 I/WakeelTest( 3228):      [LOCAL] نُفّذت محلياً دون استهلاك API
+11-21 00:36:17.254 I/WakeelTest( 3228):      [SUCCESS] البطارية 100% وهي تُشحن الآن، وحرارتها 25°م.
+11-21 00:36:17.255 I/WakeelTest( 3228): ◀ DONE · model calls=0 · local steps=1 · steps=0 · البطارية 100% وهي تُشحن الآن، وحرارتها 25°م.
+11-21 00:36:18.282 I/WakeelTest( 3228): ▶ TASK: كم المساحة المتبقية
+11-21 00:36:18.433 I/WakeelTest( 3228):      [INFO] المهمة: كم المساحة المتبقية
+11-21 00:36:18.433 I/WakeelTest( 3228):      [LOCAL] نُفّذت محلياً دون استهلاك API
+11-21 00:36:18.434 I/WakeelTest( 3228):      [SUCCESS] المساحة المتاحة 5.4 غيغابايت من 5.8 (المستخدم 7%).
+11-21 00:36:18.434 I/WakeelTest( 3228): ◀ DONE · model calls=0 · local steps=1 · steps=0 · المساحة المتاحة 5.4 غيغابايت من 5.8 (المستخدم 7%).
+11-21 00:36:19.462 I/WakeelTest( 3228): ▶ TASK: شخّص الهاتف
+11-21 00:36:19.612 I/WakeelTest( 3228):      [INFO] المهمة: شخّص الهاتف
+11-21 00:36:19.613 I/WakeelTest( 3228):      [LOCAL] نُفّذت محلياً دون استهلاك API
+11-21 00:36:19.613 I/WakeelTest( 3228):      [SUCCESS] حالة الهاتف جيدة، ولم أجد ما يستدعي القلق.
+11-21 00:36:19.613 I/WakeelTest( 3228): ◀ DONE · model calls=0 · local steps=1 · steps=0 · حالة الهاتف جيدة، ولم أجد ما يستدعي القلق.
+11-21 00:36:21.258 I/TestRunner( 3228): finished: t03_localAnswersCostNothing(com.wakeel.agent.DeviceTest)
+11-21 00:36:21.259 I/TestRunner( 3228): started: t04_settingsPageOpensDirectly(com.wakeel.agent.DeviceTest)
+11-21 00:36:21.869 I/WakeelTest( 3228): ▶ TASK: افتح إعدادات البطارية
+11-21 00:36:22.020 I/WakeelTest( 3228):      [INFO] المهمة: افتح إعدادات البطارية
+11-21 00:36:22.020 I/WakeelTest( 3228):      [LOCAL] نُفّذت محلياً دون استهلاك API
+11-21 00:36:22.020 I/WakeelTest( 3228):      [SUCCESS] فُتحت صفحة البطارية
+11-21 00:36:22.021 I/WakeelTest( 3228): ◀ DONE · model calls=0 · local steps=1 · steps=0 · فُتحت صفحة البطارية
+11-21 00:36:23.095 I/WakeelTest( 3228): ── battery settings: app=com.android.settings activity=Settings$PowerUsageSummaryActivity elements=10
+11-21 00:36:23.096 I/WakeelTest( 3228):      0|list||s|@x5y4
+11-21 00:36:23.096 I/WakeelTest( 3228):      1|view|Battery||@x5y1
+11-21 00:36:23.096 I/WakeelTest( 3228):      2|ibtn|Navigate up|c|@x0y0
+11-21 00:36:23.096 I/WakeelTest( 3228):      3|txt|100 %||@x2y2
+11-21 00:36:23.096 I/WakeelTest( 3228):      4|txt|Charged||@x5y3
+11-21 00:36:23.096 I/WakeelTest( 3228):      5|btn|Battery usage · View usage since last full charge|c|@x5y4
+11-21 00:36:23.096 I/WakeelTest( 3228):      6|btn|Battery Saver · Off|c|@x5y5
+11-21 00:36:23.097 I/WakeelTest( 3228):      7|btn|Battery percentage · Show battery percentage in st|c|@x5y6
+11-21 00:36:23.097 I/WakeelTest( 3228):      8|sw|||@x8y6
+11-21 00:36:23.097 I/WakeelTest( 3228):      9|txt|Remaining battery life is approximate and can chan||@x5y7
+11-21 00:36:23.097 I/TestRunner( 3228): finished: t04_settingsPageOpensDirectly(com.wakeel.agent.DeviceTest)
+11-21 00:36:23.098 I/TestRunner( 3228): started: t05_seesOtherAppsAndReadsTheirScreens(com.wakeel.agent.DeviceTest)
+11-21 00:36:25.332 I/WakeelTest( 3228): ── sandbox home: app=com.wakeel.sandbox activity=SandboxActivity elements=11
+11-21 00:36:25.333 I/WakeelTest( 3228):      0|txt|Home||@x1y0
+11-21 00:36:25.342 I/WakeelTest( 3228):      1|edit|Search|cLe|@x5y1
+11-21 00:36:25.343 I/WakeelTest( 3228):      2|ibtn||c|@x1y2
+11-21 00:36:25.343 I/WakeelTest( 3228):      3|btn|About|c|@x5y2
+11-21 00:36:25.343 I/WakeelTest( 3228):      4|btn|Photos|c|@x5y3
+11-21 00:36:25.343 I/WakeelTest( 3228):      5|btn|Flights|c|@x5y3
+11-21 00:36:25.343 I/WakeelTest( 3228):      6|txt|status: idle||@x5y8
+11-21 00:36:25.343 I/WakeelTest( 3228):      7|btn|Home|c*|@x1y9
+11-21 00:36:25.343 I/WakeelTest( 3228):      8|btn|Contacts|c|@x3y9
+11-21 00:36:25.343 I/WakeelTest( 3228):      9|btn|Wallet|c|@x6y9
+11-21 00:36:25.343 I/WakeelTest( 3228):      10|btn|Profile|c|@x8y9
+11-21 00:36:25.360 I/TestRunner( 3228): finished: t05_seesOtherAppsAndReadsTheirScreens(com.wakeel.agent.DeviceTest)
+11-21 00:36:25.362 I/TestRunner( 3228): started: t06_planAheadTypesAndLearns(com.wakeel.agent.DeviceTest)
+11-21 00:36:26.358 I/WakeelTest( 3228): ▶ TASK: أرسل في Sandbox إلى Sara: مرحبا
+11-21 00:36:26.541 I/WakeelTest( 3228):    ◇ model asked (act): TASK: أرسل في Sandbox إلى Sara: مرحبا
+11-21 00:36:30.449 I/WakeelTest( 3228):      ? الضغط على «Send» ⏎ النص: «مرحبا» — هل تسمح؟  [سماح / رفض]
+11-21 00:36:31.314 I/WakeelTest( 3228):    ◇ model asked (learn): TASK: أرسل في Sandbox إلى Sara: مرحبا
+11-21 00:36:31.400 I/WakeelTest( 3228):      [INFO] المهمة: أرسل في Sandbox إلى Sara: مرحبا
+11-21 00:36:31.400 I/WakeelTest( 3228):      [THINK] خطة الاختبار
+11-21 00:36:31.400 I/WakeelTest( 3228):      [INFO] خطة من 6 خطوات في طلب واحد
+11-21 00:36:31.400 I/WakeelTest( 3228):      [ACTION] فتح تطبيق «Sandbox»
+11-21 00:36:31.400 I/WakeelTest( 3228):      [ACTION] ضغط على «Contacts»
+11-21 00:36:31.400 I/WakeelTest( 3228):      [ACTION] ضغط على «Sara»
+11-21 00:36:31.401 I/WakeelTest( 3228):      [ACTION] كتابة «مرحبا»
+11-21 00:36:31.401 I/WakeelTest( 3228):      [ACTION] ضغط على «Send»
+11-21 00:36:31.401 I/WakeelTest( 3228):      [WARN] بانتظار موافقتك: الضغط على «Send»
+11-21 00:36:31.401 I/WakeelTest( 3228): النص: «مرحبا»
+11-21 00:36:31.401 I/WakeelTest( 3228):      [INFO] وافقتَ على: الضغط على «Send»
+11-21 00:36:31.401 I/WakeelTest( 3228): النص: «مرحبا»
+11-21 00:36:31.401 I/WakeelTest( 3228):      [INFO] أُرسل النص «مرحبا»: خلا حقل الكتابة بعد الضغط
+11-21 00:36:31.401 I/WakeelTest( 3228):      [LOCAL] تعلّمتُ مهارة «رسالة في Sandbox» بمتغيّرات: contact، message — ستُنفَّذ لاحقاً محلياً
+11-21 00:36:31.401 I/WakeelTest( 3228):      [SUCCESS] أرسلتُ «مرحبا» إلى Sara.
+11-21 00:36:31.402 I/WakeelTest( 3228): ◀ DONE · model calls=2 · local steps=0 · steps=5 · أرسلتُ «مرحبا» إلى Sara.
+11-21 00:36:32.431 I/WakeelTest( 3228): ── after the first message: app=com.wakeel.sandbox activity=SandboxActivity elements=10
+11-21 00:36:32.431 I/WakeelTest( 3228):      0|txt|Chat||@x0y0
+11-21 00:36:32.431 I/WakeelTest( 3228):      1|txt|To: Sara||@x5y1
+11-21 00:36:32.432 I/WakeelTest( 3228):      2|edit|Message|cLe|@x5y2
+11-21 00:36:32.432 I/WakeelTest( 3228):      3|btn|Send|c|@x5y2
+11-21 00:36:32.432 I/WakeelTest( 3228):      4|txt|messages sent to Sara: 1||@x5y2
+11-21 00:36:32.432 I/WakeelTest( 3228):      5|txt|sent: مرحبا to Sara||@x5y8
+11-21 00:36:32.432 I/WakeelTest( 3228):      6|btn|Home|c|@x1y9
+11-21 00:36:32.432 I/WakeelTest( 3228):      7|btn|Contacts|c*|@x3y9
+11-21 00:36:32.432 I/WakeelTest( 3228):      8|btn|Wallet|c|@x6y9
+11-21 00:36:32.433 I/WakeelTest( 3228):      9|btn|Profile|c|@x8y9
+11-21 00:36:32.436 I/WakeelTest( 3228): learned: أرسل في Sandbox إلى {contact}: {message} · open_app:Sandbox → tap:Contacts → tap:{contact} → type:{message} → tap:Send
+11-21 00:36:32.436 I/TestRunner( 3228): finished: t06_planAheadTypesAndLearns(com.wakeel.agent.DeviceTest)
+11-21 00:36:32.437 I/TestRunner( 3228): started: t07_learnedSkillRunsFreeWithNewValues(com.wakeel.agent.DeviceTest)
+11-21 00:36:33.309 I/WakeelTest( 3228): ▶ TASK: أرسل في Sandbox إلى Omar: كيف الحال
+11-21 00:36:37.733 I/WakeelTest( 3228):      ? الضغط على «Send» ⏎ النص: «كيف الحال» — هل تسمح؟  [سماح / رفض]
+11-21 00:36:38.619 I/WakeelTest( 3228):    ◇ model asked (act): TASK: أرسل في Sandbox إلى Omar: كيف الحال
+11-21 00:36:38.634 I/WakeelTest( 3228):      [INFO] المهمة: أرسل في Sandbox إلى Omar: كيف الحال
+11-21 00:36:38.634 I/WakeelTest( 3228):      [LOCAL] مهارة متعلَّمة: «رسالة في Sandbox» («Omar»، «كيف الحال») — تنفيذ محلي دون استهلاك API
+11-21 00:36:38.635 I/WakeelTest( 3228):      [ACTION] ⚡ فتح Sandbox
+11-21 00:36:38.635 I/WakeelTest( 3228):      [ACTION] ⚡ ضغط على Contacts
+11-21 00:36:38.635 I/WakeelTest( 3228):      [ACTION] ⚡ ضغط على Omar
+11-21 00:36:38.635 I/WakeelTest( 3228):      [ACTION] ⚡ كتابة كيف الحال
+11-21 00:36:38.636 I/WakeelTest( 3228):      [WARN] بانتظار موافقتك: الضغط على «Send»
+11-21 00:36:38.636 I/WakeelTest( 3228): النص: «كيف الحال»
+11-21 00:36:38.636 I/WakeelTest( 3228):      [INFO] وافقتَ على: الضغط على «Send»
+11-21 00:36:38.636 I/WakeelTest( 3228): النص: «كيف الحال»
+11-21 00:36:38.636 I/WakeelTest( 3228):      [INFO] أُرسل النص «كيف الحال»: خلا حقل الكتابة بعد الضغط
+11-21 00:36:38.636 I/WakeelTest( 3228):      [ACTION] ⚡ ضغط على Send
+11-21 00:36:38.636 I/WakeelTest( 3228):      [THINK] خطة الاختبار
+11-21 00:36:38.637 I/WakeelTest( 3228):      [LOCAL] تأكّدت المهارة «رسالة في Sandbox» — المرات القادمة دون أي استهلاك
+11-21 00:36:38.637 I/WakeelTest( 3228):      [SUCCESS] تم الإرسال.
+11-21 00:36:38.637 I/WakeelTest( 3228): ◀ DONE · model calls=1 · local steps=5 · steps=5 · تم الإرسال.
+11-21 00:36:39.676 I/WakeelTest( 3228): ▶ TASK: أرسل في Sandbox إلى Layla: لا ترسل
+11-21 00:36:44.098 I/WakeelTest( 3228):      ? الضغط على «Send» ⏎ النص: «لا ترسل» — هل تسمح؟  [سماح / رفض]
+11-21 00:36:44.249 I/WakeelTest( 3228):      [INFO] المهمة: أرسل في Sandbox إلى Layla: لا ترسل
+11-21 00:36:44.249 I/WakeelTest( 3228):      [LOCAL] مهارة متعلَّمة: «رسالة في Sandbox» («Layla»، «لا ترسل») — تنفيذ محلي دون استهلاك API
+11-21 00:36:44.249 I/WakeelTest( 3228):      [ACTION] ⚡ فتح Sandbox
+11-21 00:36:44.249 I/WakeelTest( 3228):      [ACTION] ⚡ ضغط على Contacts
+11-21 00:36:44.249 I/WakeelTest( 3228):      [ACTION] ⚡ ضغط على Layla
+11-21 00:36:44.249 I/WakeelTest( 3228):      [ACTION] ⚡ كتابة لا ترسل
+11-21 00:36:44.249 I/WakeelTest( 3228):      [WARN] بانتظار موافقتك: الضغط على «Send»
+11-21 00:36:44.249 I/WakeelTest( 3228): النص: «لا ترسل»
+11-21 00:36:44.250 I/WakeelTest( 3228):      [WARN] رفضتَ: الضغط على «Send»
+11-21 00:36:44.250 I/WakeelTest( 3228): النص: «لا ترسل»
+11-21 00:36:44.250 I/WakeelTest( 3228):      [ERROR] توقّفتُ قبل «Send» لأنك لم توافق.
+11-21 00:36:44.250 I/WakeelTest( 3228): ◀ STOPPED · model calls=0 · local steps=4 · steps=4 · توقّفتُ قبل «Send» لأنك لم توافق.
+11-21 00:36:45.282 I/WakeelTest( 3228): denied run: STOPPED · status: idle
+11-21 00:36:45.284 I/WakeelTest( 3228): ▶ TASK: أرسل في Sandbox إلى Saeed: تمام
+11-21 00:36:55.429 I/WakeelTest( 3228):      ? الضغط على «Send» ⏎ النص: «تمام» — هل تسمح؟  [سماح / رفض]
+11-21 00:36:56.180 I/WakeelTest( 3228):      [INFO] المهمة: أرسل في Sandbox إلى Saeed: تمام
+11-21 00:36:56.181 I/WakeelTest( 3228):      [LOCAL] مهارة متعلَّمة: «رسالة في Sandbox» («Saeed»، «تمام») — تنفيذ محلي دون استهلاك API
+11-21 00:36:56.181 I/WakeelTest( 3228):      [ACTION] ⚡ فتح Sandbox
+11-21 00:36:56.181 I/WakeelTest( 3228):      [ACTION] ⚡ ضغط على Contacts
+11-21 00:36:56.181 I/WakeelTest( 3228):      [ACTION] ⚡ ضغط على Saeed
+11-21 00:36:56.181 I/WakeelTest( 3228):      [ACTION] ⚡ كتابة تمام
+11-21 00:36:56.181 I/WakeelTest( 3228):      [WARN] بانتظار موافقتك: الضغط على «Send»
+11-21 00:36:56.181 I/WakeelTest( 3228): النص: «تمام»
+11-21 00:36:56.181 I/WakeelTest( 3228):      [INFO] وافقتَ على: الضغط على «Send»
+11-21 00:36:56.181 I/WakeelTest( 3228): النص: «تمام»
+11-21 00:36:56.182 I/WakeelTest( 3228):      [LOCAL] لن أسألك مجدداً عن «Send» في مهارة «رسالة في Sandbox»
+11-21 00:36:56.182 I/WakeelTest( 3228):      [INFO] أُرسل النص «تمام»: خلا حقل الكتابة بعد الضغط
+11-21 00:36:56.182 I/WakeelTest( 3228):      [ACTION] ⚡ ضغط على Send
+11-21 00:36:56.182 I/WakeelTest( 3228):      [SUCCESS] أرسلتُ «تمام» إلى Saeed.
+11-21 00:36:56.182 I/WakeelTest( 3228): ◀ DONE · model calls=0 · local steps=5 · steps=5 · أرسلتُ «تمام» إلى Saeed.
+11-21 00:36:57.210 I/WakeelTest( 3228): ── after the free replay: app=com.wakeel.sandbox activity=SandboxActivity elements=10
+11-21 00:36:57.210 I/WakeelTest( 3228):      0|txt|Chat||@x0y0
+11-21 00:36:57.210 I/WakeelTest( 3228):      1|txt|To: Saeed||@x5y1
+11-21 00:36:57.210 I/WakeelTest( 3228):      2|edit|Message|cLe|@x5y2
+11-21 00:36:57.210 I/WakeelTest( 3228):      3|btn|Send|c|@x5y2
+11-21 00:36:57.211 I/WakeelTest( 3228):      4|txt|messages sent to Saeed: 1||@x5y2
+11-21 00:36:57.211 I/WakeelTest( 3228):      5|txt|sent: تمام to Saeed||@x5y8
+11-21 00:36:57.211 I/WakeelTest( 3228):      6|btn|Home|c|@x1y9
+11-21 00:36:57.211 I/WakeelTest( 3228):      7|btn|Contacts|c*|@x3y9
+11-21 00:36:57.211 I/WakeelTest( 3228):      8|btn|Wallet|c|@x6y9
+11-21 00:36:57.211 I/WakeelTest( 3228):      9|btn|Profile|c|@x8y9
+11-21 00:36:57.213 I/WakeelTest( 3228): ▶ TASK: أرسل في Sandbox إلى Yousef: بلا سؤال
+11-21 00:37:02.237 I/WakeelTest( 3228):      [INFO] المهمة: أرسل في Sandbox إلى Yousef: بلا سؤال
+11-21 00:37:02.237 I/WakeelTest( 3228):      [LOCAL] مهارة متعلَّمة: «رسالة في Sandbox» («Yousef»، «بلا سؤال») — تنفيذ محلي دون استهلاك API
+11-21 00:37:02.237 I/WakeelTest( 3228):      [ACTION] ⚡ فتح Sandbox
+11-21 00:37:02.237 I/WakeelTest( 3228):      [ACTION] ⚡ ضغط على Contacts
+11-21 00:37:02.237 I/WakeelTest( 3228):      [ACTION] ⚡ ضغط على Yousef
+11-21 00:37:02.238 I/WakeelTest( 3228):      [ACTION] ⚡ كتابة بلا سؤال
+11-21 00:37:02.238 I/WakeelTest( 3228):      [INFO] أُرسل النص «بلا سؤال»: خلا حقل الكتابة بعد الضغط
+11-21 00:37:02.238 I/WakeelTest( 3228):      [ACTION] ⚡ ضغط على Send
+11-21 00:37:02.238 I/WakeelTest( 3228):      [SUCCESS] أرسلتُ «بلا سؤال» إلى Yousef.
+11-21 00:37:02.238 I/WakeelTest( 3228): ◀ DONE · model calls=0 · local steps=5 · steps=5 · أرسلتُ «بلا سؤال» إلى Yousef.
+11-21 00:37:03.260 I/TestRunner( 3228): finished: t07_learnedSkillRunsFreeWithNewValues(com.wakeel.agent.DeviceTest)
+11-21 00:37:03.261 I/TestRunner( 3228): started: t08_readOnlyAppRefusesToBuy(com.wakeel.agent.DeviceTest)
+11-21 00:37:04.249 I/WakeelTest( 3228): ▶ TASK: اشترِ BTC من Sandbox
+11-21 00:37:04.422 I/WakeelTest( 3228):    ◇ model asked (act): TASK: اشترِ BTC من Sandbox
+11-21 00:37:07.693 I/WakeelTest( 3228):    ◇ model asked (act): TASK: اشترِ BTC من Sandbox
+11-21 00:37:07.716 I/WakeelTest( 3228):      [INFO] المهمة: اشترِ BTC من Sandbox
+11-21 00:37:07.716 I/WakeelTest( 3228):      [THINK] خطة الاختبار
+11-21 00:37:07.716 I/WakeelTest( 3228):      [INFO] خطة من 5 خطوات في طلب واحد
+11-21 00:37:07.717 I/WakeelTest( 3228):      [ACTION] فتح تطبيق «Sandbox»
+11-21 00:37:07.717 I/WakeelTest( 3228):      [ACTION] ضغط على «Wallet»
+11-21 00:37:07.717 I/WakeelTest( 3228):      [ACTION] كتابة «BTC»
+11-21 00:37:07.717 I/WakeelTest( 3228):      [ACTION] ضغط على «Buy BTC»
+11-21 00:37:07.732 I/WakeelTest( 3228):      [WARN] رُفضت الضغطة على «Buy BTC»: التطبيق في وضع القراءة فقط
+11-21 00:37:07.732 I/WakeelTest( 3228):      [INFO] «Sandbox» في وضع القراءة فقط: يقرأ ويحلل ولا ينفّذ أوامر مالية
+11-21 00:37:07.732 I/WakeelTest( 3228):      [THINK] خطة الاختبار
+11-21 00:37:07.733 I/WakeelTest( 3228):      [ERROR] لم أشترِ: التطبيق للقراءة فقط.
+11-21 00:37:07.734 I/WakeelTest( 3228): ◀ FAILED · model calls=2 · local steps=0 · steps=4 · لم أشترِ: التطبيق للقراءة فقط.
+11-21 00:37:09.013 I/WakeelTest( 3228): ── wallet after the refused purchase: app=com.wakeel.sandbox activity=SandboxActivity elements=10
+11-21 00:37:09.014 I/WakeelTest( 3228):      0|txt|Wallet||@x1y0
+11-21 00:37:09.014 I/WakeelTest( 3228):      1|txt|Balance: 100 USDT||@x5y1
+11-21 00:37:09.014 I/WakeelTest( 3228):      2|edit|BTC|cLe|@x5y2
+11-21 00:37:09.014 I/WakeelTest( 3228):      3|btn|Price history|c|@x5y2
+11-21 00:37:09.014 I/WakeelTest( 3228):      4|btn|Buy BTC|c|@x5y3
+11-21 00:37:09.014 I/WakeelTest( 3228):      5|txt|status: idle||@x5y8
+11-21 00:37:09.014 I/WakeelTest( 3228):      6|btn|Home|c|@x1y9
+11-21 00:37:09.014 I/WakeelTest( 3228):      7|btn|Contacts|c|@x3y9
+11-21 00:37:09.015 I/WakeelTest( 3228):      8|btn|Wallet|c*|@x6y9
+11-21 00:37:09.015 I/WakeelTest( 3228):      9|btn|Profile|c|@x8y9
+11-21 00:37:09.019 I/TestRunner( 3228): finished: t08_readOnlyAppRefusesToBuy(com.wakeel.agent.DeviceTest)
+11-21 00:37:09.020 I/TestRunner( 3228): started: t09_passwordFieldsAreNeverTyped(com.wakeel.agent.DeviceTest)
+11-21 00:37:10.042 I/WakeelTest( 3228): ▶ TASK: اكتب الرمز 1234 في Sandbox
+11-21 00:37:10.052 I/WakeelTest( 3228):    ◇ model asked (route): TASK: اكتب الرمز 1234 في Sandbox
+11-21 00:37:10.215 I/WakeelTest( 3228):    ◇ model asked (act): TASK: اكتب الرمز 1234 في Sandbox
+11-21 00:37:13.820 I/WakeelTest( 3228):    ◇ model asked (act): TASK: اكتب الرمز 1234 في Sandbox
+11-21 00:37:13.967 I/WakeelTest( 3228):      [INFO] المهمة: اكتب الرمز 1234 في Sandbox
+11-21 00:37:13.968 I/WakeelTest( 3228):      [THINK] خطة الاختبار
+11-21 00:37:13.968 I/WakeelTest( 3228):      [INFO] خطة من 5 خطوات في طلب واحد
+11-21 00:37:13.968 I/WakeelTest( 3228):      [ACTION] فتح تطبيق «Sandbox»
+11-21 00:37:13.968 I/WakeelTest( 3228):      [ACTION] ضغط على «Profile»
+11-21 00:37:13.969 I/WakeelTest( 3228):      [ACTION] ضغط على «Security»
+11-21 00:37:13.969 I/WakeelTest( 3228):      [ACTION] كتابة «1234»
+11-21 00:37:13.969 I/WakeelTest( 3228):      [THINK] خطة الاختبار
+11-21 00:37:13.969 I/WakeelTest( 3228):      [ERROR] لا أكتب كلمات المرور.
+11-21 00:37:13.969 I/WakeelTest( 3228): ◀ FAILED · model calls=2 · local steps=0 · steps=4 · لا أكتب كلمات المرور.
+11-21 00:37:15.101 I/WakeelTest( 3228): ── security page: app=com.wakeel.sandbox activity=SandboxActivity elements=8
+11-21 00:37:15.102 I/WakeelTest( 3228):      0|txt|Security||@x1y0
+11-21 00:37:15.102 I/WakeelTest( 3228):      1|edit|(password)|cLep|@x5y1
+11-21 00:37:15.102 I/WakeelTest( 3228):      2|txt|pin length: 0||@x5y2
+11-21 00:37:15.102 I/WakeelTest( 3228):      3|txt|status: idle||@x5y8
+11-21 00:37:15.102 I/WakeelTest( 3228):      4|btn|Home|c|@x1y9
+11-21 00:37:15.102 I/WakeelTest( 3228):      5|btn|Contacts|c|@x3y9
+11-21 00:37:15.103 I/WakeelTest( 3228):      6|btn|Wallet|c|@x6y9
+11-21 00:37:15.103 I/WakeelTest( 3228):      7|btn|Profile|c*|@x8y9
+11-21 00:37:15.104 I/TestRunner( 3228): finished: t09_passwordFieldsAreNeverTyped(com.wakeel.agent.DeviceTest)
+11-21 00:37:15.105 I/TestRunner( 3228): started: t10_exploringAnAppMakesItsPagesFree(com.wakeel.agent.DeviceTest)
+11-21 00:37:15.944 I/WakeelTest( 3228): ▶ EXPLORE: com.wakeel.sandbox
+11-21 00:37:23.705 I/WakeelTest( 3228):      [INFO] المهمة: استكشاف «Sandbox»
+11-21 00:37:23.706 I/WakeelTest( 3228):      [LOCAL] استكشاف آمن: يزور التبويبات السفلية فقط، دون كتابة أو إرسال، ودون استهلاك API
+11-21 00:37:23.706 I/WakeelTest( 3228):      [ACTION] تبويب «Home»
+11-21 00:37:23.706 I/WakeelTest( 3228):      [ACTION] تبويب «Contacts»
+11-21 00:37:23.706 I/WakeelTest( 3228):      [ACTION] تبويب «Wallet»
+11-21 00:37:23.706 I/WakeelTest( 3228):      [ACTION] تبويب «Profile»
+11-21 00:37:23.707 I/WakeelTest( 3228):      [SUCCESS] تعرّفتُ على 5 صفحة في «Sandbox» دون أي استهلاك. سأستخدم هذه الخريطة لأخطّط المهام في هذا التطبيق بطلب واحد.
+11-21 00:37:23.707 I/WakeelTest( 3228): ◀ DONE · model calls=0 · local steps=4 · steps=4 · تعرّفتُ على 5 صفحة في «Sandbox» دون أي استهلاك. سأستخدم هذه الخريطة لأخطّط المهام في هذا التطبيق بطلب واحد.
+11-21 00:37:25.112 I/WakeelTest( 3228): map: 5 screens, 7 paths
+11-21 00:37:25.112 I/WakeelTest( 3228): [Home] ✎Search, About, Photos, Flights, Home, Contacts, Wallet, Profile, #btn_prefs
+11-21 00:37:25.112 I/WakeelTest( 3228): [Contacts] Home, Contacts, Wallet, Profile
+11-21 00:37:25.112 I/WakeelTest( 3228): [Wallet] ✎Search coin, Price history, Buy BTC, Home, Contacts, Wallet, Profile
+11-21 00:37:25.112 I/WakeelTest( 3228): [Profile] ✎Bio, Save, Security, Home, Contacts, Wallet, Profile
+11-21 00:37:25.112 I/WakeelTest( 3228): PATHS: Home -"Contacts"→ Contacts; Contacts -"Wallet"→ Wallet; Home -"Wallet"→ Wallet; Wallet -"Profile"→ Profile; Home -"Profile"→ Profile;
+11-21 00:37:25.724 I/WakeelTest( 3228): ▶ TASK: افتح Wallet في Sandbox
+11-21 00:37:27.413 I/WakeelTest( 3228):      [INFO] المهمة: افتح Wallet في Sandbox
+11-21 00:37:27.413 I/WakeelTest( 3228):      [LOCAL] مسار محفوظ في خريطة «Sandbox» إلى «wallet» — تنفيذ محلي دون استهلاك API
+11-21 00:37:27.413 I/WakeelTest( 3228):      [ACTION] ⚡ فتح Sandbox
+11-21 00:37:27.414 I/WakeelTest( 3228):      [ACTION] ⚡ ضغط على Wallet
+11-21 00:37:27.414 I/WakeelTest( 3228):      [SUCCESS] فتحتُ «wallet» في Sandbox.
+11-21 00:37:27.414 I/WakeelTest( 3228): ◀ DONE · model calls=0 · local steps=2 · steps=2 · فتحتُ «wallet» في Sandbox.
+11-21 00:37:28.445 I/TestRunner( 3228): finished: t10_exploringAnAppMakesItsPagesFree(com.wakeel.agent.DeviceTest)
+11-21 00:37:28.446 I/TestRunner( 3228): started: t11_iconsWithoutTextAreFoundById(com.wakeel.agent.DeviceTest)
+11-21 00:37:29.430 I/WakeelTest( 3228): ▶ TASK: فعّل الوضع الداكن في Sandbox
+11-21 00:37:29.448 I/WakeelTest( 3228):    ◇ model asked (route): TASK: فعّل الوضع الداكن في Sandbox
+11-21 00:37:29.626 I/WakeelTest( 3228):    ◇ model asked (act): TASK: فعّل الوضع الداكن في Sandbox
+11-21 00:37:32.631 I/WakeelTest( 3228):    ◇ model asked (learn): TASK: فعّل الوضع الداكن في Sandbox
+11-21 00:37:32.748 I/WakeelTest( 3228):      [INFO] المهمة: فعّل الوضع الداكن في Sandbox
+11-21 00:37:32.749 I/WakeelTest( 3228):      [THINK] خطة الاختبار
+11-21 00:37:32.749 I/WakeelTest( 3228):      [INFO] خطة من 4 خطوات في طلب واحد
+11-21 00:37:32.749 I/WakeelTest( 3228):      [ACTION] فتح تطبيق «Sandbox»
+11-21 00:37:32.749 I/WakeelTest( 3228):      [ACTION] ضغط على «#btn_prefs»
+11-21 00:37:32.749 I/WakeelTest( 3228):      [ACTION] ضغط على «Dark mode»
+11-21 00:37:32.749 I/WakeelTest( 3228):      [LOCAL] تعلّمتُ مهارة «فعّل الوضع الداكن في Sandbox» — ستُنفَّذ لاحقاً محلياً
+11-21 00:37:32.749 I/WakeelTest( 3228):      [SUCCESS] فعّلتُ الوضع الداكن.
+11-21 00:37:32.750 I/WakeelTest( 3228): ◀ DONE · model calls=2 · local steps=0 · steps=3 · فعّلتُ الوضع الداكن.
+11-21 00:37:33.771 I/WakeelTest( 3228): ── preferences: app=com.wakeel.sandbox activity=SandboxActivity elements=7
+11-21 00:37:33.771 I/WakeelTest( 3228):      0|txt|Preferences||@x1y0
+11-21 00:37:33.771 I/WakeelTest( 3228):      1|sw|Dark mode|cx|@x5y1
+11-21 00:37:33.771 I/WakeelTest( 3228):      2|txt|dark: on||@x5y8
+11-21 00:37:33.772 I/WakeelTest( 3228):      3|btn|Home|c*|@x1y9
+11-21 00:37:33.772 I/WakeelTest( 3228):      4|btn|Contacts|c|@x3y9
+11-21 00:37:33.772 I/WakeelTest( 3228):      5|btn|Wallet|c|@x6y9
+11-21 00:37:33.772 I/WakeelTest( 3228):      6|btn|Profile|c|@x8y9
+11-21 00:37:34.780 I/WakeelTest( 3228): ▶ TASK: افتح Preferences في Sandbox
+11-21 00:37:36.621 I/WakeelTest( 3228):      [INFO] المهمة: افتح Preferences في Sandbox
+11-21 00:37:36.621 I/WakeelTest( 3228):      [LOCAL] مسار محفوظ في خريطة «Sandbox» إلى «preferences» — تنفيذ محلي دون استهلاك API
+11-21 00:37:36.621 I/WakeelTest( 3228):      [ACTION] ⚡ فتح Sandbox
+11-21 00:37:36.621 I/WakeelTest( 3228):      [ACTION] ⚡ ضغط على #btn_prefs
+11-21 00:37:36.622 I/WakeelTest( 3228):      [SUCCESS] فتحتُ «preferences» في Sandbox.
+11-21 00:37:36.622 I/WakeelTest( 3228): ◀ DONE · model calls=0 · local steps=2 · steps=2 · فتحتُ «preferences» في Sandbox.
+11-21 00:37:37.691 I/TestRunner( 3228): finished: t11_iconsWithoutTextAreFoundById(com.wakeel.agent.DeviceTest)
+11-21 00:37:37.692 I/TestRunner( 3228): started: t12_learnsFromTheOwnersOwnHands(com.wakeel.agent.DeviceTest)
+11-21 00:37:46.428 I/WakeelTest( 3228): recorder saw: State(active=true, task=راسل Omar وقل له hello, steps=5, last=ضغط على «Send»)
+11-21 00:37:46.428 I/WakeelTest( 3228):      · app com.wakeel.sandbox first=true restart=true
+11-21 00:37:46.428 I/WakeelTest( 3228):      · tap «Contacts» full=«Contacts» tree=«Contacts» event=[Contacts] id=tab_contacts class=Button source=true row=false
+11-21 00:37:46.428 I/WakeelTest( 3228):      · tap «Omar» full=«Omar · online» tree=«Omar · online» event=[Omar, online] id= class=TwoLineListItem source=true row=true
+11-21 00:37:46.428 I/WakeelTest( 3228):      · type «hello» in EditText|message|
+11-21 00:37:46.428 I/WakeelTest( 3228):      · tap «Send» full=«Send» tree=«Send» event=[Send] id=btn_send class=Button source=true row=false
+11-21 00:37:51.197 I/WakeelTest( 3228): ended by itself: saved=true reason=null
+11-21 00:37:51.197 I/WakeelTest( 3228): taught: راسل {p1} وقل له {p2} · open_app:Sandbox → tap:Contacts → tap:{p1} → type:{p2} → tap:Send
+11-21 00:37:51.807 I/WakeelTest( 3228): ▶ TASK: راسل Sara وقل له salam
+11-21 00:37:56.225 I/WakeelTest( 3228):      ? الضغط على «Send» ⏎ النص: «salam» — هل تسمح؟  [سماح / رفض]
+11-21 00:37:56.826 I/WakeelTest( 3228):      [INFO] المهمة: راسل Sara وقل له salam
+11-21 00:37:56.826 I/WakeelTest( 3228):      [LOCAL] مهارة متعلَّمة: «راسل Omar وقل له hello» («Sara»، «salam») — تنفيذ محلي دون استهلاك API
+11-21 00:37:56.827 I/WakeelTest( 3228):      [ACTION] ⚡ فتح Sandbox
+11-21 00:37:56.827 I/WakeelTest( 3228):      [ACTION] ⚡ ضغط على Contacts
+11-21 00:37:56.827 I/WakeelTest( 3228):      [ACTION] ⚡ ضغط على Sara
+11-21 00:37:56.827 I/WakeelTest( 3228):      [ACTION] ⚡ كتابة salam
+11-21 00:37:56.827 I/WakeelTest( 3228):      [WARN] بانتظار موافقتك: الضغط على «Send»
+11-21 00:37:56.827 I/WakeelTest( 3228): النص: «salam»
+11-21 00:37:56.827 I/WakeelTest( 3228):      [INFO] وافقتَ على: الضغط على «Send»
+11-21 00:37:56.827 I/WakeelTest( 3228): النص: «salam»
+11-21 00:37:56.827 I/WakeelTest( 3228):      [INFO] أُرسل النص «salam»: خلا حقل الكتابة بعد الضغط
+11-21 00:37:56.827 I/WakeelTest( 3228):      [ACTION] ⚡ ضغط على Send
+11-21 00:37:56.827 I/WakeelTest( 3228):      [SUCCESS] تمّت «راسل Sara وقل له salam» بالمهارة التي علّمتَني إياها.
+11-21 00:37:56.827 I/WakeelTest( 3228): ◀ DONE · model calls=0 · local steps=5 · steps=5 · تمّت «راسل Sara وقل له salam» بالمهارة التي علّمتَني إياها.
+11-21 00:37:57.846 I/WakeelTest( 3228): ── after replaying the taught skill: app=com.wakeel.sandbox activity=SandboxActivity elements=10
+11-21 00:37:57.846 I/WakeelTest( 3228):      0|txt|Chat||@x0y0
+11-21 00:37:57.847 I/WakeelTest( 3228):      1|txt|To: Sara||@x5y1
+11-21 00:37:57.847 I/WakeelTest( 3228):      2|edit|Message|cLe|@x5y2
+11-21 00:37:57.847 I/WakeelTest( 3228):      3|btn|Send|c|@x5y2
+11-21 00:37:57.847 I/WakeelTest( 3228):      4|txt|messages sent to Sara: 2||@x5y2
+11-21 00:37:57.847 I/WakeelTest( 3228):      5|txt|sent: salam to Sara||@x5y8
+11-21 00:37:57.847 I/WakeelTest( 3228):      6|btn|Home|c|@x1y9
+11-21 00:37:57.847 I/WakeelTest( 3228):      7|btn|Contacts|c*|@x3y9
+11-21 00:37:57.847 I/WakeelTest( 3228):      8|btn|Wallet|c|@x6y9
+11-21 00:37:57.847 I/WakeelTest( 3228):      9|btn|Profile|c|@x8y9
+11-21 00:37:57.849 I/TestRunner( 3228): finished: t12_learnsFromTheOwnersOwnHands(com.wakeel.agent.DeviceTest)
+11-21 00:37:57.850 I/TestRunner( 3228): started: t13_realSettingsRouteIsLearnedThenFree(com.wakeel.agent.DeviceTest)
+11-21 00:37:58.830 I/WakeelTest( 3228): ▶ TASK: ادخل قسم الشبكة والإنترنت من الإعدادات
+11-21 00:38:00.996 I/WakeelTest( 3228):    ◇ model asked (act): TASK: ادخل قسم الشبكة والإنترنت من الإعدادات
+11-21 00:38:02.247 I/WakeelTest( 3228):    ◇ model asked (learn): TASK: ادخل قسم الشبكة والإنترنت من الإعدادات
+11-21 00:38:02.343 I/WakeelTest( 3228):      [INFO] المهمة: ادخل قسم الشبكة والإنترنت من الإعدادات
+11-21 00:38:02.344 I/WakeelTest( 3228):      [LOCAL] فُتح «Settings» محلياً دون استهلاك API
+11-21 00:38:02.344 I/WakeelTest( 3228):      [THINK] خطة الاختبار
+11-21 00:38:02.344 I/WakeelTest( 3228):      [ACTION] ضغط على «Network & internet|Network and»
+11-21 00:38:02.344 I/WakeelTest( 3228):      [LOCAL] تعلّمتُ مهارة «ادخل قسم الشبكة والإنترنت من ا» — ستُنفَّذ لاحقاً محلياً
+11-21 00:38:02.345 I/WakeelTest( 3228):      [SUCCESS] فتحتُ صفحة الشبكة.
+11-21 00:38:02.345 I/WakeelTest( 3228): ◀ DONE · model calls=2 · local steps=1 · steps=1 · فتحتُ صفحة الشبكة.
+11-21 00:38:03.511 I/WakeelTest( 3228): ── settings · network: app=com.android.settings activity=SubSettings elements=11
+11-21 00:38:03.512 I/WakeelTest( 3228):      0|list||s|@x5y4
+11-21 00:38:03.512 I/WakeelTest( 3228):      1|view|Network & internet||@x5y1
+11-21 00:38:03.512 I/WakeelTest( 3228):      2|ibtn|Navigate up|c|@x0y0
+11-21 00:38:03.512 I/WakeelTest( 3228):      3|btn|Internet · AndroidWifi|c|@x5y2
+11-21 00:38:03.512 I/WakeelTest( 3228):      4|btn|Calls & SMS · T-Mobile|c|@x5y3
+11-21 00:38:03.513 I/WakeelTest( 3228):      5|btn|SIMs · T-Mobile|c|@x5y4
+11-21 00:38:03.513 I/WakeelTest( 3228):      6|btn|Hotspot & tethering · Off|c|@x5y6
+11-21 00:38:03.513 I/WakeelTest( 3228):      7|btn|Data Saver · Off|c|@x5y7
+11-21 00:38:03.513 I/WakeelTest( 3228):      8|btn|VPN · None|c|@x5y7
+11-21 00:38:03.513 I/WakeelTest( 3228):      9|btn|Mobile plan|c|@x5y8
+11-21 00:38:03.513 I/WakeelTest( 3228):      10|btn|Private DNS · Automatic|c|@x5y9
+11-21 00:38:03.519 I/WakeelTest( 3228): settings map:
+11-21 00:38:03.519 I/WakeelTest( 3228): [SettingsHomepage] Search settings, Network & internet, Connected devices, Apps, Notifications, Battery, Storage, Sound & vibration
+11-21 00:38:03.519 I/WakeelTest( 3228): [SubSettings] Navigate up, Internet, Calls & SMS, SIMs, Hotspot & tethering, Data Saver, VPN, Mobile plan, Private DNS
+11-21 00:38:03.519 I/WakeelTest( 3228): PATHS: SettingsHomepage -"Network & internet"→ SubSettings;
+11-21 00:38:04.552 I/WakeelTest( 3228): ▶ TASK: ادخل قسم الشبكة والإنترنت من الإعدادات
+11-21 00:38:07.389 I/WakeelTest( 3228):    ◇ model asked (act): TASK: ادخل قسم الشبكة والإنترنت من الإعدادات
+11-21 00:38:07.525 I/WakeelTest( 3228):      [INFO] المهمة: ادخل قسم الشبكة والإنترنت من الإعدادات
+11-21 00:38:07.525 I/WakeelTest( 3228):      [LOCAL] مهارة متعلَّمة: «ادخل قسم الشبكة والإنترنت من ا» — تنفيذ محلي دون استهلاك API
+11-21 00:38:07.525 I/WakeelTest( 3228):      [ACTION] ⚡ فتح Settings
+11-21 00:38:07.525 I/WakeelTest( 3228):      [ACTION] ⚡ ضغط على Network & internet
+11-21 00:38:07.525 I/WakeelTest( 3228):      [THINK] خطة الاختبار
+11-21 00:38:07.525 I/WakeelTest( 3228):      [LOCAL] تأكّدت المهارة «ادخل قسم الشبكة والإنترنت من ا» — المرات القادمة دون أي استهلاك
+11-21 00:38:07.525 I/WakeelTest( 3228):      [SUCCESS] فتحتُ صفحة الشبكة.
+11-21 00:38:07.525 I/WakeelTest( 3228): ◀ DONE · model calls=1 · local steps=2 · steps=2 · فتحتُ صفحة الشبكة.
+11-21 00:38:09.448 I/WakeelTest( 3228): ▶ TASK: ادخل قسم الشبكة والإنترنت من الإعدادات
+11-21 00:38:11.101 I/WakeelTest( 3228):      [INFO] المهمة: ادخل قسم الشبكة والإنترنت من الإعدادات
+11-21 00:38:11.101 I/WakeelTest( 3228):      [LOCAL] مهارة متعلَّمة: «ادخل قسم الشبكة والإنترنت من ا» — تنفيذ محلي دون استهلاك API
+11-21 00:38:11.102 I/WakeelTest( 3228):      [ACTION] ⚡ فتح Settings
+11-21 00:38:11.103 I/WakeelTest( 3228):      [ACTION] ⚡ ضغط على Network & internet
+11-21 00:38:11.103 I/WakeelTest( 3228):      [SUCCESS] فتحتُ صفحة الشبكة.
+11-21 00:38:11.103 I/WakeelTest( 3228): ◀ DONE · model calls=0 · local steps=2 · steps=2 · فتحتُ صفحة الشبكة.
+11-21 00:38:13.157 I/WakeelTest( 3228): ▶ TASK: افتح Network & internet في الإعدادات
+11-21 00:38:14.999 I/WakeelTest( 3228):      [INFO] المهمة: افتح Network & internet في الإعدادات
+11-21 00:38:15.030 I/WakeelTest( 3228):      [LOCAL] مسار محفوظ في خريطة «Settings» إلى «network & internet» — تنفيذ محلي دون استهلاك API
+11-21 00:38:15.031 I/WakeelTest( 3228):      [ACTION] ⚡ فتح Settings
+11-21 00:38:15.031 I/WakeelTest( 3228):      [ACTION] ⚡ ضغط على Network & internet
+11-21 00:38:15.031 I/WakeelTest( 3228):      [SUCCESS] فتحتُ «network & internet» في Settings.
+11-21 00:38:15.032 I/WakeelTest( 3228): ◀ DONE · model calls=0 · local steps=2 · steps=2 · فتحتُ «network & internet» في Settings.
+11-21 00:38:16.119 I/TestRunner( 3228): finished: t13_realSettingsRouteIsLearnedThenFree(com.wakeel.agent.DeviceTest)
+11-21 00:38:16.120 I/TestRunner( 3228): started: t14_switchesAreFlippedLocally(com.wakeel.agent.DeviceTest)
+11-21 00:38:17.044 I/WakeelTest( 3228): ▶ TASK: أطفئ الموقع
+11-21 00:38:19.783 I/WakeelTest( 3228):      [INFO] المهمة: أطفئ الموقع
+11-21 00:38:19.783 I/WakeelTest( 3228):      [LOCAL] نُفّذت محلياً دون استهلاك API
+11-21 00:38:19.783 I/WakeelTest( 3228):      [SUCCESS] تم إيقاف الموقع
+11-21 00:38:19.784 I/WakeelTest( 3228): ◀ DONE · model calls=0 · local steps=1 · steps=0 · تم إيقاف الموقع
+11-21 00:38:20.826 I/WakeelTest( 3228): ── location page: app=com.android.settings activity=DeepLinkHomepageActivity elements=10
+11-21 00:38:20.827 I/WakeelTest( 3228):      0|list||s|@x5y4
+11-21 00:38:20.827 I/WakeelTest( 3228):      1|view|Location||@x5y1
+11-21 00:38:20.827 I/WakeelTest( 3228):      2|ibtn|Navigate up|c|@x0y0
+11-21 00:38:20.827 I/WakeelTest( 3228):      3|btn|Use location|c|@x5y3
+11-21 00:38:20.827 I/WakeelTest( 3228):      4|sw|||@x8y3
+11-21 00:38:20.827 I/WakeelTest( 3228):      5|list||s|@x5y5
+11-21 00:38:20.827 I/WakeelTest( 3228):      6|btn|App location permissions · Location is off|c|@x5y4
+11-21 00:38:20.827 I/WakeelTest( 3228):      7|btn|Location services|c|@x5y4
+11-21 00:38:20.828 I/WakeelTest( 3228):      8|txt|Location access is off for apps and services. Your||@x5y6
+11-21 00:38:20.828 I/WakeelTest( 3228):      9|txt|Learn more about Location Settings.||@x3y7
+11-21 00:38:21.715 I/WakeelTest( 3228): ▶ TASK: شغل الموقع
+11-21 00:38:24.617 I/WakeelTest( 3228):      [INFO] المهمة: شغل الموقع
+11-21 00:38:24.618 I/WakeelTest( 3228):      [LOCAL] نُفّذت محلياً دون استهلاك API
+11-21 00:38:24.618 I/WakeelTest( 3228):      [SUCCESS] تم تشغيل الموقع
+11-21 00:38:24.618 I/WakeelTest( 3228): ◀ DONE · model calls=0 · local steps=1 · steps=0 · تم تشغيل الموقع
+11-21 00:38:25.721 I/TestRunner( 3228): finished: t14_switchesAreFlippedLocally(com.wakeel.agent.DeviceTest)
+11-21 00:38:25.722 I/TestRunner( 3228): started: t15_pagesAndroidHidesAreReportedNotGuessed(com.wakeel.agent.DeviceTest)
+11-21 00:38:26.605 I/WakeelTest( 3228): ▶ TASK: شغل الواي فاي
+11-21 00:38:32.328 I/WakeelTest( 3228):      [INFO] المهمة: شغل الواي فاي
+11-21 00:38:32.328 I/WakeelTest( 3228):      [ERROR] فتحتُ صفحة الواي فاي، لكنّ أندرويد يحجب محتوى هذه الصفحة عن تطبيقات التحكم، فلا أستطيع تبديل المفتاح. الصفحة مفتوحة أمامك: بدّله بيدك.
+11-21 00:38:32.328 I/WakeelTest( 3228): ◀ FAILED · model calls=0 · local steps=1 · steps=0 · فتحتُ صفحة الواي فاي، لكنّ أندرويد يحجب محتوى هذه الصفحة عن تطبيقات التحكم، فلا أستطيع تبديل المفتاح. الصفحة مفتوحة أمامك: بدّله بيدك.
+11-21 00:38:38.213 I/WakeelTest( 3228): ── wifi page: app= activity= elements=0
+11-21 00:38:38.215 I/WakeelTest( 3228):      window type=4 active=false focused=false title=null app=com.wakeel.agent
+11-21 00:38:38.216 I/WakeelTest( 3228):      window type=3 active=false focused=false title=Navigation bar app=com.android.systemui
+11-21 00:38:38.217 I/WakeelTest( 3228):      window type=3 active=false focused=false title=null app=com.android.systemui
+11-21 00:38:38.217 I/WakeelTest( 3228):      window type=1 active=true focused=true title=Internet app=null
+11-21 00:38:38.218 I/TestRunner( 3228): finished: t15_pagesAndroidHidesAreReportedNotGuessed(com.wakeel.agent.DeviceTest)
+11-21 00:38:38.219 I/TestRunner( 3228): started: t16_unfinishedDemonstrationIsNotSaved(com.wakeel.agent.DeviceTest)
+11-21 00:38:51.080 I/WakeelTest( 3228): unfinished demonstration: saved=false reason=كتبتَ نصاً ولم ترسله أو تحفظه
+11-21 00:38:51.080 I/TestRunner( 3228): finished: t16_unfinishedDemonstrationIsNotSaved(com.wakeel.agent.DeviceTest)
+11-21 00:38:51.081 I/TestRunner( 3228): started: t17_taughtSkillThatCannotCompleteIsDeleted(com.wakeel.agent.DeviceTest)
+11-21 00:38:51.700 I/WakeelTest( 3228): ▶ TASK: افتح الصفحة المفقودة في العرض
+11-21 00:38:56.026 I/WakeelTest( 3228):    ◇ model asked (act): TASK: افتح الصفحة المفقودة في العرض
+11-21 00:38:56.027 I/WakeelTest( 3228):    ◇ model asked (learn): TASK: افتح الصفحة المفقودة في العرض
+11-21 00:38:56.094 I/WakeelTest( 3228):      [INFO] المهمة: افتح الصفحة المفقودة في العرض
+11-21 00:38:56.095 I/WakeelTest( 3228):      [LOCAL] مهارة متعلَّمة: «صفحة مفقودة» — تنفيذ محلي دون استهلاك API
+11-21 00:38:56.095 I/WakeelTest( 3228):      [ACTION] ⚡ فتح Sandbox
+11-21 00:38:56.095 I/WakeelTest( 3228):      [WARN] تغيّرت الشاشة عن المهارة المحفوظة بعد 1 خطوة — سيكمل الذكاء الاصطناعي ويحدّث المهارة
+11-21 00:38:56.095 I/WakeelTest( 3228):      [WARN] المهارة «صفحة مفقودة» التي علّمتَني إياها ناقصة (توقّفت عند الخطوة 2 من 2)، فحذفتُها.
+11-21 00:38:56.095 I/WakeelTest( 3228):      [THINK] خطة الاختبار
+11-21 00:38:56.096 I/WakeelTest( 3228):      [LOCAL] تعلّمتُ مهارة «افتح الصفحة المفقودة في العرض» — ستُنفَّذ لاحقاً محلياً
+11-21 00:38:56.096 I/WakeelTest( 3228):      [SUCCESS] الزر غير موجود.
+11-21 00:38:56.096 I/WakeelTest( 3228): ◀ DONE · model calls=2 · local steps=1 · steps=1 · الزر غير موجود.
+11-21 00:38:57.113 I/TestRunner( 3228): finished: t17_taughtSkillThatCannotCompleteIsDeleted(com.wakeel.agent.DeviceTest)
+11-21 00:38:57.115 I/TestRunner( 3228): started: t18_lockedScreenPausesAndRunningTaskKeepsScreenOn(com.wakeel.agent.DeviceTest)
+11-21 00:38:58.088 I/WakeelTest( 3228): ▶ TASK (screen off): اعرض جهات الاتصال التجريبية
+11-21 00:39:06.089 I/WakeelTest( 3228): while the screen is off: running=true · Running(line=متوقف مؤقتاً: افتح الشاشة لأكمل, step=1, max=6) · model calls=0
+11-21 00:39:07.141 I/WakeelTest( 3228):    ◇ model asked (act): TASK: اعرض جهات الاتصال التجريبية
+11-21 00:39:09.582 I/WakeelTest( 3228):    ◇ model asked (learn): TASK: اعرض جهات الاتصال التجريبية
+11-21 00:39:09.710 I/WakeelTest( 3228):      [INFO] المهمة: اعرض جهات الاتصال التجريبية
+11-21 00:39:09.710 I/WakeelTest( 3228):      [WARN] الشاشة مطفأة أو مقفلة: توقّفتُ مؤقتاً دون أي استهلاك، وأكمل حين تفتحها.
+11-21 00:39:09.710 I/WakeelTest( 3228):      [INFO] فُتحت الشاشة — أكمل المهمة.
+11-21 00:39:09.710 I/WakeelTest( 3228):      [THINK] خطة الاختبار
+11-21 00:39:09.710 I/WakeelTest( 3228):      [INFO] خطة من 3 خطوات في طلب واحد
+11-21 00:39:09.710 I/WakeelTest( 3228):      [ACTION] فتح تطبيق «Sandbox»
+11-21 00:39:09.710 I/WakeelTest( 3228):      [ACTION] ضغط على «Contacts»
+11-21 00:39:09.711 I/WakeelTest( 3228):      [LOCAL] تعلّمتُ مهارة «اعرض جهات الاتصال التجريبية» — ستُنفَّذ لاحقاً محلياً
+11-21 00:39:09.711 I/WakeelTest( 3228):      [SUCCESS] فتحتُ جهات الاتصال.
+11-21 00:39:09.711 I/WakeelTest( 3228): ◀ DONE · model calls=2 · local steps=0 · steps=2 · فتحتُ جهات الاتصال.
+11-21 00:39:28.728 I/WakeelTest( 3228): idle emulator screen turns itself off after the timeout: true
+11-21 00:39:29.803 I/WakeelTest( 3228): ▶ TASK (nobody touching the phone): انتظر طويلاً ثم اعرض المحفظة التجريبية
+11-21 00:39:29.822 I/WakeelTest( 3228):    ◇ model asked (route): TASK: انتظر طويلاً ثم اعرض المحفظة التجريبية
+11-21 00:39:29.982 I/WakeelTest( 3228):    ◇ model asked (act): TASK: انتظر طويلاً ثم اعرض المحفظة التجريبية
+11-21 00:39:49.634 I/WakeelTest( 3228):    ◇ model asked (learn): TASK: انتظر طويلاً ثم اعرض المحفظة التجريبية
+11-21 00:39:49.847 I/WakeelTest( 3228):      [INFO] المهمة: انتظر طويلاً ثم اعرض المحفظة التجريبية
+11-21 00:39:49.848 I/WakeelTest( 3228):      [THINK] خطة الاختبار
+11-21 00:39:49.848 I/WakeelTest( 3228):      [INFO] خطة من 11 خطوات في طلب واحد
+11-21 00:39:49.848 I/WakeelTest( 3228):      [ACTION] فتح تطبيق «Sandbox»
+11-21 00:39:49.848 I/WakeelTest( 3228):      [ACTION] انتظار
+11-21 00:39:49.848 I/WakeelTest( 3228):      [ACTION] انتظار
+11-21 00:39:49.848 I/WakeelTest( 3228):      [ACTION] انتظار
+11-21 00:39:49.848 I/WakeelTest( 3228):      [ACTION] انتظار
+11-21 00:39:49.848 I/WakeelTest( 3228):      [ACTION] انتظار
+11-21 00:39:49.848 I/WakeelTest( 3228):      [ACTION] انتظار
+11-21 00:39:49.848 I/WakeelTest( 3228):      [ACTION] انتظار
+11-21 00:39:49.848 I/WakeelTest( 3228):      [ACTION] انتظار
+11-21 00:39:49.849 I/WakeelTest( 3228):      [ACTION] ضغط على «Wallet»
+11-21 00:39:49.849 I/WakeelTest( 3228):      [LOCAL] تعلّمتُ مهارة «انتظر طويلاً ثم اعرض المحفظة ا» — ستُنفَّذ لاحقاً محلياً
+11-21 00:39:49.849 I/WakeelTest( 3228):      [SUCCESS] فتحتُ المحفظة بعد انتظار طويل.
+11-21 00:39:49.849 I/WakeelTest( 3228): ◀ DONE · model calls=2 · local steps=0 · steps=10 · فتحتُ المحفظة بعد انتظار طويل.
+11-21 00:39:50.865 I/WakeelTest( 3228): the task ran for 21s with nobody touching the phone · screen went dark: false
+11-21 00:39:51.903 I/TestRunner( 3228): finished: t18_lockedScreenPausesAndRunningTaskKeepsScreenOn(com.wakeel.agent.DeviceTest)
+11-21 00:39:51.904 I/TestRunner( 3228): started: t19_sameMessageIsNeverSentTwice(com.wakeel.agent.DeviceTest)
+11-21 00:39:52.745 I/WakeelTest( 3228): ▶ TASK: أبلغ Mariam في Sandbox: مرة واحدة فقط
+11-21 00:39:52.923 I/WakeelTest( 3228):    ◇ model asked (act): TASK: أبلغ Mariam في Sandbox: مرة واحدة فقط
+11-21 00:39:57.004 I/WakeelTest( 3228):      ? الضغط على «Send» ⏎ النص: «مرة واحدة فقط» — هل تسمح؟  [سماح / رفض]
+11-21 00:39:58.026 I/WakeelTest( 3228):    ◇ model asked (act): TASK: أبلغ Mariam في Sandbox: مرة واحدة فقط
+11-21 00:39:58.209 I/WakeelTest( 3228):      [INFO] المهمة: أبلغ Mariam في Sandbox: مرة واحدة فقط
+11-21 00:39:58.210 I/WakeelTest( 3228):      [THINK] خطة الاختبار
+11-21 00:39:58.210 I/WakeelTest( 3228):      [INFO] خطة من 5 خطوات في طلب واحد
+11-21 00:39:58.210 I/WakeelTest( 3228):      [ACTION] فتح تطبيق «Sandbox»
+11-21 00:39:58.210 I/WakeelTest( 3228):      [ACTION] ضغط على «Contacts»
+11-21 00:39:58.211 I/WakeelTest( 3228):      [ACTION] ضغط على «Mariam»
+11-21 00:39:58.211 I/WakeelTest( 3228):      [ACTION] كتابة «مرة واحدة فقط»
+11-21 00:39:58.211 I/WakeelTest( 3228):      [ACTION] ضغط على «Send»
+11-21 00:39:58.211 I/WakeelTest( 3228):      [WARN] بانتظار موافقتك: الضغط على «Send»
+11-21 00:39:58.211 I/WakeelTest( 3228): النص: «مرة واحدة فقط»
+11-21 00:39:58.212 I/WakeelTest( 3228):      [INFO] وافقتَ على: الضغط على «Send»
+11-21 00:39:58.212 I/WakeelTest( 3228): النص: «مرة واحدة فقط»
+11-21 00:39:58.212 I/WakeelTest( 3228):      [INFO] أُرسل النص «مرة واحدة فقط»: خلا حقل الكتابة بعد الضغط
+11-21 00:39:58.212 I/WakeelTest( 3228):      [THINK] خطة الاختبار
+11-21 00:39:58.212 I/WakeelTest( 3228):      [INFO] خطة من 3 خطوات في طلب واحد
+11-21 00:39:58.213 I/WakeelTest( 3228):      [ACTION] كتابة «مرة واحدة فقط»
+11-21 00:39:58.213 I/WakeelTest( 3228):      [WARN] منعتُ إرسال النص نفسه مرة ثانية: «مرة واحدة فقط»
+11-21 00:39:58.213 I/WakeelTest( 3228):      [SUCCESS] أُرسل «مرة واحدة فقط» مرة واحدة. أوقفتُ محاولة إرساله ثانيةً حتى لا يتكرر.
+11-21 00:39:58.213 I/WakeelTest( 3228): ◀ DONE · model calls=2 · local steps=0 · steps=5 · أُرسل «مرة واحدة فقط» مرة واحدة. أوقفتُ محاولة إرساله ثانيةً حتى لا يتكرر.
+11-21 00:39:59.234 I/WakeelTest( 3228): ── after the guarded send: app=com.wakeel.sandbox activity=SandboxActivity elements=10
+11-21 00:39:59.235 I/WakeelTest( 3228):      0|txt|Chat||@x0y0
+11-21 00:39:59.235 I/WakeelTest( 3228):      1|txt|To: Mariam||@x5y1
+11-21 00:39:59.235 I/WakeelTest( 3228):      2|edit|Message|cLe|@x5y2
+11-21 00:39:59.235 I/WakeelTest( 3228):      3|btn|Send|c|@x5y2
+11-21 00:39:59.235 I/WakeelTest( 3228):      4|txt|messages sent to Mariam: 1||@x5y2
+11-21 00:39:59.235 I/WakeelTest( 3228):      5|txt|sent: مرة واحدة فقط to Mariam||@x5y8
+11-21 00:39:59.235 I/WakeelTest( 3228):      6|btn|Home|c|@x1y9
+11-21 00:39:59.235 I/WakeelTest( 3228):      7|btn|Contacts|c*|@x3y9
+11-21 00:39:59.235 I/WakeelTest( 3228):      8|btn|Wallet|c|@x6y9
+11-21 00:39:59.235 I/WakeelTest( 3228):      9|btn|Profile|c|@x8y9
+11-21 00:39:59.238 I/TestRunner( 3228): finished: t19_sameMessageIsNeverSentTwice(com.wakeel.agent.DeviceTest)
+11-21 00:39:59.239 I/TestRunner( 3228): started: t20_manyItemsAreSelectedAndMovedInOnePlan(com.wakeel.agent.DeviceTest)
+11-21 00:40:00.409 I/WakeelTest( 3228): ▶ TASK: انقل كل صور Sandbox إلى ألبوم جديد اسمه صور الهند
+11-21 00:40:00.686 I/WakeelTest( 3228):    ◇ model asked (act): TASK: انقل كل صور Sandbox إلى ألبوم جديد اسمه صور الهند
+11-21 00:40:10.153 I/WakeelTest( 3228):    ◇ model asked (learn): TASK: انقل كل صور Sandbox إلى ألبوم جديد اسمه صور الهند
+11-21 00:40:10.242 I/WakeelTest( 3228):      [INFO] المهمة: انقل كل صور Sandbox إلى ألبوم جديد اسمه صور الهند
+11-21 00:40:10.243 I/WakeelTest( 3228):      [THINK] خطة الاختبار
+11-21 00:40:10.243 I/WakeelTest( 3228):      [INFO] خطة من 10 خطوات في طلب واحد
+11-21 00:40:10.243 I/WakeelTest( 3228):      [ACTION] فتح تطبيق «Sandbox»
+11-21 00:40:10.244 I/WakeelTest( 3228):      [ACTION] ضغط على «Photos»
+11-21 00:40:10.245 I/WakeelTest( 3228):      [ACTION] ضغط مطوّل على «Photo 1»
+11-21 00:40:10.245 I/WakeelTest( 3228):      [ACTION] ضغط على «All»
+11-21 00:40:10.245 I/WakeelTest( 3228):      [ACTION] ضغط على «More»
+11-21 00:40:10.245 I/WakeelTest( 3228):      [ACTION] ضغط على «Move to album»
+11-21 00:40:10.245 I/WakeelTest( 3228):      [ACTION] ضغط على «Create album»
+11-21 00:40:10.245 I/WakeelTest( 3228):      [ACTION] كتابة «صور الهند»
+11-21 00:40:10.245 I/WakeelTest( 3228):      [ACTION] ضغط على «Create»
+11-21 00:40:10.245 I/WakeelTest( 3228):      [LOCAL] تعلّمتُ مهارة «انقل كل صور Sandbox إلى ألبوم » — ستُنفَّذ لاحقاً محلياً
+11-21 00:40:10.245 I/WakeelTest( 3228):      [SUCCESS] نقلتُ الصور إلى ألبوم «صور الهند».
+11-21 00:40:10.245 I/WakeelTest( 3228): ◀ DONE · model calls=2 · local steps=0 · steps=9 · نقلتُ الصور إلى ألبوم «صور الهند».
+11-21 00:40:11.430 I/WakeelTest( 3228): ── after moving the photos: app=com.wakeel.sandbox activity=SandboxActivity elements=118
+11-21 00:40:11.432 I/WakeelTest( 3228):      0|txt|Photos||@x1y0
+11-21 00:40:11.432 I/WakeelTest( 3228):      1|txt|Camera: 360 photos||@x2y1
+11-21 00:40:11.433 I/WakeelTest( 3228):      2|list||s|@x5y5
+11-21 00:40:11.433 I/WakeelTest( 3228):      3|btn|Photo 2|cL|@x1y1
+11-21 00:40:11.433 I/WakeelTest( 3228):      4|btn|Photo 3|cL|@x2y1
+11-21 00:40:11.433 I/WakeelTest( 3228):      5|btn|Photo 4|cL|@x3y1
+11-21 00:40:11.433 I/WakeelTest( 3228):      6|btn|Photo 5|cL|@x3y1
+11-21 00:40:11.433 I/WakeelTest( 3228):      7|btn|Photo 6|cL|@x4y1
+11-21 00:40:11.433 I/WakeelTest( 3228):      8|btn|Photo 7|cL|@x5y1
+11-21 00:40:11.433 I/WakeelTest( 3228):      9|btn|Photo 8|cL|@x6y1
+11-21 00:40:11.433 I/WakeelTest( 3228):      10|btn|Photo 9|cL|@x6y1
+11-21 00:40:11.433 I/WakeelTest( 3228):      11|btn|Photo 10|cL|@x7y1
+11-21 00:40:11.433 I/WakeelTest( 3228):      12|btn|Photo 11|cL|@x8y1
+11-21 00:40:11.434 I/WakeelTest( 3228):      13|btn|Photo 12|cL|@x9y1
+11-21 00:40:11.434 I/WakeelTest( 3228):      14|btn|Photo 13|cL|@x0y2
+11-21 00:40:11.434 I/WakeelTest( 3228):      15|btn|Photo 14|cL|@x1y2
+11-21 00:40:11.434 I/WakeelTest( 3228):      16|btn|Photo 15|cL|@x2y2
+11-21 00:40:11.434 I/WakeelTest( 3228):      17|btn|Photo 16|cL|@x3y2
+11-21 00:40:11.434 I/WakeelTest( 3228):      18|btn|Photo 17|cL|@x3y2
+11-21 00:40:11.434 I/WakeelTest( 3228):      19|btn|Photo 18|cL|@x4y2
+11-21 00:40:11.434 I/WakeelTest( 3228):      20|btn|Photo 19|cL|@x5y2
+11-21 00:40:11.435 I/WakeelTest( 3228):      21|btn|Photo 20|cL|@x6y2
+11-21 00:40:11.435 I/WakeelTest( 3228):      22|btn|Photo 21|cL|@x6y2
+11-21 00:40:11.435 I/WakeelTest( 3228):      23|btn|Photo 22|cL|@x7y2
+11-21 00:40:11.435 I/WakeelTest( 3228):      24|btn|Photo 23|cL|@x8y2
+11-21 00:40:11.435 I/WakeelTest( 3228):      25|btn|Photo 24|cL|@x9y2
+11-21 00:40:11.435 I/WakeelTest( 3228):      26|btn|Photo 25|cL|@x0y2
+11-21 00:40:11.435 I/WakeelTest( 3228):      27|btn|Photo 26|cL|@x1y2
+11-21 00:40:11.435 I/WakeelTest( 3228):      28|btn|Photo 27|cL|@x2y2
+11-21 00:40:11.435 I/WakeelTest( 3228):      29|btn|Photo 28|cL|@x3y2
+11-21 00:40:11.435 I/WakeelTest( 3228):      30|btn|Photo 29|cL|@x3y2
+11-21 00:40:11.435 I/WakeelTest( 3228):      31|btn|Photo 30|cL|@x4y2
+11-21 00:40:11.435 I/WakeelTest( 3228):      32|btn|Photo 31|cL|@x5y2
+11-21 00:40:11.435 I/WakeelTest( 3228):      33|btn|Photo 32|cL|@x6y2
+11-21 00:40:11.435 I/WakeelTest( 3228):      34|btn|Photo 33|cL|@x6y2
+11-21 00:40:11.436 I/WakeelTest( 3228):      35|btn|Photo 34|cL|@x7y2
+11-21 00:40:11.436 I/WakeelTest( 3228):      36|btn|Photo 35|cL|@x8y2
+11-21 00:40:11.436 I/WakeelTest( 3228):      37|btn|Photo 36|cL|@x9y2
+11-21 00:40:11.436 I/WakeelTest( 3228):      38|btn|Photo 37|cL|@x0y3
+11-21 00:40:11.436 I/WakeelTest( 3228):      39|btn|Photo 38|cL|@x1y3
+11-21 00:40:11.436 I/WakeelTest( 3228):      40|btn|Photo 39|cL|@x2y3
+11-21 00:40:11.436 I/WakeelTest( 3228):      41|btn|Photo 40|cL|@x3y3
+11-21 00:40:11.436 I/WakeelTest( 3228):      42|btn|Photo 41|cL|@x3y3
+11-21 00:40:11.436 I/WakeelTest( 3228):      43|btn|Photo 42|cL|@x4y3
+11-21 00:40:11.436 I/WakeelTest( 3228):      44|btn|Photo 43|cL|@x5y3
+11-21 00:40:11.444 I/WakeelTest( 3228): dense grid: 118 elements read, 110 of them thumbnails
+11-21 00:40:11.454 I/TestRunner( 3228): finished: t20_manyItemsAreSelectedAndMovedInOnePlan(com.wakeel.agent.DeviceTest)
+11-21 00:40:11.455 I/TestRunner( 3228): started: t21_aRepeatedStepIsNamedWhenTheTaskStops(com.wakeel.agent.DeviceTest)
+11-21 00:40:12.508 I/WakeelTest( 3228): ▶ TASK: اضغط على الرصيد في محفظة Sandbox حتى يتغيّر
+11-21 00:40:13.089 I/WakeelTest( 3228):    ◇ model asked (act): TASK: اضغط على الرصيد في محفظة Sandbox حتى يتغيّر
+11-21 00:40:15.881 I/WakeelTest( 3228):    ◇ model asked (act): TASK: اضغط على الرصيد في محفظة Sandbox حتى يتغيّر
+11-21 00:40:16.702 I/WakeelTest( 3228):    ◇ model asked (act): TASK: اضغط على الرصيد في محفظة Sandbox حتى يتغيّر
+11-21 00:40:18.000 I/WakeelTest( 3228):    ◇ model asked (act): TASK: اضغط على الرصيد في محفظة Sandbox حتى يتغيّر
+11-21 00:40:18.186 I/WakeelTest( 3228):      [INFO] المهمة: اضغط على الرصيد في محفظة Sandbox حتى يتغيّر
+11-21 00:40:18.187 I/WakeelTest( 3228):      [THINK] خطة الاختبار
+11-21 00:40:18.187 I/WakeelTest( 3228):      [ACTION] فتح تطبيق «Sandbox»
+11-21 00:40:18.187 I/WakeelTest( 3228):      [ACTION] ضغط على «Wallet»
+11-21 00:40:18.187 I/WakeelTest( 3228):      [THINK] خطة الاختبار
+11-21 00:40:18.187 I/WakeelTest( 3228):      [ACTION] ضغط على «Balance: 100 USDT»
+11-21 00:40:18.187 I/WakeelTest( 3228):      [THINK] خطة الاختبار
+11-21 00:40:18.187 I/WakeelTest( 3228):      [ACTION] ضغط على «Balance: 100 USDT»
+11-21 00:40:18.187 I/WakeelTest( 3228):      [WARN] تعثّر الوكيل — سيستعين بالنموذج الأقوى ولقطة شاشة للخطوة القادمة
+11-21 00:40:18.187 I/WakeelTest( 3228):      [INFO] أُرفقت لقطة شاشة مصغّرة
+11-21 00:40:18.187 I/WakeelTest( 3228):      [THINK] خطة الاختبار
+11-21 00:40:18.187 I/WakeelTest( 3228):      [ERROR] توقّفتُ لأن خطوة واحدة تتكرر والشاشة لا تتغيّر: ضغط على «Balance: 100 USDT» في «Sandbox».
+11-21 00:40:18.188 I/WakeelTest( 3228): ◀ FAILED · model calls=4 · local steps=0 · steps=4 · توقّفتُ لأن خطوة واحدة تتكرر والشاشة لا تتغيّر: ضغط على «Balance: 100 USDT» في «Sandbox».
+11-21 00:40:19.399 I/TestRunner( 3228): finished: t21_aRepeatedStepIsNamedWhenTheTaskStops(com.wakeel.agent.DeviceTest)
+11-21 00:40:19.400 I/TestRunner( 3228): started: t22_aTaskForLaterWaitsForItsTime(com.wakeel.agent.DeviceTest)
+11-21 00:40:20.298 I/WakeelTest( 3228): ▶ TASK: بعد 8 ثواني اعرض محفظة Sandbox
+11-21 00:40:20.449 I/WakeelTest( 3228):      ? أنفّذ هذه المهمة بعد 8 ثانية؟ ⏎ «اعرض محفظة Sandbox»  [جدولة / نفّذ الآن]
+11-21 00:40:20.600 I/WakeelTest( 3228):      [INFO] المهمة: بعد 8 ثواني اعرض محفظة Sandbox
+11-21 00:40:20.600 I/WakeelTest( 3228):      [INFO] في المهمة موعد: «بعد 8 ثواني»
+11-21 00:40:20.600 I/WakeelTest( 3228):      [LOCAL] جُدولت المهمة دون استهلاك API
+11-21 00:40:20.600 I/WakeelTest( 3228):      [SUCCESS] جُدولت المهمة بعد 8 ثانية. إلغاؤها من الصفحة الرئيسية.
+11-21 00:40:20.600 I/WakeelTest( 3228): ◀ DONE · model calls=0 · local steps=1 · steps=0 · جُدولت المهمة بعد 8 ثانية. إلغاؤها من الصفحة الرئيسية.
+11-21 00:40:29.856 I/WakeelTest( 3228):    ◇ model asked (act): TASK: اعرض محفظة Sandbox
+11-21 00:40:32.273 I/WakeelTest( 3228):    ◇ model asked (learn): TASK: اعرض محفظة Sandbox
+11-21 00:40:32.416 I/WakeelTest( 3228):      [INFO] المهمة: اعرض محفظة Sandbox
+11-21 00:40:32.416 I/WakeelTest( 3228):      [LOCAL] مهمة مجدولة حان موعدها (12:40 ص)
+11-21 00:40:32.416 I/WakeelTest( 3228):      [THINK] خطة الاختبار
+11-21 00:40:32.416 I/WakeelTest( 3228):      [INFO] خطة من 3 خطوات في طلب واحد
+11-21 00:40:32.416 I/WakeelTest( 3228):      [ACTION] فتح تطبيق «Sandbox»
+11-21 00:40:32.417 I/WakeelTest( 3228):      [ACTION] ضغط على «Wallet»
+11-21 00:40:32.417 I/WakeelTest( 3228):      [LOCAL] تعلّمتُ مهارة «اعرض محفظة Sandbox» — ستُنفَّذ لاحقاً محلياً
+11-21 00:40:32.417 I/WakeelTest( 3228):      [SUCCESS] عرضتُ المحفظة في موعدها.
+11-21 00:40:32.417 I/WakeelTest( 3228): ◀ DONE · model calls=2 · local steps=0 · steps=2 · عرضتُ المحفظة في موعدها.
+11-21 00:40:33.436 I/WakeelTest( 3228): ── after the scheduled task: app=com.wakeel.sandbox activity=SandboxActivity elements=10
+11-21 00:40:33.436 I/WakeelTest( 3228):      0|txt|Wallet||@x1y0
+11-21 00:40:33.437 I/WakeelTest( 3228):      1|txt|Balance: 100 USDT||@x5y1
+11-21 00:40:33.437 I/WakeelTest( 3228):      2|edit|Search coin|cLe|@x5y2
+11-21 00:40:33.437 I/WakeelTest( 3228):      3|btn|Price history|c|@x5y2
+11-21 00:40:33.437 I/WakeelTest( 3228):      4|btn|Buy BTC|c|@x5y3
+11-21 00:40:33.437 I/WakeelTest( 3228):      5|txt|status: idle||@x5y8
+11-21 00:40:33.437 I/WakeelTest( 3228):      6|btn|Home|c|@x1y9
+11-21 00:40:33.437 I/WakeelTest( 3228):      7|btn|Contacts|c|@x3y9
+11-21 00:40:33.438 I/WakeelTest( 3228):      8|btn|Wallet|c*|@x6y9
+11-21 00:40:33.438 I/WakeelTest( 3228):      9|btn|Profile|c|@x8y9
+11-21 00:40:34.486 I/WakeelTest( 3228): ▶ TASK: بعد ساعة افتح ملف Sandbox الشخصي
+11-21 00:40:34.643 I/WakeelTest( 3228):      ? أنفّذ هذه المهمة بعد 60 دقيقة (الساعة 1:40 ص)؟ ⏎ «افتح ملف Sandbox الشخصي»  [جدولة / نفّذ الآن]
+11-21 00:40:34.873 I/WakeelTest( 3228):    ◇ model asked (act): TASK: بعد ساعة افتح ملف Sandbox الشخصي
+11-21 00:40:37.360 I/WakeelTest( 3228):    ◇ model asked (learn): TASK: بعد ساعة افتح ملف Sandbox الشخصي
+11-21 00:40:37.435 I/WakeelTest( 3228):      [INFO] المهمة: بعد ساعة افتح ملف Sandbox الشخصي
+11-21 00:40:37.436 I/WakeelTest( 3228):      [INFO] في المهمة موعد: «بعد ساعة»
+11-21 00:40:37.436 I/WakeelTest( 3228):      [INFO] اخترتَ تنفيذها الآن
+11-21 00:40:37.436 I/WakeelTest( 3228):      [THINK] خطة الاختبار
+11-21 00:40:37.436 I/WakeelTest( 3228):      [INFO] خطة من 3 خطوات في طلب واحد
+11-21 00:40:37.436 I/WakeelTest( 3228):      [ACTION] فتح تطبيق «Sandbox»
+11-21 00:40:37.436 I/WakeelTest( 3228):      [ACTION] ضغط على «Profile»
+11-21 00:40:37.436 I/WakeelTest( 3228):      [LOCAL] تعلّمتُ مهارة «بعد ساعة افتح ملف Sandbox الشخ» — ستُنفَّذ لاحقاً محلياً
+11-21 00:40:37.437 I/WakeelTest( 3228):      [SUCCESS] فتحتُ الملف الشخصي.
+11-21 00:40:37.437 I/WakeelTest( 3228): ◀ DONE · model calls=2 · local steps=0 · steps=2 · فتحتُ الملف الشخصي.
+11-21 00:40:38.467 I/TestRunner( 3228): finished: t22_aTaskForLaterWaitsForItsTime(com.wakeel.agent.DeviceTest)
+11-21 00:40:38.468 I/TestRunner( 3228): started: t23_anOldDraftIsNeverSentUnasked(com.wakeel.agent.DeviceTest)
+11-21 00:40:39.529 I/WakeelTest( 3228): ▶ TASK: اكتب مسودة قديمة عند Noor في Sandbox دون إرسال
+11-21 00:40:39.738 I/WakeelTest( 3228):    ◇ model asked (act): TASK: اكتب مسودة قديمة عند Noor في Sandbox دون إرسال
+11-21 00:40:43.821 I/WakeelTest( 3228):      [INFO] المهمة: اكتب مسودة قديمة عند Noor في Sandbox دون إرسال
+11-21 00:40:43.821 I/WakeelTest( 3228):      [THINK] خطة الاختبار
+11-21 00:40:43.821 I/WakeelTest( 3228):      [INFO] خطة من 5 خطوات في طلب واحد
+11-21 00:40:43.822 I/WakeelTest( 3228):      [ACTION] فتح تطبيق «Sandbox»
+11-21 00:40:43.822 I/WakeelTest( 3228):      [ACTION] ضغط على «Contacts»
+11-21 00:40:43.822 I/WakeelTest( 3228):      [ACTION] ضغط على «Noor»
+11-21 00:40:43.822 I/WakeelTest( 3228):      [ACTION] كتابة «مسودة قديمة»
+11-21 00:40:43.822 I/WakeelTest( 3228):      [INFO] لم تُحفظ مهارة من هذه المهمة: النتيجة تقول إن جزءاً منها لم يُنفَّذ
+11-21 00:40:43.822 I/WakeelTest( 3228):      [SUCCESS] كتبتُها ولم أرسلها.
+11-21 00:40:43.822 I/WakeelTest( 3228): ◀ DONE · model calls=1 · local steps=0 · steps=4 · كتبتُها ولم أرسلها.
+11-21 00:40:45.717 I/WakeelTest( 3228): ▶ TASK: حيِّ Noor داخل Sandbox
+11-21 00:40:45.894 I/WakeelTest( 3228):    ◇ model asked (act): TASK: حيِّ Noor داخل Sandbox
+11-21 00:40:49.122 I/WakeelTest( 3228):      ? في حقل الكتابة نص لم أكتبه أنا في هذه المهمة: ⏎ «مسودة قديمة» ⏎ هل أرسله كما هو؟  [أرسله / لا ترسله]
+11-21 00:40:49.441 I/WakeelTest( 3228):    ◇ model asked (act): TASK: حيِّ Noor داخل Sandbox
+11-21 00:40:50.028 I/WakeelTest( 3228):      ? الضغط على «Send» ⏎ النص: «هلا» — هل تسمح؟  [سماح / رفض]
+11-21 00:40:50.929 I/WakeelTest( 3228):      [INFO] المهمة: حيِّ Noor داخل Sandbox
+11-21 00:40:50.929 I/WakeelTest( 3228):      [THINK] خطة الاختبار
+11-21 00:40:50.929 I/WakeelTest( 3228):      [INFO] خطة من 5 خطوات في طلب واحد
+11-21 00:40:50.930 I/WakeelTest( 3228):      [ACTION] فتح تطبيق «Sandbox»
+11-21 00:40:50.930 I/WakeelTest( 3228):      [ACTION] ضغط على «Contacts»
+11-21 00:40:50.930 I/WakeelTest( 3228):      [ACTION] ضغط على «Noor»
+11-21 00:40:50.930 I/WakeelTest( 3228):      [ACTION] ضغط على «Send»
+11-21 00:40:50.930 I/WakeelTest( 3228):      [WARN] في حقل الكتابة نص لم أكتبه في هذه المهمة: «مسودة قديمة»
+11-21 00:40:50.930 I/WakeelTest( 3228):      [WARN] لم يُرسل النص القديم
+11-21 00:40:50.931 I/WakeelTest( 3228):      [THINK] خطة الاختبار
+11-21 00:40:50.931 I/WakeelTest( 3228):      [INFO] خطة من 3 خطوات في طلب واحد
+11-21 00:40:50.931 I/WakeelTest( 3228):      [ACTION] كتابة «هلا»
+11-21 00:40:50.931 I/WakeelTest( 3228):      [ACTION] ضغط على «Send»
+11-21 00:40:50.931 I/WakeelTest( 3228):      [WARN] بانتظار موافقتك: الضغط على «Send»
+11-21 00:40:50.931 I/WakeelTest( 3228): النص: «هلا»
+11-21 00:40:50.931 I/WakeelTest( 3228):      [INFO] وافقتَ على: الضغط على «Send»
+11-21 00:40:50.931 I/WakeelTest( 3228): النص: «هلا»
+11-21 00:40:50.932 I/WakeelTest( 3228):      [INFO] أُرسل النص «هلا»: خلا حقل الكتابة بعد الضغط
+11-21 00:40:50.932 I/WakeelTest( 3228):      [SUCCESS] أرسلتُ «هلا».
+11-21 00:40:50.932 I/WakeelTest( 3228): ◀ DONE · model calls=2 · local steps=0 · steps=6 · أرسلتُ «هلا».
+11-21 00:40:51.950 I/WakeelTest( 3228): ── after the old draft was refused: app=com.wakeel.sandbox activity=SandboxActivity elements=10
+11-21 00:40:51.950 I/WakeelTest( 3228):      0|txt|Chat||@x0y0
+11-21 00:40:51.951 I/WakeelTest( 3228):      1|txt|To: Noor||@x5y1
+11-21 00:40:51.951 I/WakeelTest( 3228):      2|edit|Message|cLe|@x5y2
+11-21 00:40:51.951 I/WakeelTest( 3228):      3|btn|Send|c|@x5y2
+11-21 00:40:51.951 I/WakeelTest( 3228):      4|txt|messages sent to Noor: 1||@x5y2
+11-21 00:40:51.951 I/WakeelTest( 3228):      5|txt|sent: هلا to Noor||@x5y8
+11-21 00:40:51.951 I/WakeelTest( 3228):      6|btn|Home|c|@x1y9
+11-21 00:40:51.951 I/WakeelTest( 3228):      7|btn|Contacts|c*|@x3y9
+11-21 00:40:51.951 I/WakeelTest( 3228):      8|btn|Wallet|c|@x6y9
+11-21 00:40:51.951 I/WakeelTest( 3228):      9|btn|Profile|c|@x8y9
+11-21 00:40:51.954 I/TestRunner( 3228): finished: t23_anOldDraftIsNeverSentUnasked(com.wakeel.agent.DeviceTest)
+11-21 00:40:51.955 I/TestRunner( 3228): started: t24_aWebPageIsReadWholeInOneRequest(com.wakeel.agent.DeviceTest)
+11-21 00:40:52.884 I/WakeelTest( 3228): ▶ TASK: ما أرخص رحلة في صفحة Flights في Sandbox
+11-21 00:40:53.068 I/WakeelTest( 3228):    ◇ model asked (act): TASK: ما أرخص رحلة في صفحة Flights في Sandbox
+11-21 00:40:57.144 I/WakeelTest( 3228):    ◇ model asked (act): TASK: ما أرخص رحلة في صفحة Flights في Sandbox
+11-21 00:40:57.147 I/WakeelTest( 3228):    ◇ model asked (learn): TASK: ما أرخص رحلة في صفحة Flights في Sandbox
+11-21 00:40:57.296 I/WakeelTest( 3228):      [INFO] المهمة: ما أرخص رحلة في صفحة Flights في Sandbox
+11-21 00:40:57.296 I/WakeelTest( 3228):      [THINK] خطة الاختبار
+11-21 00:40:57.296 I/WakeelTest( 3228):      [INFO] خطة من 3 خطوات في طلب واحد
+11-21 00:40:57.297 I/WakeelTest( 3228):      [ACTION] فتح تطبيق «Sandbox»
+11-21 00:40:57.297 I/WakeelTest( 3228):      [ACTION] ضغط على «Flights»
+11-21 00:40:57.297 I/WakeelTest( 3228):      [ACTION] قراءة الصفحة كاملة
+11-21 00:40:57.297 I/WakeelTest( 3228):      [INFO] قرأ الصفحة كاملة (22 سطراً)
+11-21 00:40:57.297 I/WakeelTest( 3228):      [THINK] خطة الاختبار
+11-21 00:40:57.297 I/WakeelTest( 3228):      [SUCCESS] أرخص رحلة: FlyErbil بسعر 41 OMR ذهاباً وعودة.
+11-21 00:40:57.298 I/WakeelTest( 3228): ◀ DONE · model calls=3 · local steps=0 · steps=3 · أرخص رحلة: FlyErbil بسعر 41 OMR ذهاباً وعودة.
+11-21 00:40:58.321 I/WakeelTest( 3228): ── the web page: app=com.wakeel.sandbox activity=SandboxActivity elements=13
+11-21 00:40:58.322 I/WakeelTest( 3228):      0|txt|Flights||@x1y0
+11-21 00:40:58.322 I/WakeelTest( 3228):      1|list||s|@x5y4
+11-21 00:40:58.322 I/WakeelTest( 3228):      2|btn|flydubai · departs Muscat 06:40 · arrives Erbil 13:15 · 1 stop in Dubai, 2 h 40 min between flights · 6 h 50 min · 68 OMR round trip|c|@x5y1
+11-21 00:40:58.322 I/WakeelTest( 3228):      3|btn|Qatar Airways · departs Muscat 09:50 · arrives Erbil 16:25 · 1 stop in Dubai, 2 h 40 min between flights · 7 h 55 min · 75 OMR round trip|c|@x5y3
+11-21 00:40:58.322 I/WakeelTest( 3228):      4|btn|Air Arabia · departs Muscat 12:00 · arrives Erbil 19:35 · nonstop · 8 h 0 min · 82 OMR round trip|c|@x5y4
+11-21 00:40:58.323 I/WakeelTest( 3228):      5|btn|Emirates · departs Muscat 15:10 · arrives Erbil 22:45 · 1 stop in Dubai, 2 h 40 min between flights · 9 h 5 min · 89 OMR round trip|c|@x5y5
+11-21 00:40:58.323 I/WakeelTest( 3228):      6|btn|Turkish Airlines · departs Muscat 18:20 · arrives Erbil 01:55 · 1 stop in Dubai, 2 h 40 min between flights · 10 h 10 min · 96 OMR round trip|c|@x5y7
+11-21 00:40:58.323 I/WakeelTest( 3228):      7|btn|Gulf Air · departs Muscat 21:30 · arrives Erbil 04:05 · nonstop · 6 h 15 min · 103 OMR round trip|c|@x5y8
+11-21 00:40:58.323 I/WakeelTest( 3228):      8|txt|status: idle||@x5y8
+11-21 00:40:58.323 I/WakeelTest( 3228):      9|btn|Home|c*|@x1y9
+11-21 00:40:58.323 I/WakeelTest( 3228):      10|btn|Contacts|c|@x3y9
+11-21 00:40:58.324 I/WakeelTest( 3228):      11|btn|Wallet|c|@x6y9
+11-21 00:40:58.324 I/WakeelTest( 3228):      12|btn|Profile|c|@x8y9
+11-21 00:40:58.324 I/WakeelTest( 3228): page text handed to the model: 3730 characters, 41 lines
+11-21 00:40:58.327 I/TestRunner( 3228): finished: t24_aWebPageIsReadWholeInOneRequest(com.wakeel.agent.DeviceTest)
+11-21 00:40:58.328 I/TestRunner( 3228): started: t25_aTaskThatRunsOutOfRequestsStillAnswers(com.wakeel.agent.DeviceTest)
+11-21 00:40:59.378 I/WakeelTest( 3228): ▶ TASK: افتح Flights في Sandbox وابحث عن أرخص رحلة
+11-21 00:40:59.552 I/WakeelTest( 3228):    ◇ model asked (act): TASK: افتح Flights في Sandbox وابحث عن أرخص رحلة
+11-21 00:41:04.527 I/WakeelTest( 3228):    ◇ model asked (act): TASK: افتح Flights في Sandbox وابحث عن أرخص رحلة
+11-21 00:41:06.016 I/WakeelTest( 3228):    ◇ model asked (finish): TASK: افتح Flights في Sandbox وابحث عن أرخص رحلة
+11-21 00:41:06.133 I/WakeelTest( 3228):      [INFO] المهمة: افتح Flights في Sandbox وابحث عن أرخص رحلة
+11-21 00:41:06.133 I/WakeelTest( 3228):      [THINK] خطة الاختبار
+11-21 00:41:06.133 I/WakeelTest( 3228):      [INFO] خطة من 3 خطوات في طلب واحد
+11-21 00:41:06.133 I/WakeelTest( 3228):      [ACTION] فتح تطبيق «Sandbox»
+11-21 00:41:06.134 I/WakeelTest( 3228):      [ACTION] ضغط على «Flights»
+11-21 00:41:06.134 I/WakeelTest( 3228):      [ACTION] انتظار
+11-21 00:41:06.134 I/WakeelTest( 3228):      [THINK] خطة الاختبار
+11-21 00:41:06.135 I/WakeelTest( 3228):      [ACTION] تمرير للأسفل
+11-21 00:41:06.135 I/WakeelTest( 3228):      [INFO] بلغ الحد الأقصى للطلبات — يقرأ الصفحة الحالية ويجيب بما وصل إليه
+11-21 00:41:06.135 I/WakeelTest( 3228):      [SUCCESS] أرخص رحلة ظاهرة: FlyErbil بسعر 41 OMR.
+11-21 00:41:06.135 I/WakeelTest( 3228): ◀ DONE · model calls=3 · local steps=0 · steps=4 · أرخص رحلة ظاهرة: FlyErbil بسعر 41 OMR.
+11-21 00:41:07.154 I/WakeelTest( 3228): ▶ TASK: افتح Flights في Sandbox وابحث عن أرخص رحلة
+11-21 00:41:07.337 I/WakeelTest( 3228):    ◇ model asked (act): TASK: افتح Flights في Sandbox وابحث عن أرخص رحلة
+11-21 00:41:12.242 I/WakeelTest( 3228):    ◇ model asked (act): TASK: افتح Flights في Sandbox وابحث عن أرخص رحلة
+11-21 00:41:14.168 I/WakeelTest( 3228):    ◇ model asked (finish): TASK: افتح Flights في Sandbox وابحث عن أرخص رحلة
+11-21 00:41:14.310 I/WakeelTest( 3228):      [INFO] المهمة: افتح Flights في Sandbox وابحث عن أرخص رحلة
+11-21 00:41:14.312 I/WakeelTest( 3228):      [THINK] خطة الاختبار
+11-21 00:41:14.312 I/WakeelTest( 3228):      [INFO] خطة من 3 خطوات في طلب واحد
+11-21 00:41:14.312 I/WakeelTest( 3228):      [ACTION] فتح تطبيق «Sandbox»
+11-21 00:41:14.312 I/WakeelTest( 3228):      [ACTION] ضغط على «Flights»
+11-21 00:41:14.312 I/WakeelTest( 3228):      [ACTION] انتظار
+11-21 00:41:14.312 I/WakeelTest( 3228):      [THINK] خطة الاختبار
+11-21 00:41:14.312 I/WakeelTest( 3228):      [ACTION] تمرير للأسفل
+11-21 00:41:14.312 I/WakeelTest( 3228):      [INFO] بلغ الحد الأقصى للطلبات — يقرأ الصفحة الحالية ويجيب بما وصل إليه
+11-21 00:41:14.312 I/WakeelTest( 3228):      [ERROR] توقّف الوكيل بعد بلوغ الحد الأقصى للطلبات (3).
+11-21 00:41:14.313 I/WakeelTest( 3228): ◀ FAILED · model calls=3 · local steps=0 · steps=4 · توقّف الوكيل بعد بلوغ الحد الأقصى للطلبات (3).
+11-21 00:41:15.268 I/TestRunner( 3228): finished: t25_aTaskThatRunsOutOfRequestsStillAnswers(com.wakeel.agent.DeviceTest)
+11-21 00:41:15.269 I/TestRunner( 3228): started: t26_tradingModeDecidesAndExecutesOnItsPaperAccount(com.wakeel.agent.DeviceTest)
+11-21 00:41:16.221 I/WakeelTest( 3228):    ◇ model asked (trade): NOW: 2026-11-21 (Saturday) 00:41
+11-21 00:41:16.223 I/WakeelTest( 3228): cycle 1: 1 إجراء هذه الدورة · الرصيد 9,999.00 USDT · اليوم -1.00
+11-21 00:41:16.223 I/WakeelTest( 3228):      · BTCUSDT buy (82) — فُتحت صفقة شراء BTCUSDT: 17.4064 بسعر 114.9000 (2,000.00 USDT) · وقف 111.4530 · هدف 119.4960 (قُرّب وقف الخسارة إلى الحد 3.0%)
+11-21 00:41:16.228 I/WakeelTest( 3228):    ◇ model asked (trade): NOW: 2026-11-21 (Saturday) 00:41
+11-21 00:41:16.229 I/WakeelTest( 3228): cycle 2: 1 إجراء هذه الدورة · الرصيد 10,077.96 USDT · اليوم +77.96
+11-21 00:41:16.229 I/WakeelTest( 3228):      · BTCUSDT hold — لا صفقة
+11-21 00:41:16.230 I/WakeelTest( 3228):      · BTCUSDT close — أُغلقت صفقة الشراء على BTCUSDT عند الهدف بسعر 119.4960: ربح +77.96 USDT
+11-21 00:41:16.234 I/WakeelTest( 3228):    ◇ model asked (trade): NOW: 2026-11-21 (Saturday) 00:41
+11-21 00:41:17.972 I/WakeelTest( 3228): ── Wakeel · التداول: app=com.wakeel.agent activity= elements=31
+11-21 00:41:17.973 I/WakeelTest( 3228):      0|list||s|@x5y4
+11-21 00:41:17.973 I/WakeelTest( 3228):      1|txt|التداول||@x7y0
+11-21 00:41:17.973 I/WakeelTest( 3228):      2|txt|حساب تجريبي — لا مال حقيقي||@x2y0
+11-21 00:41:17.973 I/WakeelTest( 3228):      3|txt|الحساب التجريبي||@x4y1
+11-21 00:41:17.974 I/WakeelTest( 3228):      4|txt|10,077.96||@x7y2
+11-21 00:41:17.974 I/WakeelTest( 3228):      5|txt|الرصيد USDT||@x8y2
+11-21 00:41:17.974 I/WakeelTest( 3228):      6|txt|+77.96||@x3y2
+11-21 00:41:17.974 I/WakeelTest( 3228):      7|txt|اليوم||@x4y2
+11-21 00:41:17.974 I/WakeelTest( 3228):      8|txt|+77.96||@x8y3
+11-21 00:41:17.974 I/WakeelTest( 3228):      9|txt|منذ البداية||@x8y3
+11-21 00:41:17.974 I/WakeelTest( 3228):      10|txt|1 من 1||@x3y3
+11-21 00:41:17.975 I/WakeelTest( 3228):      11|txt|صفقات رابحة||@x3y3
+11-21 00:41:17.975 I/WakeelTest( 3228):      12|txt|التداول التلقائي||@x7y3
+11-21 00:41:17.975 I/WakeelTest( 3228):      13|txt|يحلل ويقرر وينفّذ وحده كل 60 دقيقة||@x7y4
+11-21 00:41:17.975 I/WakeelTest( 3228):      14|chk||c|@x1y3
+11-21 00:41:17.975 I/WakeelTest( 3228):      15|btn|دورة الآن|c|@x7y4
+11-21 00:41:17.975 I/WakeelTest( 3228):      16|txt|آخر دورة 21/11 00:41||@x1y4
+11-21 00:41:17.976 I/WakeelTest( 3228):      17|txt|لا صفقات هذه الدورة · الرصيد 10,077.96 USDT · اليو||@x5y5
+11-21 00:41:17.976 I/WakeelTest( 3228):      18|txt|الصفقات المفتوحة (0)||@x4y6
+11-21 00:41:17.976 I/WakeelTest( 3228):      19|txt|لا صفقات مفتوحة الآن.||@x7y6
+11-21 00:41:17.976 I/WakeelTest( 3228):      20|txt|قرارات الوكيل||@x4y7
+11-21 00:41:17.976 I/WakeelTest( 3228):      21|txt|BTCUSDT||@x8y7
+11-21 00:41:17.976 I/WakeelTest( 3228):      22|txt|بيع · ثقة 30||@x6y7
+11-21 00:41:17.976 I/WakeelTest( 3228):      23|txt|21/11 00:41||@x1y7
+11-21 00:41:17.977 I/WakeelTest( 3228):      24|txt|ظن||@x8y8
+11-21 00:41:17.977 I/WakeelTest( 3228):      25|txt|ثقة القرار 30 أقل من الحد 60 — لم تُفتح صفقة||@x6y8
+11-21 00:41:17.977 I/WakeelTest( 3228):      26|btn|القيادة|c|@x9y9
+11-21 00:41:17.977 I/WakeelTest( 3228):      27|btn|المعرفة|c|@x7y9
+11-21 00:41:17.977 I/WakeelTest( 3228):      28|txt|التداول||@x4y9
+11-21 00:41:17.977 I/WakeelTest( 3228):      29|btn|السجل|c|@x2y9
+11-21 00:41:17.977 I/WakeelTest( 3228):      30|btn|الإعدادات|c|@x0y9
+11-21 00:41:18.895 I/TestRunner( 3228): finished: t26_tradingModeDecidesAndExecutesOnItsPaperAccount(com.wakeel.agent.DeviceTest)
+11-21 00:41:18.896 I/TestRunner( 3228): started: t27_liveMarketDataCanBeRead(com.wakeel.agent.DeviceTest)
+11-21 00:41:20.638 I/WakeelTest( 3228): live market data: 60 candles, last BTCUSDT close 59120.0
+11-21 00:41:21.547 I/WakeelTest( 3228): live headlines: Bitcoin sell-off: Crypto is failing the 'digital gold' test again as it sinks with stocks - CNBC | Bitcoin plunges below $60,000, on pace for its worst month since June 2022 - Yahoo Finance
+11-21 00:41:21.548 I/TestRunner( 3228): finished: t27_liveMarketDataCanBeRead(com.wakeel.agent.DeviceTest)
+11-21 00:41:21.549 I/WakeelTest( 3228): END OF DEVICE TESTS
+11-21 00:41:21.549 I/TestRunner( 3228): run finished: 27 tests, 0 failed, 0 ignored
